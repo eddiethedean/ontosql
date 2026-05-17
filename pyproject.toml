@@ -40,9 +40,11 @@ dev = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/semsql/semsql#readme"
-Repository = "https://github.com/semsql/semsql"
-Issues = "https://github.com/semsql/semsql/issues"
+Homepage = "https://github.com/eddiethedean/semsql"
+Documentation = "https://github.com/eddiethedean/semsql#readme"
+Repository = "https://github.com/eddiethedean/semsql"
+Issues = "https://github.com/eddiethedean/semsql/issues"
+Changelog = "https://github.com/eddiethedean/semsql/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["hatchling"]

@@ -133,4 +133,4 @@ The focus stays on **Pythonic models first**, with RDF as an interoperability la
 3. **Optional weight** — heavy dependencies live in extras (`fastapi`, `shacl`, `jsonld`, `graphdb`)
 4. **Incremental delivery** — each minor version ships usable, documented features
 
-Feedback and contributions are welcome via [GitHub Issues](https://github.com/semsql/semsql/issues).
+Feedback and contributions are welcome via [GitHub Issues](https://github.com/eddiethedean/semsql/issues).

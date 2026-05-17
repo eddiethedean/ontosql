@@ -58,11 +58,15 @@ See [examples/fastapi_demo.py](examples/fastapi_demo.py).
 
 ## Documentation
 
+- [Roadmap](docs/ROADMAP.md)
 - [Technical specification](docs/SPECS.md)
 - [Project plan](docs/PLAN.md)
 - [Dependency assessment](docs/DEPS.md)
+- [Changelog](CHANGELOG.md)
 
 ## Development
+
+See [Releasing](docs/RELEASING.md) for the version publish checklist.
 
 ```bash
 pip install -e ".[dev]"
