@@ -8,6 +8,16 @@ OntoSQL is the **operational semantic layer** for Python apps on SQL: define rel
 
 OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethedean/triplemodel) and aligns with [SparqlModel](https://github.com/eddiethedean/sparqlmodel) for graph-native workloads — see [ECOSYSTEM.md](ECOSYSTEM.md).
 
+## Shipped (0.3.1)
+
+| Area | Status |
+|------|--------|
+| PyPI release workflow on semver tags | Shipped |
+| Delete plan safety (`ExecuteError` without `where`) | Shipped |
+| Behavioral integration test refactor | Shipped |
+
+---
+
 ## Shipped (0.3.0)
 
 | Area | Status |

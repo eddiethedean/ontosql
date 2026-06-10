@@ -1,6 +1,6 @@
 # OntoSQL Technical Specification
 
-API contract for **ontosql 0.3.0**. Sections marked *planned* are on the [roadmap](ROADMAP.md).
+API contract for **ontosql 0.3.1**. Sections marked *planned* are on the [roadmap](ROADMAP.md).
 
 ## Overview
 

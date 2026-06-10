@@ -14,7 +14,7 @@ pytest.importorskip("fastapi")
 
 
 def test_openapi_enrichment() -> None:
-    app = FastAPI(title="Onto", version="0.3.0")
+    app = FastAPI(title="Onto", version="0.3.1")
     schema = enrich_openapi_schema(app, [Person])
     assert "Person" in schema["components"]["schemas"]
     assert schema["components"]["schemas"]["Person"]["x-ontosql-type-iri"]
@@ -23,7 +23,7 @@ def test_openapi_enrichment() -> None:
 
 
 def test_openapi_cached_schema() -> None:
-    app = FastAPI(title="Onto", version="0.3.0")
+    app = FastAPI(title="Onto", version="0.3.1")
     install_onto_openapi(app, [Person])
     first = app.openapi()
     second = app.openapi()

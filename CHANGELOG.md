@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-06-10
+
+### Added
+
+- PyPI release workflow (`.github/workflows/release.yml`) on `v*.*.*` tags
+
+### Changed
+
+- Test suite refactored for behavioral integration coverage; CI coverage threshold 94%
+
+### Fixed
+
+- `ExecuteError` raised when executing delete plans without a `where` clause
+- PyLD optional dependency pinned to `>=3.0` (PyPI max is 3.0.0)
+
 ## [0.3.0] - 2026-06-10
 
 ### Added
@@ -40,5 +55,6 @@ First release of **OntoSQL** — semantic data access for SQL via explicit maps.
 - Example: `examples/person_org_demo.py`
 - Documentation: [ARCHITECTURE.md](docs/ARCHITECTURE.md), [SPECS.md](docs/SPECS.md), [ROADMAP.md](docs/ROADMAP.md)
 
+[0.3.1]: https://github.com/eddiethedean/ontosql/releases/tag/v0.3.1
 [0.3.0]: https://github.com/eddiethedean/ontosql/releases/tag/v0.3.0
 [0.2.0]: https://github.com/eddiethedean/ontosql/releases/tag/v0.2.0

@@ -33,9 +33,9 @@ Real platforms have legacy schemas, bridge tables, and multiple views of the sam
 - Government and defense metadata systems
 - Research and biomedical platforms with ontology constraints
 
-## Current scope (0.3.0)
+## Current scope (0.3.1)
 
-Version 0.3.0 delivers:
+Version 0.3.1 is the current release (patch on 0.3.0):
 
 - `OntoModel` and `onto_property` (semantic layer)
 - `OntoMapper`, `Map`, `Map.nested`, `CascadePolicy` (mapping layer)
@@ -79,6 +79,7 @@ Next milestones: export polish (0.2.x patches), RDF import and graph sync (0.4) 
 |---------|--------|
 | **0.2.0** | Mapper + session read |
 | **0.2.x** | Export polish (TripleModel ecosystem APIs) |
+| **0.3.1** | Test hardening, PyPI release workflow, delete safety guard |
 | **0.3.0** | Write path (`save` / `delete`), `OntoRouter`, OpenAPI |
 | **0.4** | RDF import, graph sync (`ontosql[sparql]`), SHACL |
 | **0.5** | Advanced maps, batch export, scale |

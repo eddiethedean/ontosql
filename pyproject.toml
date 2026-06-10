@@ -1,6 +1,6 @@
 [project]
 name = "ontosql"
-version = "0.3.0"
+version = "0.3.1"
 description = "Semantic data access for SQL — map ontology-shaped models onto real schemas with explicit OntoMapper bindings (import ontosql)"
 readme = "README.md"
 license = "MIT"

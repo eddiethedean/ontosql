@@ -29,8 +29,8 @@ Checklist for publishing a new version.
 ## GitHub release
 
 ```bash
-git tag -a v0.3.0 -m "Release 0.3.0"
-git push origin v0.3.0
+git tag -a v0.3.1 -m "Release 0.3.1"
+git push origin v0.3.1
 ```
 
 Create a GitHub release from the tag and paste the relevant `CHANGELOG.md` section.
@@ -48,8 +48,8 @@ The PyPI distribution name is **`ontosql`**.
 3. Tag and push — the [Release workflow](../.github/workflows/release.yml) runs on tags matching `v*.*.*`:
 
    ```bash
-   git tag -a v0.3.0 -m "Release 0.3.0"
-   git push origin v0.3.0
+   git tag -a v0.3.1 -m "Release 0.3.1"
+   git push origin v0.3.1
    ```
 
 ### Manual publish
