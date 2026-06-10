@@ -27,7 +27,7 @@ dependencies = [
 
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.100", "orjson>=3.9"]
-jsonld = ["PyLD>=3.3"]
+jsonld = ["PyLD>=3.0"]
 sparql = ["sparqlmodel>=0.13.1"]
 dev = [
     "pytest>=8",
@@ -41,7 +41,7 @@ dev = [
     "orjson>=3.9",
     "aiosqlite>=0.20",
     "greenlet>=3.0",
-    "PyLD>=3.3",
+    "PyLD>=3.0",
 ]
 
 [project.urls]
