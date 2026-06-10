@@ -23,8 +23,12 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 | **0.2.x** | Export (`to_jsonld` / `to_rdf`); export polish via TripleModel APIs |
 | **0.3** | `save` / `delete`, cascade policies, partial updates, `OntoRouter`, OpenAPI |
 | **0.4** | RDF import, graph sync (`ontosql[sparql]`), SHACL from maps |
-| **0.5** | Advanced mapper patterns, batch export (tentative) |
-| **1.0** | API stability, docs site, schema packs |
+| **0.5** | Advanced mapper patterns, batch export, dialect / performance |
+| **0.6** | Aggregations, extended filters, `explain`, mapper lint |
+| **0.7** | Bulk write, observability, read-replica routing, production guides |
+| **0.8** | Schema packs, OWL codegen, vocabulary modules |
+| **0.9** | API freeze, contract tests, docs site, RC releases |
+| **1.0** | Semver guarantee, GA, support policy |
 
 ---
 

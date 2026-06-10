@@ -120,16 +120,29 @@ OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethe
 
 ---
 
-## v0.5 — Mapper ergonomics and scale (tentative)
+## Release ladder (0.5 → 1.0)
 
-**Theme:** Advanced mapping patterns and operational hardening before 1.0.
+| Version | Theme | Outcome |
+|---------|--------|---------|
+| **0.5** | Advanced maps & scale | Complex schemas and throughput |
+| **0.6** | Query power & DX | Richer reads and easier debugging |
+| **0.7** | Production operations | Observable, deployable services |
+| **0.8** | Vocabulary & codegen | Reusable schema packs and stubs |
+| **0.9** | Release candidate | API freeze, docs site, reference apps |
+| **1.0** | Stable platform | Semver commitment and GA |
+
+---
+
+## v0.5 — Mapper ergonomics and scale
+
+**Theme:** Advanced mapping patterns for real-world schemas.
 
 ### Planned
 
 - **`Map.computed`** — read-only semantic fields from SQL expressions
 - **Multi-map views** — one table → multiple semantic entities (`schema:Person` vs `foaf:Person`)
 - **Bridge / join tables** — first-class many-to-many mapper patterns
-- **Batch export** — `models_to_graph` for `find` result sets
+- **Batch export** — `instance_to_graph` / TripleModel batch helpers for `find` result sets
 - **Dialect notes** — Postgres JSON, UUID, array columns in maps
 - **Performance** — compiled plan caching; N+1 avoidance on nested `find`
 
@@ -140,23 +153,131 @@ OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethe
 
 ---
 
-## v1.0 — Stable platform
+## v0.6 — Query power and developer experience
 
-**Theme:** Production-ready public API and documentation site.
+**Theme:** Richer read paths and tooling that makes maps debuggable.
 
 ### Planned
 
-- **API stability** — semver policy for `ontosql`, `ontosql.fastapi`, and `ontosql.export`
-- **Schema packs** — curated prefix bundles (schema.org, Dublin Core, SKOS) aligned with TripleModel
-- **Production examples** — auth, pagination, multi-map apps, hybrid SQL + graph
-- **Documentation site** — MkDocs or equivalent; tutorials and API reference
-- **Compatibility matrix** — Python, SQLModel, Pydantic, FastAPI, TripleModel, SparqlModel
+#### Query extensions
+
+- **Aggregations** — `count`, `min`, `max`, `sum` over semantic fields where mappable to SQL
+- **`group_by`** — semantic grouping compiled to SQL `GROUP BY`
+- **Additional filters** — `contains`, `endswith`, `between`, `not_` / negation patterns
+- **`distinct` / `exists`** — subquery-friendly semantic expressions
+- **Eager-load depth** — control nested hydration depth on `get` / `find` (mirror SparqlModel `depth=`)
+
+#### Developer experience
+
+- **`session.explain(find(...))`** — compiled SQL + join plan for debugging
+- **Mapper lint** — validate maps at import time (orphan columns, duplicate predicates, impossible joins)
+- **Clear compile errors** — field-level messages when a query cannot be compiled
+- **REPL-friendly helpers** — pretty-print plans and hydrated instances in notebooks
 
 ### Success criteria
 
-- Documented upgrade path from 0.2.x → 1.0
-- No breaking changes without a major version and migration guide
+- Representative analytics query (`count` persons per organization) compiles without raw SQL
+- Mapper misconfiguration fails at class definition or session init with actionable errors
+
+---
+
+## v0.7 — Production operations
+
+**Theme:** Run OntoSQL-backed APIs and workers in production with confidence.
+
+### Planned
+
+#### Session and database operations
+
+- **Bulk write** — `save_all`, `delete_all` with batched SQL
+- **Upsert maps** — dialect-specific `ON CONFLICT` / `MERGE` policies on `Map`
+- **Read/write routing** — optional read-replica engine binding for `find` vs `save`
+- **Savepoints** — nested transaction boundaries for partial rollback
+
+#### Observability and deployment
+
+- **Structured logging** — compile and execute events with entity type, mapper, timing
+- **OpenTelemetry hooks** — spans around compile, hydrate, export (optional `ontosql[otel]` extra)
+- **FastAPI lifespan recipes** — engine pool sizing, graceful shutdown, health endpoints
+- **Postgres integration guide** — connection pooling, JSONB maps, advisory locks
+
+### Success criteria
+
+- Reference FastAPI app exposes `/health` and emits trace spans for `get` / `save`
+- Bulk upsert of 10k rows completes with documented batch-size guidance
+
+---
+
+## v0.8 — Vocabulary packs and codegen
+
+**Theme:** Ship reusable ontology modules instead of every team defining schema.org from scratch.
+
+### Planned
+
+- **Schema packs** — `ontosql.vocab.schema_org`, `dcterms`, `skos` (aligned with TripleModel [#24](https://github.com/eddiethedean/triplemodel/issues/24))
+- **Pack contents** — `PrefixRegistry` defaults, example `OntoModel` stubs, sample `OntoMapper` templates
+- **OWL / RDFS codegen** — generate `OntoModel` + mapper skeletons from ontology files (via TripleModel codegen)
+- **`register_model_exporter` integration** — adopt TripleModel adapter registry ([#22](https://github.com/eddiethedean/triplemodel/issues/22)) for third-party packs
+- **Pack publishing guide** — how to ship domain vocabularies as optional `ontosql-*` packages
+
+### Success criteria
+
+- `pip install ontosql[schema]` (or companion package) provides working schema.org Person/Organization models
+- Codegen from a small OWL file produces importable stubs that pass mapper lint
+
+---
+
+## v0.9 — Release candidate
+
+**Theme:** Freeze the public API, ship docs and reference apps, burn down rough edges.
+
+### Planned
+
+#### API freeze
+
+- **RFC process** — documented workflow for API changes during RC
+- **Contract test suite** — public API surface locked; CI gate on signature and behavior changes
+- **Deprecation policy** — `DeprecationWarning` cycle before removals
+- **RC releases** — `0.9.0rc1`, `rc2`, … with no new features, only fixes
+
+#### Documentation and examples
+
+- **Documentation site** — MkDocs (or equivalent); tutorials, how-to guides, API reference
+- **Production examples** — auth, pagination, multi-map apps, hybrid SQL + graph
+- **Compatibility matrix** — Python, SQLModel, Pydantic, FastAPI, TripleModel, SparqlModel
+- **Upgrade guides** — `0.2.x → 0.9` migration notes per minor version
+
+#### Hardening
+
+- **Security pass** — review SQL compilation for injection surfaces; document parameter binding guarantees
+- **Performance benchmarks** — published numbers for read, write, export at 1k / 10k rows
+- **Fuzz / property tests** — query expression compilation invariants
+
+### Success criteria
+
+- Two consecutive RC releases with no API changes and no P0/P1 bugs
+- Docs site covers quickstart → CRUD → export → hybrid graph sync
+- External contributor can implement a new map using docs alone
+
+---
+
+## v1.0 — Stable platform (GA)
+
+**Theme:** Commit to semver and long-term maintenance.
+
+### Planned
+
+- **API stability guarantee** — `ontosql`, `ontosql.fastapi`, `ontosql.export` follow semver; breaking changes only in 2.0+
+- **Support policy** — which Python / dependency versions receive patches
+- **1.0 migration guide** — final checklist from `0.9.x`
+- **PyPI classifiers** — Development Status :: 5 - Production/Stable
+- **Announced GA** — blog/changelog; coordinate with TripleModel / SparqlModel stable releases where practical
+
+### Success criteria
+
+- Documented upgrade path from 0.2.x → 1.0 with no undocumented breaking changes
 - All public APIs typed and covered by contract tests
+- At least one production deployment reference (internal or documented case study)
 
 ---
 
