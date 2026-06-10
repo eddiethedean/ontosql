@@ -20,10 +20,11 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 | Phase | Scope |
 |-------|--------|
 | **0.2.0** | Mapper registry, `get` / `find`, semantic filters, `PrefixRegistry` |
-| **0.2.x** | Export (`to_jsonld` / `to_rdf` via TripleModel) |
-| **0.2.x / 0.3** | `save` / `delete`, nested cascade policies, partial updates |
-| **0.3** | `OntoRouter`, OpenAPI enrichment, bulk `find` |
-| **0.4+** | SHACL from maps, RDF import, graph sync extras |
+| **0.2.x** | Export (`to_jsonld` / `to_rdf`); export polish via TripleModel APIs |
+| **0.3** | `save` / `delete`, cascade policies, partial updates, `OntoRouter`, OpenAPI |
+| **0.4** | RDF import, graph sync (`ontosql[sparql]`), SHACL from maps |
+| **0.5** | Advanced mapper patterns, batch export (tentative) |
+| **1.0** | API stability, docs site, schema packs |
 
 ---
 

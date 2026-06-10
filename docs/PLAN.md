@@ -73,9 +73,11 @@ Write path (`save`, `delete`, cascades) follows in 0.2.x / 0.3 — see [ROADMAP.
 
 | Version | Focus |
 |---------|--------|
-| **0.2.0** | Mapper + session read (current) |
-| **0.2.x / 0.3** | Write path, export, FastAPI router |
-| **0.4** | SHACL, RDF import, graph sync |
+| **0.2.0** | Mapper + session read |
+| **0.2.x** | Export polish (TripleModel ecosystem APIs) |
+| **0.3** | Write path (`save` / `delete`), `OntoRouter`, OpenAPI |
+| **0.4** | RDF import, graph sync (`ontosql[sparql]`), SHACL |
+| **0.5** | Advanced maps, batch export, scale (tentative) |
 | **1.0** | Stable API, docs site, production examples |
 
 Details: [ROADMAP.md](ROADMAP.md). API contract: [SPECS.md](SPECS.md).
