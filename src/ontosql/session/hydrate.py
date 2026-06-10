@@ -18,6 +18,14 @@ def _row_get(row: Any, label: str) -> Any:
         return getattr(row, label, None)
 
 
+def hydrate_first(plan: SelectPlan, result: Any) -> OntoModel | None:
+    """Hydrate the first row from a SQLAlchemy result, or None if empty."""
+    row = result.first()
+    if row is None:
+        return None
+    return hydrate_row(plan, row)
+
+
 def hydrate_row(plan: SelectPlan, row: Any) -> OntoModel:
     """Build a semantic instance from a result row."""
     mapper_cls = plan.mapper_cls

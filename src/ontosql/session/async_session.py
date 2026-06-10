@@ -10,7 +10,7 @@ from ontosql.compile.select import compile_select_plan
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session.base import SessionBase
-from ontosql.session.hydrate import hydrate_row
+from ontosql.session.hydrate import hydrate_first, hydrate_row
 
 
 class AsyncOntoSession(SessionBase):
@@ -65,10 +65,7 @@ class AsyncOntoSession(SessionBase):
             limit=1,
         )
         result = await self._require_session().execute(plan.select)
-        row = result.first()
-        if row is None:
-            return None
-        return hydrate_row(plan, row)
+        return hydrate_first(plan, result)
 
     async def find(
         self,

@@ -11,7 +11,7 @@ from ontosql.compile.select import compile_select_plan
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session.base import SessionBase
-from ontosql.session.hydrate import hydrate_row
+from ontosql.session.hydrate import hydrate_first, hydrate_row
 
 
 class OntoSession(SessionBase):
@@ -61,10 +61,7 @@ class OntoSession(SessionBase):
             iri=iri,
             limit=1,
         )
-        row = self._session.exec(plan.select).first()
-        if row is None:
-            return None
-        return hydrate_row(plan, row)
+        return hydrate_first(plan, self._session.exec(plan.select))
 
     def find(
         self,

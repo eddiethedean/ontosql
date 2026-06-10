@@ -19,7 +19,7 @@ from ontosql.query.expr import OrExpr, compile_expr
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import build_instance_iri, onto_property, parse_iri_id
 from ontosql.session.async_session import AsyncOntoSession
-from ontosql.session.hydrate import _row_get, hydrate_row
+from ontosql.session.hydrate import _row_get, hydrate_first, hydrate_row
 from ontosql.session.sync import OntoSession
 from tests.models import Organization, OrganizationMap, Person, PersonMap, PersonRow
 
@@ -176,6 +176,33 @@ def test_hydrate_row_mapping() -> None:
     }
     person = hydrate_row(plan, row)
     assert person.employer is None
+
+
+def test_hydrate_first_empty_and_row() -> None:
+    plan = compile_select_plan(PersonMap, id_value=1)
+
+    class EmptyResult:
+        def first(self) -> None:
+            return None
+
+    assert hydrate_first(plan, EmptyResult()) is None
+
+    class RowResult:
+        def __init__(self, row: dict[str, object]) -> None:
+            self._row = row
+
+        def first(self) -> dict[str, object]:
+            return self._row
+
+    row = {
+        "people_id": 1,
+        "people_name": "Ada",
+        "employer_orgs_id": None,
+        "employer_orgs_name": None,
+    }
+    person = hydrate_first(plan, RowResult(row))
+    assert person is not None
+    assert person.name == "Ada"
 
 
 def test_row_get_attr() -> None:

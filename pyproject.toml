@@ -39,6 +39,7 @@ dev = [
     "fastapi>=0.100",
     "orjson>=3.9",
     "aiosqlite>=0.20",
+    "greenlet>=3.0",
 ]
 
 [project.urls]
@@ -88,6 +89,7 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.coverage.run]
 source = ["ontosql"]
 branch = true
+concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
 omit = [
