@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, create_model
 
 from ontosql.fastapi.deps import SessionDep
@@ -77,7 +77,7 @@ class OntoRouter:
         def list_entities(
             request: Request,
             session: SessionDep,
-            limit: int = 20,
+            limit: int = Query(20, le=100),
             offset: int = 0,
         ) -> Any:
             page = paginate(session, entity_type, limit=limit, offset=offset)

@@ -16,11 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Test suite refactored for behavioral integration coverage; CI coverage threshold 94%
+- `OntoRouter` list `limit` capped at 100 via FastAPI `Query(le=100)`
+- Documentation: `OntoRouter` production limitations; `CascadePolicy.REPLACE` reserved (same as upsert until 0.4); export uses semantic `onto_property` metadata only; `docs/DEPS.md` synced with `pyproject.toml`
 
 ### Fixed
 
 - `ExecuteError` raised when executing delete plans without a `where` clause
 - PyLD optional dependency pinned to `>=3.0` (PyPI max is 3.0.0)
+- UPSERT nested insert with `id=None` now propagates inserted FK into parent row
 
 ## [0.3.0] - 2026-06-10
 

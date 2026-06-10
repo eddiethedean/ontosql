@@ -125,10 +125,12 @@ Nested `save` behavior is **explicit** on `Map.nested`:
 |--------|----------|
 | `link` | Update FK only; nested row must exist |
 | `upsert` | Insert or update nested entity |
-| `replace` | Replace nested association |
+| `replace` | **Reserved (0.3.x):** behaves identically to `upsert`; distinct replace semantics planned for 0.4 |
 | `ignore` | Do not persist nested changes |
 
 Default for new maps: `link` (fail closed on ambiguous graphs).
+
+> **0.3.x note:** Do not rely on `CascadePolicy.REPLACE` to delete or detach an old nested row — it currently compiles and executes the same path as `UPSERT`. Use explicit `delete()` on nested entities or wait for 0.4 replace semantics.
 
 ### Registry
 
@@ -237,6 +239,19 @@ return negotiate_onto_response(request, semantic_instance)
 - `orjson` for JSON-LD bodies when installed.
 
 **0.3.0:** `OntoRouter` for CRUD routes; `onto_session_lifespan`; OpenAPI semantic enrichment.
+
+### OntoRouter production limitations (0.3.x)
+
+`OntoRouter` is **demo-grade**, not production-hardened:
+
+| Gap | Detail |
+|-----|--------|
+| No auth | All CRUD routes are unauthenticated unless the host app adds middleware or dependencies |
+| No body validation | POST/PATCH handlers use `model_construct` / raw JSON — no Pydantic `model_validate` |
+| Sync session in async handlers | Blocking I/O under load; use app-level async session wiring in 0.4 |
+| List `limit` | Capped at 100 (0.3.1+); still runs find + count per list request |
+
+Before production: wire auth dependencies, validate bodies with generated Pydantic models, and restrict mount paths. Full validation and async router variants are planned for 0.4.
 
 ---
 

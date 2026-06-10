@@ -136,6 +136,8 @@ router.include_in(app)
 
 See [examples/person_org_demo.py](examples/person_org_demo.py) for CRUD and [examples/person_org_api.py](examples/person_org_api.py) for a runnable API.
 
+> **Production warning:** `OntoRouter` is intended for **development and demos only**. It has **no authentication**, **no authorization**, and **does not validate request bodies** with Pydantic (POST/PATCH accept raw JSON). Add auth, input validation, and rate limiting before exposing it on a public network. See [SPECS.md](docs/SPECS.md#fastapi-ontosqlfastapi).
+
 ## Documentation
 
 - [Architecture](https://github.com/eddiethedean/ontosql/blob/main/docs/ARCHITECTURE.md)
@@ -155,7 +157,7 @@ pip install -e ".[dev]"
 ruff check src tests
 ruff format src tests
 ty check
-pytest --cov=ontosql --cov-fail-under=100
+pytest --cov=ontosql --cov-fail-under=94
 ```
 
 ## License

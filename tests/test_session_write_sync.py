@@ -98,6 +98,20 @@ def test_save_upserts_existing_nested_org(sync_engine, upsert_person_map) -> Non
         assert reloaded.employer.name == "Renamed Org"
 
 
+def test_save_upsert_inserts_new_nested_org(sync_engine, upsert_person_map) -> None:
+    with OntoSession(sync_engine, maps=[upsert_person_map, OrganizationMap]) as session:
+        person = session.get(Person, id=3)
+        assert person is not None
+        assert person.employer is None
+        person.employer = Organization.model_construct(id=None, name="New Upsert Org")
+        session.save(person)
+        reloaded = session.get(Person, id=3)
+        assert reloaded is not None
+        assert reloaded.employer is not None
+        assert reloaded.employer.id is not None
+        assert reloaded.employer.name == "New Upsert Org"
+
+
 def test_delete_person(writable_session) -> None:
     person = writable_session.get(Person, id=2)
     assert person is not None

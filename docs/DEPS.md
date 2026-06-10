@@ -11,7 +11,7 @@ The goal is a small core, optional extras, and Pythonic APIs — not a heavyweig
 - Small, stable **core** (semantic + map + session + export)
 - **SQLModel** for physical tables only; **Pydantic** for semantic entities
 - **TripleModel** as the RDF serialization and CURIE expansion backend
-- Optional extras for FastAPI, SparqlModel (graph sync), SHACL, advanced JSON-LD, AI
+- Optional extras for FastAPI, SparqlModel (graph sync), advanced JSON-LD
 - No magical 1:1 table-to-ontology inference
 
 ## Core dependencies
@@ -59,15 +59,20 @@ OntoSQL does **not** require apps to subclass `TripleModel`. Export builds a gra
 
 ## FastAPI ecosystem (optional extra)
 
-### FastAPI
+### FastAPI + orjson (`ontosql[fastapi]`)
 
-- Routes returning semantic instances
-- Dependency-injected `OntoSession`
-- Future `OntoRouter` (0.3)
+- `OntoRouter` CRUD routes with content negotiation (0.3+)
+- Dependency-injected `OntoSession` via `onto_session_lifespan`
+- `orjson` for fast JSON-LD response bodies
 
-### orjson
+See [SPECS.md](SPECS.md#fastapi-ontosqlfastapi) for production limitations of `OntoRouter`.
 
-- Fast JSON-LD response bodies when `ontosql[fastapi]` is installed
+## JSON-LD ecosystem (optional extra)
+
+### PyLD (`ontosql[jsonld]`)
+
+- Compaction and framing beyond TripleModel/pyoxigraph basics
+- `compact_jsonld` / `frame_jsonld` helpers (0.3+)
 
 ## Semantic validation (future extra)
 
@@ -75,13 +80,6 @@ OntoSQL does **not** require apps to subclass `TripleModel`. Export builds a gra
 
 - Validate graphs generated from maps + session
 - Planned for 0.4 (`ontosql[shacl]`)
-
-## JSON-LD ecosystem (future extra)
-
-### PyLD
-
-- Compaction, framing, expansion beyond TripleModel/pyoxigraph basics
-- Planned as `ontosql[jsonld]` (0.3+)
 
 ## Graph database integrations (future)
 
@@ -111,12 +109,15 @@ Not committed until graph sync adapters are specified in [ROADMAP.md](ROADMAP.md
 | Package | Role |
 |---------|------|
 | pytest | Tests |
+| pytest-asyncio | Async session tests |
 | pytest-cov | Coverage |
 | pytest-xdist | Parallel runs |
 | ty | Static typing (`src/ontosql`) |
 | ruff | Lint and format |
 | httpx | FastAPI integration tests |
 | hatchling | Wheel build |
+| aiosqlite | Async SQLite tests |
+| greenlet | SQLAlchemy async support in tests |
 
 ### mkdocs-material (future)
 
@@ -127,10 +128,23 @@ Not committed until graph sync adapters are specified in [ROADMAP.md](ROADMAP.md
 ```toml
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.100", "orjson>=3.9"]
+jsonld = ["PyLD>=3.0"]
 sparql = ["sparqlmodel>=0.13.1"]
-dev = ["pytest", "pytest-cov", "ty", "ruff", "httpx", "fastapi", "orjson", "aiosqlite", ...]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=5",
+    "pytest-xdist>=3.8",
+    "ty>=0.0.37",
+    "ruff>=0.4",
+    "httpx>=0.27",
+    "fastapi>=0.100",
+    "orjson>=3.9",
+    "aiosqlite>=0.20",
+    "greenlet>=3.0",
+    "PyLD>=3.0",
+]
 # Planned extras:
-# jsonld = ["PyLD"]
 # shacl = ["pySHACL"]
 # graphdb = ["neo4j"]
 # ai = ["instructor", "pydantic-ai"]
@@ -141,6 +155,7 @@ Install examples:
 ```bash
 pip install ontosql
 pip install ontosql[fastapi]
+pip install ontosql[jsonld]
 pip install ontosql[sparql]
 pip install -e ".[dev]"
 ```
@@ -177,7 +192,7 @@ flowchart LR
 - FastAPI + orjson
 - SparqlModel (hybrid SQL + graph)
 - PyLD (framing)
-- pySHACL (validation)
+- pySHACL (validation — planned)
 
 **Highest long-term opportunities:**
 

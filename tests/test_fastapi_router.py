@@ -122,3 +122,8 @@ def test_list_pagination_params(api_client: TestClient) -> None:
     resp = api_client.get("/onto/person?limit=1&offset=0")
     assert resp.status_code == 200
     assert len(resp.json()) == 1
+
+
+def test_list_limit_capped_at_100(api_client: TestClient) -> None:
+    resp = api_client.get("/onto/person?limit=101")
+    assert resp.status_code == 422
