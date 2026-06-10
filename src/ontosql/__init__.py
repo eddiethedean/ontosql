@@ -4,23 +4,26 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
-from ontosql.mapping import Map, OntoMapper
+from ontosql.mapping import CascadePolicy, Map, OntoMapper
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic import OntoModel, onto_property
-from ontosql.session import AsyncOntoSession, OntoSession
+from ontosql.session import AsyncOntoSession, OntoSession, Page, paginate
 
 try:
     __version__ = version("ontosql")
 except PackageNotFoundError:
-    __version__ = "0.2.0"
+    __version__ = "0.3.0"
 
 __all__ = [
     "AsyncOntoSession",
+    "CascadePolicy",
     "Map",
     "OntoMapper",
     "OntoModel",
     "OntoSession",
+    "Page",
     "PrefixRegistry",
     "__version__",
     "onto_property",
+    "paginate",
 ]

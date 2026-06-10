@@ -53,4 +53,5 @@ class PersonMap(OntoMapper[Person]):
         target=OrgRow,
         nested_map=OrganizationMap,
         property="schema:worksFor",
+        fk_column=PersonRow.org_id,
     )

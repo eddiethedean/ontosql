@@ -1,13 +1,17 @@
-"""FastAPI integration (optional extra).
-
-Requires semantic instances with export methods (planned 0.2.x). Negotiation helpers
-remain available for dict/str payloads and future OntoModel export.
-"""
+"""FastAPI integration (optional extra)."""
 
 from __future__ import annotations
 
 try:
+    from ontosql.fastapi.deps import (
+        AsyncSessionDep,
+        SessionDep,
+        get_async_onto_session,
+        get_onto_session,
+        onto_session_lifespan,
+    )
     from ontosql.fastapi.negotiate import negotiate_onto_response
+    from ontosql.fastapi.openapi import enrich_openapi_schema, install_onto_openapi
     from ontosql.fastapi.responses import (
         JSONLDResponse,
         NTriplesResponse,
@@ -15,6 +19,7 @@ try:
         RDFXMLResponse,
         TurtleResponse,
     )
+    from ontosql.fastapi.router import OntoRouter
 except ImportError as exc:
     if "fastapi" in str(exc).lower() or "starlette" in str(exc).lower():
         raise ImportError(
@@ -23,10 +28,18 @@ except ImportError as exc:
     raise
 
 __all__ = [
+    "AsyncSessionDep",
     "JSONLDResponse",
     "NTriplesResponse",
+    "OntoRouter",
     "RDFResponse",
     "RDFXMLResponse",
+    "SessionDep",
     "TurtleResponse",
+    "enrich_openapi_schema",
+    "get_async_onto_session",
+    "get_onto_session",
+    "install_onto_openapi",
     "negotiate_onto_response",
+    "onto_session_lifespan",
 ]

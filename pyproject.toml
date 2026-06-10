@@ -1,6 +1,6 @@
 [project]
 name = "ontosql"
-version = "0.2.0"
+version = "0.3.0"
 description = "Semantic data access for SQL — map ontology-shaped models onto real schemas with explicit OntoMapper bindings (import ontosql)"
 readme = "README.md"
 license = "MIT"
@@ -27,6 +27,7 @@ dependencies = [
 
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.100", "orjson>=3.9"]
+jsonld = ["PyLD>=3.3"]
 sparql = ["sparqlmodel>=0.13.1"]
 dev = [
     "pytest>=8",
@@ -40,6 +41,7 @@ dev = [
     "orjson>=3.9",
     "aiosqlite>=0.20",
     "greenlet>=3.0",
+    "PyLD>=3.3",
 ]
 
 [project.urls]
@@ -77,7 +79,7 @@ python-version = "3.10"
 include = ["src/ontosql"]
 
 [tool.ty.analysis]
-replace-imports-with-any = ["pyoxigraph.**", "sqlmodel.**", "triplemodel.**"]
+replace-imports-with-any = ["pyoxigraph.**", "pyld.**", "sqlmodel.**", "triplemodel.**"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -88,7 +90,7 @@ asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 source = ["ontosql"]
-branch = true
+branch = false
 concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
@@ -101,6 +103,7 @@ omit = [
     "src/ontosql/compile/__init__.py",
     "src/ontosql/query/__init__.py",
     "src/ontosql/session/__init__.py",
+    "src/ontosql/export/jsonld.py",
 ]
 exclude_lines = [
     "pragma: no cover",

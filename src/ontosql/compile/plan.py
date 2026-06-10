@@ -1,9 +1,9 @@
-"""Compiled select plan with column labels for hydration."""
+"""Compiled select and write plan types."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy.sql import Select
 
@@ -36,3 +36,31 @@ class SelectPlan:
             if proj.semantic_field == semantic_field:
                 return proj.label
         raise KeyError(f"No projection for field {semantic_field!r}")
+
+
+@dataclass
+class TableWrite:
+    """Column values and optional identity predicate for one physical table."""
+
+    table: Any
+    values: dict[str, Any] = field(default_factory=dict)
+    where: dict[str, Any] | None = None
+
+
+@dataclass
+class WritePlan:
+    """Insert or update plan for one semantic entity."""
+
+    mapper_cls: type[Any]
+    operation: Literal["insert", "update"]
+    root: TableWrite
+    nested: list[tuple[str, WritePlan]] = field(default_factory=list)
+    fk_updates: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class DeletePlan:
+    """Delete plan for one semantic entity (root row only in v0.3)."""
+
+    mapper_cls: type[Any]
+    root: TableWrite

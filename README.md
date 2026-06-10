@@ -6,7 +6,8 @@ Real databases are not one table per ontology class. OntoSQL separates **physica
 
 ```bash
 pip install ontosql
-pip install "ontosql[fastapi]"   # optional API helpers
+pip install "ontosql[fastapi]"   # OntoRouter + content negotiation
+pip install "ontosql[jsonld]"    # optional JSON-LD compact/frame (PyLD)
 pip install "ontosql[sparql]"    # optional SparqlModel for graph sync / hybrid apps
 ```
 
@@ -76,17 +77,24 @@ class PersonMap(OntoMapper[Person]):
         target=OrgRow,
         nested_map=OrganizationMap,
         property="schema:worksFor",
+        fk_column=PersonRow.org_id,
     )
 ```
 
-### 4. Session (read path)
+### 4. Session (CRUD)
 
 ```python
-from ontosql import OntoSession
+from ontosql import OntoSession, paginate
 
 with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
     ada = session.get(Person, id=1)
-    team = session.find(Person, where=Person.name.startswith("A"), limit=20)
+    team = session.find(Person, where=Person.employer.name.startswith("Analytical"))
+    page = paginate(session, Person, limit=20, offset=0)
+
+    new_person = session.save(Person.model_construct(name="Grace Hopper", id=None))
+    new_person.name = "Grace M. Hopper"
+    session.save(new_person)
+    session.delete(new_person)
 ```
 
 Async sessions use `AsyncOntoSession` with the same API (`async with`, `await session.get`, `await session.find`).
@@ -104,8 +112,10 @@ Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleM
 
 - **OntoModel** + **onto_property** — semantic entities with ontology IRIs
 - **OntoMapper** / **Map** — declarative bindings to columns, joins, and nested entities
-- **OntoSession** / **AsyncOntoSession** — `get`, `find`, and `execute_sql` compiled to SQL
-- **Semantic queries** — filter on mapped fields (`Person.name.startswith("A")`, etc.)
+- **OntoSession** / **AsyncOntoSession** — `get`, `find`, `save`, `delete`, `paginate`, identity map
+- **Semantic queries** — nested paths, `contains` / `endswith`, `OrderBy(desc=True)`
+- **CascadePolicy** — explicit nested write behavior on `Map.nested`
+- **OntoRouter** (`ontosql[fastapi]`) — auto CRUD routes + content negotiation
 - **PrefixRegistry** — CURIE expansion and JSON-LD `@context` (CURIE expand via TripleModel)
 - **Export** — `to_jsonld()` / `to_rdf()` on semantic instances (TripleModel serializers)
 - **FastAPI** (`ontosql[fastapi]`) — content negotiation for JSON-LD and RDF payloads
@@ -114,19 +124,17 @@ Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleM
 ## FastAPI
 
 ```python
-from fastapi import FastAPI, Depends, Request
-from ontosql import OntoSession
-from ontosql.fastapi import negotiate_onto_response
+from fastapi import FastAPI
+from ontosql.fastapi import OntoRouter, onto_session_lifespan
 
 app = FastAPI()
-
-@app.get("/person/{person_id}")
-def get_person(person_id: int, request: Request, session: OntoSession = Depends(...)):
-    person = session.get(Person, id=person_id)
-    return negotiate_onto_response(request, person)
+onto_session_lifespan(app, engine, [PersonMap, OrganizationMap])
+router = OntoRouter(maps=[PersonMap, OrganizationMap])
+router.register(Person)
+router.include_in(app)
 ```
 
-See [examples/person_org_demo.py](https://github.com/eddiethedean/ontosql/blob/main/examples/person_org_demo.py) for a minimal read demo.
+See [examples/person_org_demo.py](examples/person_org_demo.py) for CRUD and [examples/person_org_api.py](examples/person_org_api.py) for a runnable API.
 
 ## Documentation
 

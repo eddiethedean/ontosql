@@ -7,18 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-10
+
 ### Added
 
-- **TripleModel** (`triplemodel>=0.12.0`) as core RDF dependency — replaces RDFLib
-- `OntoModel.to_jsonld()` and `to_rdf()` — export semantic instances via TripleModel
-- `ontosql.export` — `instance_to_graph`, `instance_to_jsonld`, `instance_to_rdf`
-- Optional `ontosql[sparql]` extra — SparqlModel for graph-native / hybrid workflows
-- [ECOSYSTEM.md](docs/ECOSYSTEM.md) — OntoSQL, TripleModel, and SparqlModel boundaries
+- **Write path** — `OntoSession.save()` / `delete()`, `flush()`, `rollback_pending()`, identity map, partial updates
+- **`CascadePolicy`** — `link`, `upsert`, `replace`, `ignore` on `Map.nested(..., cascade=, fk_column=)`
+- **Query** — nested `FieldPath` (`Person.employer.name`), `contains` / `endswith`, `OrderBy(desc=)`, `paginate()` / `Page`
+- **`OntoRouter`** — FastAPI CRUD routes with content negotiation; `onto_session_lifespan`, OpenAPI enrichment
+- Optional **`ontosql[jsonld]`** extra — `compact_jsonld` / `frame_jsonld` (PyLD)
+- **TripleModel** (`triplemodel>=0.12.0`) as core RDF dependency
+- `OntoModel.to_jsonld()` and `to_rdf()`; `ontosql.export` helpers
+- Optional `ontosql[sparql]` extra; [ECOSYSTEM.md](docs/ECOSYSTEM.md)
 
 ### Changed
 
 - `PrefixRegistry.expand()` delegates to TripleModel `expand_curie()`
-- Documentation updated across README, ARCHITECTURE, SPECS, PLAN, DEPS, ROADMAP
+- Examples: full CRUD demo and `examples/person_org_api.py`
 
 ## [0.2.0] - 2026-05-16
 

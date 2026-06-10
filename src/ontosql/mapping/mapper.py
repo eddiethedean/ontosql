@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar, Generic, TypeVar
 
+from ontosql.mapping.cascade import CascadePolicy
 from ontosql.mapping.map import ColumnMap, NestedMap
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
@@ -43,9 +44,17 @@ class OntoMapper(Generic[E]):
                     join=value.join,
                     nested_mapper=value.nested_mapper,
                     property_curie=value.property_curie,
+                    cascade=value.cascade,
+                    fk_column=value.fk_column,
                 )
         cls.column_maps = column_maps
         cls.nested_maps = nested_maps
+        for nmap in nested_maps.values():
+            if nmap.cascade is not CascadePolicy.IGNORE and nmap.fk_column is None:
+                raise ValueError(
+                    f"OntoMapper {cls.__name__}: nested field {nmap.semantic_field!r} "
+                    f"requires fk_column= when cascade is {nmap.cascade.value!r}"
+                )
         if column_maps:
             first = next(iter(column_maps.values()))
             cls.primary_table = first.column.table

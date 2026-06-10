@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.sql import Select
 
 from ontosql.compile.plan import ColumnProjection, SelectPlan
-from ontosql.query.expr import AndExpr, OrExpr, compile_expr
+from ontosql.query.expr import AndExpr, FieldPath, FieldRef, OrderBy, OrExpr, compile_expr
 from ontosql.semantic.model import parse_iri_id
 
 
@@ -16,11 +16,31 @@ def _label(table_name: str, field_name: str) -> str:
     return f"{table_name}_{field_name}"
 
 
-def _column_for_field(mapper_cls: type[Any], field_ref: Any) -> Any:
+def _column_for_field(mapper_cls: type[Any], field_ref: FieldRef | FieldPath) -> Any:
+    if isinstance(field_ref, FieldPath):
+        if len(field_ref.parts) == 1:
+            name = field_ref.parts[0]
+            if name in mapper_cls.column_maps:
+                return mapper_cls.column_maps[name].column
+            raise KeyError(f"Field {name!r} is not a column on mapper {mapper_cls.__name__}")
+        nested_field = field_ref.parts[0]
+        if nested_field not in mapper_cls.nested_maps:
+            raise KeyError(f"Nested field {nested_field!r} is not on mapper {mapper_cls.__name__}")
+        nested_mapper = mapper_cls.nested_maps[nested_field].nested_mapper
+        tail = FieldPath(nested_mapper.entity, field_ref.parts[1:])
+        return _column_for_field(nested_mapper, tail)
+
     name = field_ref.field_name
     if name in mapper_cls.column_maps:
         return mapper_cls.column_maps[name].column
     raise KeyError(f"Field {name!r} is not a column on mapper {mapper_cls.__name__}")
+
+
+def _order_column(mapper_cls: type[Any], order_by: Any) -> Any:
+    if isinstance(order_by, OrderBy):
+        col = _column_for_field(mapper_cls, order_by.field)
+        return col.desc() if order_by.desc else col
+    return _column_for_field(mapper_cls, order_by)
 
 
 def compile_select_plan(
@@ -96,8 +116,7 @@ def compile_select_plan(
         stmt = stmt.where(clause)
 
     if order_by is not None:
-        col = _column_for_field(mapper_cls, order_by)
-        stmt = stmt.order_by(col)
+        stmt = stmt.order_by(_order_column(mapper_cls, order_by))
 
     if limit is not None:
         stmt = stmt.limit(limit)
@@ -110,3 +129,20 @@ def compile_select_plan(
         nested_projections=nested_projections,
         mapper_cls=mapper_cls,
     )
+
+
+def compile_count_statement(
+    mapper_cls: type[Any],
+    *,
+    where: Any | None = None,
+    id_value: Any | None = None,
+    iri: str | None = None,
+) -> Any:
+    """Build a SELECT COUNT(*) using the same filters as compile_select_plan."""
+    plan = compile_select_plan(
+        mapper_cls,
+        where=where,
+        id_value=id_value,
+        iri=iri,
+    )
+    return select(func.count()).select_from(plan.select.subquery())

@@ -221,6 +221,8 @@ def test_mapper_nested_only_raises() -> None:
         id: int
         child: Organization | None = None
 
+    from ontosql.mapping.cascade import CascadePolicy
+
     with pytest.raises(ValueError, match="requires at least one column map"):
 
         class OnlyNested(OntoMapper[E]):
@@ -229,6 +231,7 @@ def test_mapper_nested_only_raises() -> None:
                 Organization,
                 join=EmptyRow.id == EmptyRow.id,
                 nested_map=OrganizationMap,
+                cascade=CascadePolicy.IGNORE,
             )
 
 

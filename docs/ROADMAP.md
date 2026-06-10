@@ -8,19 +8,21 @@ OntoSQL is the **operational semantic layer** for Python apps on SQL: define rel
 
 OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethedean/triplemodel) and aligns with [SparqlModel](https://github.com/eddiethedean/sparqlmodel) for graph-native workloads — see [ECOSYSTEM.md](ECOSYSTEM.md).
 
-## Shipped (0.2.0 + unreleased on `main`)
+## Shipped (0.3.0)
 
 | Area | Status |
 |------|--------|
 | `OntoModel`, `onto_property` | Shipped |
-| `OntoMapper`, `Map`, `Map.nested` | Shipped |
-| `OntoSession` / `AsyncOntoSession` `get` / `find` | Shipped |
-| Semantic query expressions | Shipped |
+| `OntoMapper`, `Map`, `Map.nested`, `CascadePolicy`, `fk_column` | Shipped |
+| `OntoSession` / `AsyncOntoSession` `get` / `find` / `save` / `delete` | Shipped |
+| Identity map, `flush`, `rollback_pending`, partial updates | Shipped |
+| Semantic query expressions, nested `FieldPath`, `paginate` | Shipped |
 | `PrefixRegistry` | Shipped (CURIE expand via TripleModel) |
 | Export (`to_jsonld`, `to_rdf`) | Shipped (TripleModel serializers) |
 | `ontosql.export` module | Shipped |
 | TripleModel core dependency | Shipped |
-| `ontosql[fastapi]` content negotiation | Shipped |
+| `ontosql[fastapi]` content negotiation + `OntoRouter` | Shipped |
+| `ontosql[jsonld]` optional extra | Shipped |
 | `ontosql[sparql]` extra (dependency pin) | Shipped |
 | [ECOSYSTEM.md](ECOSYSTEM.md) | Shipped |
 
@@ -46,7 +48,7 @@ OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethe
 
 ---
 
-## v0.3 — Write path and API layer
+## v0.3 — Write path and API layer (shipped in 0.3.0)
 
 **Theme:** Full CRUD over SQL and production FastAPI wiring.
 

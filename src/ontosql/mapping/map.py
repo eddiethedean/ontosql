@@ -7,6 +7,8 @@ from typing import Any
 
 from sqlalchemy.sql.elements import ColumnElement
 
+from ontosql.mapping.cascade import CascadePolicy
+
 
 @dataclass(frozen=True)
 class ColumnMap:
@@ -33,6 +35,8 @@ class NestedMap:
     join: ColumnElement[bool]
     nested_mapper: type[Any]
     property_curie: str | None = None
+    cascade: CascadePolicy = CascadePolicy.LINK
+    fk_column: ColumnElement[Any] | None = None
 
     @property
     def target_table(self) -> Any:
@@ -65,6 +69,8 @@ class Map:
         property: str | None = None,
         field: str | None = None,
         target: Any = None,  # noqa: ARG004 — accepted for API compatibility with docs
+        cascade: CascadePolicy = CascadePolicy.LINK,
+        fk_column: ColumnElement[Any] | None = None,
     ) -> NestedMap:
         name = field or _guess_nested_field(entity_type)
         return NestedMap(
@@ -73,6 +79,8 @@ class Map:
             join=join,
             nested_mapper=nested_map,
             property_curie=property,
+            cascade=cascade,
+            fk_column=fk_column,
         )
 
 

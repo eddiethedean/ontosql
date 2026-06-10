@@ -117,7 +117,7 @@ class PersonMap(OntoMapper[Person]):
 | `Map.nested(...)` | Join + nested semantic type via another mapper |
 | `Map.computed(...)` | Read-only semantic field from SQL expression *(planned)* |
 
-### Cascade policies (write path — *planned* 0.2.x / 0.3)
+### Cascade policies (write path — 0.3.0)
 
 Nested `save` behavior is **explicit** on `Map.nested`:
 
@@ -158,7 +158,10 @@ async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as sessio
 |--------|--------|-------------|
 | `get(entity, *, id=..., iri=...)` | 0.2.0 | Load one instance by primary key or IRI |
 | `find(entity, *, where=..., order_by=..., limit=..., offset=...)` | 0.2.0 | Query with semantic field expressions |
-| `save(instance)` | planned | Insert or update; returns hydrated instance |
+| `save(instance)` | 0.3.0 | Insert or update; returns hydrated instance |
+| `delete(instance)` | 0.3.0 | Delete root row by identity |
+| `flush()` / `rollback_pending()` | 0.3.0 | Pending write queue |
+| `paginate(...)` | 0.3.0 | `Page` with optional total count |
 | `delete(instance)` | planned | Delete per map delete plan |
 | `execute_sql(...)` | 0.2.0 | Escape hatch for raw SQL |
 

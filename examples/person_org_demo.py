@@ -1,11 +1,11 @@
-"""Read Person / Organization rows through OntoSQL 0.2 semantic session."""
+"""Full CRUD round-trip for Person / Organization through OntoSQL 0.3."""
 
 from __future__ import annotations
 
 from sqlmodel import Session, SQLModel, create_engine
 
 from ontosql import OntoSession
-from tests.models import OrgRow, OrganizationMap, Person, PersonMap, PersonRow
+from tests.models import OrgRow, Organization, OrganizationMap, Person, PersonMap, PersonRow
 
 
 def main() -> None:
@@ -19,10 +19,29 @@ def main() -> None:
     with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
         ada = session.get(Person, id=1)
         assert ada is not None
-        print(f"{ada.name} works for {ada.employer.name if ada.employer else 'nobody'}")
+        print(f"Read: {ada.name} works for {ada.employer.name if ada.employer else 'nobody'}")
 
-        for person in session.find(Person, where=Person.name.startswith("A")):
-            print(person.model_dump())
+        new_org = session.save(Organization(id=20, name="New Lab"))
+        print(f"Created org: {new_org.name}")
+
+        solo = session.save(Person.model_construct(name="Grace Hopper", id=None))
+        print(f"Created person id={solo.id}")
+
+        solo.name = "Grace M. Hopper"
+        session.save(solo)
+        solo = session.get(Person, id=solo.id)
+        assert solo is not None
+        print(f"Updated: {solo.name}")
+
+        solo.employer = new_org
+        session.save(solo)
+        reloaded = session.get(Person, id=solo.id)
+        assert reloaded is not None and reloaded.employer is not None
+        print(f"Linked employer: {reloaded.employer.name}")
+
+        session.delete(reloaded)
+        assert session.get(Person, id=solo.id) is None
+        print("Deleted person")
 
 
 if __name__ == "__main__":
