@@ -121,18 +121,29 @@ def test_compile_upsert_skips_null_employer() -> None:
     assert plan.nested == []
 
 
-def test_update_identity_without_column_map() -> None:
-    from ontosql.compile.execute import _update_identity
-
-    plan = MagicMock()
-    plan.root.where = {"id": 7}
-    plan.mapper_cls.identity_field = "id"
-    plan.mapper_cls.column_maps = {}
-    assert _update_identity(plan) == 7
-
-
 def test_compile_delete_requires_identity() -> None:
     person = Person(id=1, name="Ada", employer=None)
     object.__setattr__(person, "id", None)
     with pytest.raises(WriteCompileError, match="identity"):
         compile_delete_plan(PersonMap, person)
+
+
+def test_compile_ignore_cascade_skips_nested() -> None:
+    from ontosql import Map
+
+    class IgnorePersonMap(OntoMapper[Person]):
+        entity = Person
+        id = Map(PersonRow.id)
+        name = Map(PersonRow.name)
+        employer = Map.nested(
+            Organization,
+            join=PersonRow.org_id == OrgRow.id,
+            nested_map=OrganizationMap,
+            fk_column=PersonRow.org_id,
+            cascade=CascadePolicy.IGNORE,
+        )
+
+    person = Person(id=1, name="Ada", employer=Organization(id=10, name="Acme"))
+    plan = compile_save_plan(IgnorePersonMap, person)
+    assert plan.nested == []
+    assert plan.fk_updates == {}

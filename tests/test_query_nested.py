@@ -31,3 +31,23 @@ def test_nested_where_compiles(onto_session) -> None:
     )
     assert len(rows) == 2
     assert all(p.employer is not None for p in rows)
+
+
+def test_contains_and_endswith_find(onto_session) -> None:
+    by_contains = onto_session.find(Person, where=Person.name.contains("Lovelace"))
+    assert len(by_contains) == 1
+    assert by_contains[0].name == "Ada Lovelace"
+
+    by_endswith = onto_session.find(Person, where=Person.name.endswith("Babbage"))
+    assert len(by_endswith) == 1
+
+
+def test_order_by_nested(onto_session) -> None:
+    from ontosql.query.expr import OrderBy
+
+    rows = onto_session.find(
+        Person,
+        order_by=OrderBy(Person.employer.name, desc=True),
+        where=Person.employer.name.is_null() | Person.employer.name.startswith("A"),
+    )
+    assert len(rows) >= 1

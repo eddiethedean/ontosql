@@ -31,3 +31,16 @@ async def test_async_delete(async_engine) -> None:
         assert person is not None
         await session.delete(person)
         assert await session.get(Person, id=2) is None
+
+
+@pytest.mark.asyncio
+async def test_async_rollback_discards_uncommitted_write(async_engine) -> None:
+    from ontosql import AsyncOntoSession
+    from tests.models import OrganizationMap, PersonMap
+
+    with pytest.raises(RuntimeError, match="abort"):
+        async with AsyncOntoSession(async_engine, maps=[PersonMap, OrganizationMap]) as session:
+            await session.save(Person(id=501, name="Should Not Persist", employer=None))
+            raise RuntimeError("abort")
+    async with AsyncOntoSession(async_engine, maps=[PersonMap, OrganizationMap]) as session:
+        assert await session.get(Person, id=501) is None

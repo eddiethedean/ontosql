@@ -6,6 +6,7 @@ import pytest
 
 pytest.importorskip("pyld")
 
+from ontosql.export import jsonld as jsonld_module
 from ontosql.export.jsonld import compact_jsonld, frame_jsonld
 
 
@@ -24,3 +25,14 @@ def test_frame_jsonld() -> None:
     frame = {"@type": "schema:Person"}
     out = frame_jsonld(doc, frame)
     assert out is not None
+
+
+def test_jsonld_import_error() -> None:
+    import sys
+    from unittest.mock import patch
+
+    with (
+        patch.dict(sys.modules, {"pyld": None, "pyld.jsonld": None}),
+        pytest.raises(ImportError, match="jsonld"),
+    ):
+        jsonld_module._require_pyld()

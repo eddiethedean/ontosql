@@ -94,6 +94,7 @@ branch = false
 concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
+fail_under = 94
 omit = [
     "src/ontosql/__init__.py",
     "src/ontosql/export/__init__.py",

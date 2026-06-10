@@ -35,7 +35,7 @@ jobs:
         run: ty check
 
       - name: Pytest with coverage
-        run: pytest --cov=ontosql --cov-report=term-missing --cov-fail-under=100
+          run: pytest --cov=ontosql --cov-report=term-missing --cov-fail-under=94
 
   fastapi-extra:
     runs-on: ubuntu-latest

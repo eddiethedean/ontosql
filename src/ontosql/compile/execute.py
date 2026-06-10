@@ -10,6 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ontosql.compile.plan import DeletePlan, WritePlan
 
 
+class ExecuteError(Exception):
+    """Raised when a write/delete plan cannot be executed safely."""
+
+
 def _apply_where(stmt: Any, table: Any, where: dict[str, Any]) -> Any:
     for col_name, value in where.items():
         stmt = stmt.where(table.c[col_name] == value)
@@ -64,10 +68,11 @@ def execute_write_plan(session: Any, plan: WritePlan) -> Any:
 
 def execute_delete_plan(session: Any, plan: DeletePlan) -> None:
     """Execute a DeletePlan synchronously."""
+    if plan.root.where is None:
+        raise ExecuteError("delete plan requires where clause")
     table = plan.root.table
     stmt = delete(table)
-    if plan.root.where is not None:
-        stmt = _apply_where(stmt, table, plan.root.where)
+    stmt = _apply_where(stmt, table, plan.root.where)
     session.exec(stmt)
 
 
@@ -95,8 +100,9 @@ async def async_execute_write_plan(session: AsyncSession, plan: WritePlan) -> An
 
 async def async_execute_delete_plan(session: AsyncSession, plan: DeletePlan) -> None:
     """Execute a DeletePlan on an AsyncSession."""
+    if plan.root.where is None:
+        raise ExecuteError("delete plan requires where clause")
     table = plan.root.table
     stmt = delete(table)
-    if plan.root.where is not None:
-        stmt = _apply_where(stmt, table, plan.root.where)
+    stmt = _apply_where(stmt, table, plan.root.where)
     await session.execute(stmt)

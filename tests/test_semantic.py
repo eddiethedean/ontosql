@@ -22,6 +22,13 @@ def test_parse_iri_id() -> None:
     assert parse_iri_id("https://wrong.example.org/person/42", Person) is None
 
 
+def test_parse_iri_no_template() -> None:
+    class NoTpl(OntoModel):
+        id: int
+
+    assert parse_iri_id("http://x", NoTpl) is None
+
+
 def test_type_iri_on_model() -> None:
     assert Person.type_iri == "schema:Person"
     assert Organization.type_iri == "schema:Organization"

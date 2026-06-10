@@ -7,7 +7,7 @@ from sqlmodel import Field, SQLModel
 
 from ontosql import OntoMapper, OntoModel
 from ontosql.mapping.registry import MapperRegistry
-from tests.models import Organization, OrganizationMap, Person, PersonMap
+from tests.models import Organization, OrganizationMap, OrgRow, Person, PersonMap, PersonRow
 
 
 def test_mapper_bindings() -> None:
@@ -28,6 +28,38 @@ def test_duplicate_mapper_raises() -> None:
     reg.register(PersonMap)
     with pytest.raises(ValueError, match="already registered"):
         reg.register(PersonMap)
+
+
+def test_mapper_fk_column_required() -> None:
+    from ontosql import Map
+
+    class E(Person):
+        pass
+
+    with pytest.raises(ValueError, match="fk_column"):
+
+        class BadMap(OntoMapper[E]):
+            entity = E
+            id = Map(PersonRow.id)
+            employer = Map.nested(
+                Organization,
+                join=PersonRow.org_id == OrgRow.id,
+                nested_map=OrganizationMap,
+            )
+
+
+def test_mapper_for_entity_and_identity() -> None:
+    from ontosql.mapping.mapper import OntoMapper
+
+    reg = MapperRegistry()
+    reg.register_many([PersonMap, OrganizationMap])
+    assert OntoMapper.for_entity(Person, registry=reg) is PersonMap
+    assert PersonMap.identity_column() is not None
+
+
+def test_nested_map_target_table() -> None:
+    nmap = PersonMap.nested_maps["employer"]
+    assert nmap.target_table is OrganizationMap.primary_table
 
 
 def test_mapper_requires_column_map() -> None:
