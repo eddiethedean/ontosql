@@ -33,18 +33,22 @@ Real platforms have legacy schemas, bridge tables, and multiple views of the sam
 - Government and defense metadata systems
 - Research and biomedical platforms with ontology constraints
 
-## MVP scope (0.2.0)
+## Current scope (0.3.0)
 
-Version 0.2.0 delivers:
+Version 0.3.0 delivers:
 
 - `OntoModel` and `onto_property` (semantic layer)
-- `OntoMapper`, `Map`, `Map.nested` (mapping layer)
-- `OntoSession` and `AsyncOntoSession` read path: `get`, `find`, semantic filters
+- `OntoMapper`, `Map`, `Map.nested`, `CascadePolicy` (mapping layer)
+- `OntoSession` and `AsyncOntoSession` full CRUD: `get`, `find`, `save`, `delete`, `paginate`
+- Identity map, partial updates, nested write cascades
+- Semantic query expressions with nested `FieldPath`, `contains` / `endswith`
 - `PrefixRegistry` (IRI and JSON-LD context; CURIE expand via TripleModel)
 - `to_jsonld()` / `to_rdf()` export on semantic instances (TripleModel)
+- `OntoRouter` and content negotiation (`ontosql[fastapi]`)
+- Optional `ontosql[jsonld]` and `ontosql[sparql]` extras
 - Architecture, ecosystem, and specification documentation
 
-Write path (`save`, `delete`, cascades) follows in 0.2.x / 0.3 — see [ROADMAP.md](ROADMAP.md).
+Next milestones: export polish (0.2.x patches), RDF import and graph sync (0.4) — see [ROADMAP.md](ROADMAP.md).
 
 ## Non-goals
 
@@ -75,7 +79,7 @@ Write path (`save`, `delete`, cascades) follows in 0.2.x / 0.3 — see [ROADMAP.
 |---------|--------|
 | **0.2.0** | Mapper + session read |
 | **0.2.x** | Export polish (TripleModel ecosystem APIs) |
-| **0.3** | Write path (`save` / `delete`), `OntoRouter`, OpenAPI |
+| **0.3.0** | Write path (`save` / `delete`), `OntoRouter`, OpenAPI |
 | **0.4** | RDF import, graph sync (`ontosql[sparql]`), SHACL |
 | **0.5** | Advanced maps, batch export, scale |
 | **0.6** | Query power, `explain`, mapper lint |

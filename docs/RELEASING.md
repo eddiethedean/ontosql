@@ -29,8 +29,8 @@ Checklist for publishing a new version.
 ## GitHub release
 
 ```bash
-git tag -a v0.2.0 -m "Release 0.2.0"
-git push origin v0.2.0
+git tag -a v0.3.0 -m "Release 0.3.0"
+git push origin v0.3.0
 ```
 
 Create a GitHub release from the tag and paste the relevant `CHANGELOG.md` section.

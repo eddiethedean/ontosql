@@ -1,6 +1,6 @@
 # OntoSQL Technical Specification
 
-API contract for **ontosql 0.2.0**. Sections marked *planned* are on the [roadmap](ROADMAP.md).
+API contract for **ontosql 0.3.0**. Sections marked *planned* are on the [roadmap](ROADMAP.md).
 
 ## Overview
 
@@ -21,7 +21,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 |-------|--------|
 | **0.2.0** | Mapper registry, `get` / `find`, semantic filters, `PrefixRegistry` |
 | **0.2.x** | Export (`to_jsonld` / `to_rdf`); export polish via TripleModel APIs |
-| **0.3** | `save` / `delete`, cascade policies, partial updates, `OntoRouter`, OpenAPI |
+| **0.3.0** | `save` / `delete`, cascade policies, partial updates, `OntoRouter`, OpenAPI |
 | **0.4** | RDF import, graph sync (`ontosql[sparql]`), SHACL from maps |
 | **0.5** | Advanced mapper patterns, batch export, dialect / performance |
 | **0.6** | Aggregations, extended filters, `explain`, mapper lint |
@@ -161,12 +161,12 @@ async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as sessio
 | `save(instance)` | 0.3.0 | Insert or update; returns hydrated instance |
 | `delete(instance)` | 0.3.0 | Delete root row by identity |
 | `flush()` / `rollback_pending()` | 0.3.0 | Pending write queue |
+| `count(entity, *, where=...)` | 0.3.0 | Count rows matching a filter |
 | `paginate(...)` | 0.3.0 | `Page` with optional total count |
-| `delete(instance)` | planned | Delete per map delete plan |
 | `execute_sql(...)` | 0.2.0 | Escape hatch for raw SQL |
 
 - Transactions: one transaction per context manager; rollback on exception.
-- Identity map for repeated `get` in one session *(planned)*.
+- Identity map for repeated `get` in one session (0.3.0).
 
 ### Query expressions
 
@@ -176,7 +176,7 @@ Filters reference **semantic** attributes; the session compiles joins from the m
 session.find(Person, where=Person.name.startswith("A"), limit=20)
 ```
 
-Supported operators (0.2.0): comparisons, `startswith`, `in_`, `is_null`, boolean `&` / `|`. Unsupported expressions raise at compile time.
+Supported operators: comparisons, `startswith`, `contains`, `endswith`, `in_`, `is_null`, boolean `&` / `|`. Nested `FieldPath` filters and `OrderBy(desc=)` (0.3.0). Unsupported expressions raise at compile time.
 
 ---
 
@@ -193,7 +193,7 @@ Used by session (IRI resolution), export, and FastAPI responses.
 
 ---
 
-## Export (0.2.x)
+## Export (0.2.x+)
 
 Export operates on **semantic instances** using `type_iri`, `onto_property`, and IRI templates. Implementation builds a TripleModel `Store` graph and serializes with pyoxigraph.
 
@@ -236,7 +236,7 @@ return negotiate_onto_response(request, semantic_instance)
 - RFC 7231-style `Accept` parsing (`q`, `charset`, `q=0` rejection).
 - `orjson` for JSON-LD bodies when installed.
 
-**0.3:** `OntoRouter` for CRUD routes; OpenAPI semantic enrichment.
+**0.3.0:** `OntoRouter` for CRUD routes; `onto_session_lifespan`; OpenAPI semantic enrichment.
 
 ---
 
@@ -247,12 +247,15 @@ src/ontosql/
   __init__.py
   semantic/       # OntoModel, onto_property
   mapping/        # OntoMapper, Map, registry
-  compile/        # SQLAlchemy expression builders
-  session/        # OntoSession, AsyncOntoSession
-  query/          # semantic expressions
-  export/         # instance export (TripleModel) + format helpers
+  compile/        # SQLAlchemy expression builders + write plans
+  session/        # OntoSession, AsyncOntoSession, pagination
+  query/          # semantic expressions, FieldPath
+  export/         # instance export (TripleModel) + jsonld helpers
   registry.py     # PrefixRegistry
   fastapi/
+    deps.py
+    router.py
+    openapi.py
     negotiate.py
     responses.py
 ```

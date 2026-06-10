@@ -83,7 +83,7 @@ See [SPECS.md](SPECS.md) for the mapper DSL and cascade policies.
 2. Build a `SELECT` with required joins from field bindings.
 3. Load flat rows into nested Pydantic instances.
 
-**Write (`save`, `delete`) — planned 0.2.x / 0.3:**
+**Write (`save`, `delete`) — shipped in 0.3.0:**
 
 1. Diff semantic instance against session state (partial updates via unset fields).
 2. Plan `INSERT` / `UPDATE` / `DELETE` per physical table.

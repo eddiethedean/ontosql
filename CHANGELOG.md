@@ -40,10 +40,5 @@ First release of **OntoSQL** — semantic data access for SQL via explicit maps.
 - Example: `examples/person_org_demo.py`
 - Documentation: [ARCHITECTURE.md](docs/ARCHITECTURE.md), [SPECS.md](docs/SPECS.md), [ROADMAP.md](docs/ROADMAP.md)
 
-### Planned next
-
-- `save` / `delete` and nested cascade policies (0.2.x / 0.3)
-- `to_jsonld` / `to_rdf` on semantic instances (0.2.x)
-- FastAPI negotiation wired to session-loaded entities (0.2.x)
-
+[0.3.0]: https://github.com/eddiethedean/ontosql/releases/tag/v0.3.0
 [0.2.0]: https://github.com/eddiethedean/ontosql/releases/tag/v0.2.0

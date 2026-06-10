@@ -52,9 +52,7 @@ OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethe
 
 **Theme:** Full CRUD over SQL and production FastAPI wiring.
 
-### Planned
-
-#### Session write path
+### Shipped
 
 - **`save(instance)`** — insert/update plans across mapped tables; transaction boundaries
 - **`delete(instance)`** — delete plans per mapper; root + nested ownership rules
