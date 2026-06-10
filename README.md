@@ -2,11 +2,12 @@
 
 **Semantic data access for SQL** — map ontology-shaped models onto real database schemas and write CRUD in Python, not RDF.
 
-Real databases are not one table per ontology class. OntoSQL separates **physical** SQLModel tables from **semantic** Pydantic entities and connects them with an explicit **mapper**. Application code uses semantic types; OntoSQL compiles SQL on the backend.
+Real databases are not one table per ontology class. OntoSQL separates **physical** SQLModel tables from **semantic** Pydantic entities and connects them with an explicit **mapper**. Application code uses semantic types; OntoSQL compiles SQL on the backend. RDF export uses [TripleModel](https://github.com/eddiethedean/triplemodel); graph-native apps can pair OntoSQL with [SparqlModel](https://github.com/eddiethedean/sparqlmodel) — see [Ecosystem](docs/ECOSYSTEM.md).
 
 ```bash
 pip install ontosql
 pip install "ontosql[fastapi]"   # optional API helpers
+pip install "ontosql[sparql]"    # optional SparqlModel for graph sync / hybrid apps
 ```
 
 ## Quick start
@@ -90,9 +91,14 @@ with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
 
 Async sessions use `AsyncOntoSession` with the same API (`async with`, `await session.get`, `await session.find`).
 
-### 5. Export (planned)
+### 5. Export
 
-JSON-LD and RDF export from semantic instances and mapper metadata are planned for 0.2.x. See [ROADMAP.md](https://github.com/eddiethedean/ontosql/blob/main/docs/ROADMAP.md).
+```python
+print(ada.to_rdf(format="turtle"))
+print(ada.to_jsonld())
+```
+
+Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleModel** (pyoxigraph). Nested semantic objects become linked RDF resources.
 
 ## Features
 
@@ -100,8 +106,10 @@ JSON-LD and RDF export from semantic instances and mapper metadata are planned f
 - **OntoMapper** / **Map** — declarative bindings to columns, joins, and nested entities
 - **OntoSession** / **AsyncOntoSession** — `get`, `find`, and `execute_sql` compiled to SQL
 - **Semantic queries** — filter on mapped fields (`Person.name.startswith("A")`, etc.)
-- **PrefixRegistry** — CURIE expansion and JSON-LD `@context`
+- **PrefixRegistry** — CURIE expansion and JSON-LD `@context` (CURIE expand via TripleModel)
+- **Export** — `to_jsonld()` / `to_rdf()` on semantic instances (TripleModel serializers)
 - **FastAPI** (`ontosql[fastapi]`) — content negotiation for JSON-LD and RDF payloads
+- **Ecosystem** — [TripleModel](https://github.com/eddiethedean/triplemodel) (core RDF), [SparqlModel](https://github.com/eddiethedean/sparqlmodel) (optional `ontosql[sparql]`)
 
 ## FastAPI
 
@@ -123,6 +131,7 @@ See [examples/person_org_demo.py](https://github.com/eddiethedean/ontosql/blob/m
 ## Documentation
 
 - [Architecture](https://github.com/eddiethedean/ontosql/blob/main/docs/ARCHITECTURE.md)
+- [Ecosystem](https://github.com/eddiethedean/ontosql/blob/main/docs/ECOSYSTEM.md) — OntoSQL, TripleModel, SparqlModel
 - [Technical specification](https://github.com/eddiethedean/ontosql/blob/main/docs/SPECS.md)
 - [Roadmap](https://github.com/eddiethedean/ontosql/blob/main/docs/ROADMAP.md)
 - [Project plan](https://github.com/eddiethedean/ontosql/blob/main/docs/PLAN.md)

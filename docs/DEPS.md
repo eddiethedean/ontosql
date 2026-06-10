@@ -2,14 +2,16 @@
 
 ## Overview
 
-This document evaluates Python dependencies for **ontosql** as a **semantic mapper and session layer** over SQL, with JSON-LD/RDF export as a derivative. The goal is a small core, optional extras, and Pythonic APIs — not a heavyweight semantic-web framework.
+This document evaluates Python dependencies for **ontosql** as a **semantic mapper and session layer** over SQL, with JSON-LD/RDF export as a derivative. OntoSQL sits in an ecosystem with [TripleModel](https://github.com/eddiethedean/triplemodel) and [SparqlModel](https://github.com/eddiethedean/sparqlmodel) — see [ECOSYSTEM.md](ECOSYSTEM.md).
+
+The goal is a small core, optional extras, and Pythonic APIs — not a heavyweight semantic-web framework.
 
 ## Dependency philosophy
 
 - Small, stable **core** (semantic + map + session + export)
 - **SQLModel** for physical tables only; **Pydantic** for semantic entities
-- RDFLib as an **internal** serialization backend where possible
-- Optional extras for FastAPI, SHACL, advanced JSON-LD, graph DBs, AI
+- **TripleModel** as the RDF serialization and CURIE expansion backend
+- Optional extras for FastAPI, SparqlModel (graph sync), SHACL, advanced JSON-LD, AI
 - No magical 1:1 table-to-ontology inference
 
 ## Core dependencies
@@ -36,11 +38,24 @@ This document evaluates Python dependencies for **ontosql** as a **semantic mapp
 
 - Typing compatibility on Python 3.10+
 
-### RDFLib
+### TripleModel
 
-- RDF graph construction for export
-- Turtle, JSON-LD, N-Triples, RDF/XML serializers
-- Namespace handling; keep behind `ontosql.export` where practical
+- **Core RDF dependency** (replaces RDFLib)
+- `expand_curie()` — backing `PrefixRegistry.expand()`
+- `Store`, `bind_namespaces`, `serialize()` — `OntoModel.to_jsonld()` / `to_rdf()`
+- pyoxigraph graph engine (transitive via TripleModel)
+- Shared vocabulary and serialization conventions with SparqlModel
+
+OntoSQL does **not** require apps to subclass `TripleModel`. Export builds a graph from `OntoModel` instances at serialization time.
+
+## Ecosystem dependencies (optional)
+
+### SparqlModel (`ontosql[sparql]`)
+
+- Graph-native ORM sibling to OntoSQL
+- `SPARQLSession`, SPARQL query DSL, cascade `put`/`delete`
+- Planned for graph sync adapters (0.4) — push/pull between SQL session results and SPARQL stores
+- Depends on TripleModel; installing `ontosql[sparql]` pulls both SparqlModel and its TripleModel pin
 
 ## FastAPI ecosystem (optional extra)
 
@@ -65,14 +80,14 @@ This document evaluates Python dependencies for **ontosql** as a **semantic mapp
 
 ### PyLD
 
-- Compaction, framing, expansion beyond RDFLib basics
+- Compaction, framing, expansion beyond TripleModel/pyoxigraph basics
 - Planned as `ontosql[jsonld]` (0.3+)
 
 ## Graph database integrations (future)
 
 ### SPARQLWrapper
 
-- Remote SPARQL endpoints
+- Remote SPARQL endpoints (may overlap with SparqlModel `HttpStore`)
 
 ### Neo4j Python driver
 
@@ -112,11 +127,12 @@ Not committed until graph sync adapters are specified in [ROADMAP.md](ROADMAP.md
 ```toml
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.100", "orjson>=3.9"]
+sparql = ["sparqlmodel>=0.13.1"]
 dev = ["pytest", "pytest-cov", "ty", "ruff", "httpx", "fastapi", "orjson", "aiosqlite", ...]
 # Planned extras:
 # jsonld = ["PyLD"]
 # shacl = ["pySHACL"]
-# graphdb = ["SPARQLWrapper", "neo4j"]
+# graphdb = ["neo4j"]
 # ai = ["instructor", "pydantic-ai"]
 ```
 
@@ -125,6 +141,7 @@ Install examples:
 ```bash
 pip install ontosql
 pip install ontosql[fastapi]
+pip install ontosql[sparql]
 pip install -e ".[dev]"
 ```
 
@@ -135,13 +152,16 @@ flowchart LR
     Pydantic["Pydantic\nsemantic"]
     SQLModel["SQLModel\nphysical"]
     Session["OntoSession\ncompile"]
-    RDFLib["RDFLib\nexport"]
+    TripleModel["TripleModel\nexport + CURIEs"]
+    SparqlModel["SparqlModel\noptional graph"]
     FastAPI["FastAPI\noptional"]
 
     Pydantic --> Session
     SQLModel --> Session
-    Session --> RDFLib
+    Session --> TripleModel
+    SparqlModel -.-> TripleModel
     Session --> FastAPI
+    TripleModel --> FastAPI
 ```
 
 ## Strategic recommendations
@@ -150,24 +170,27 @@ flowchart LR
 
 - Pydantic (semantic)
 - SQLModel + SQLAlchemy (physical + compile)
-- RDFLib (export)
+- TripleModel (export + shared RDF stack with SparqlModel)
 
 **Highest-value optional integrations:**
 
 - FastAPI + orjson
+- SparqlModel (hybrid SQL + graph)
 - PyLD (framing)
 - pySHACL (validation)
 
 **Highest long-term opportunities:**
 
+- OntoSQL ↔ SparqlModel graph sync
 - PydanticAI / Instructor
 - Graph DB adapters
 - Polars for ETL pipelines over semantic rows
 
-OntoSQL should expose **semantic model and session APIs**; RDFLib should remain an implementation detail for application developers except when calling `to_rdf()` or using FastAPI negotiation helpers.
+OntoSQL should expose **semantic model and session APIs**; TripleModel remains the RDF implementation detail except when calling `to_rdf()` / `to_jsonld()` or using FastAPI negotiation helpers.
 
 ## Related documents
 
+- [ECOSYSTEM.md](ECOSYSTEM.md)
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [SPECS.md](SPECS.md)
 - [ROADMAP.md](ROADMAP.md)

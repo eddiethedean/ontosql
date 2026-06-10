@@ -21,12 +21,13 @@ classifiers = [
 ]
 dependencies = [
     "sqlmodel>=0.0.14",
-    "rdflib>=7.0.0",
+    "triplemodel>=0.12.0",
     "typing-extensions>=4.0",
 ]
 
 [project.optional-dependencies]
 fastapi = ["fastapi>=0.100", "orjson>=3.9"]
+sparql = ["sparqlmodel>=0.13.1"]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
@@ -75,7 +76,7 @@ python-version = "3.10"
 include = ["src/ontosql"]
 
 [tool.ty.analysis]
-replace-imports-with-any = ["rdflib.**", "sqlmodel.**"]
+replace-imports-with-any = ["pyoxigraph.**", "sqlmodel.**", "triplemodel.**"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -91,6 +92,7 @@ branch = true
 [tool.coverage.report]
 omit = [
     "src/ontosql/__init__.py",
+    "src/ontosql/export/__init__.py",
     "src/ontosql/fastapi/__init__.py",
     "src/ontosql/semantic/__init__.py",
     "src/ontosql/mapping/__init__.py",

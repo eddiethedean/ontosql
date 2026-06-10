@@ -6,7 +6,7 @@ Checklist for publishing a new version.
 
 1. Ensure `version` in `pyproject.toml` matches the release tag.
 2. Update `CHANGELOG.md` (move items from `[Unreleased]` to a new version section).
-3. Confirm README, [SPECS.md](SPECS.md), [ARCHITECTURE.md](ARCHITECTURE.md), and CHANGELOG are aligned with the release scope.
+3. Confirm README, [SPECS.md](SPECS.md), [ARCHITECTURE.md](ARCHITECTURE.md), [ECOSYSTEM.md](ECOSYSTEM.md), and CHANGELOG are aligned with the release scope.
 4. Run the full CI suite locally:
 
    ```bash

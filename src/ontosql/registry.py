@@ -5,6 +5,8 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from triplemodel import expand_curie
+
 DEFAULT_PREFIXES: dict[str, str] = {
     "schema": "https://schema.org/",
     "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
@@ -66,11 +68,11 @@ class PrefixRegistry:
             if self._vocab:
                 return f"{self._vocab.rstrip('/')}/{curie}"
             return curie
-        prefix, local = curie.split(":", 1)
-        if prefix not in self._prefixes:
-            raise KeyError(f"Unknown prefix: {prefix!r}")
-        base = self._prefixes[prefix]
-        return f"{base}{local}"
+        try:
+            return expand_curie(curie, self._prefixes)
+        except ValueError as exc:
+            prefix = curie.split(":", 1)[0]
+            raise KeyError(f"Unknown prefix: {prefix!r}") from exc
 
     def compact(self, iri: str) -> str:
         """Compact a full IRI to a CURIE when a known prefix matches."""

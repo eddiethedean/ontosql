@@ -20,7 +20,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 | Phase | Scope |
 |-------|--------|
 | **0.2.0** | Mapper registry, `get` / `find`, semantic filters, `PrefixRegistry` |
-| **0.2.x / 0.3** | `save` / `delete`, nested cascade policies, partial updates, export |
+| **0.2.x** | Export (`to_jsonld` / `to_rdf` via TripleModel) |
+| **0.2.x / 0.3** | `save` / `delete`, nested cascade policies, partial updates |
 | **0.3** | `OntoRouter`, OpenAPI enrichment, bulk `find` |
 | **0.4+** | SHACL from maps, RDF import, graph sync extras |
 
@@ -175,7 +176,8 @@ Supported operators (0.2.0): comparisons, `startswith`, `in_`, `is_null`, boolea
 
 CURIE and JSON-LD context utilities backed by semantic/map metadata:
 
-- CURIE `expand` / `compact`
+- CURIE `expand` — delegates to TripleModel `expand_curie()` for `prefix:local` terms
+- CURIE `compact` — longest-prefix match (OntoSQL-local)
 - JSON-LD `@context` via `context_dict()`
 - Copy-on-write `with_prefix`, `freeze()`
 
@@ -183,22 +185,28 @@ Used by session (IRI resolution), export, and FastAPI responses.
 
 ---
 
-## Export (*planned* 0.2.x)
+## Export (0.2.x)
 
-Export will operate on **semantic instances** using mapper + `onto_property` metadata.
+Export operates on **semantic instances** using `type_iri`, `onto_property`, and IRI templates. Implementation builds a TripleModel `Store` graph and serializes with pyoxigraph.
 
 ```python
 person.to_jsonld(registry=None) -> dict
 person.to_rdf(format="turtle", registry=None) -> str
 ```
 
+Module-level helpers: `ontosql.export.instance_to_jsonld`, `instance_to_rdf`, `instance_to_graph`.
+
 | Format | Notes |
 |--------|--------|
-| JSON-LD | `@context`, `@id`, `@type`, nested objects |
-| Turtle, N-Triples, RDF/XML | Via RDFLib |
-| Literals | `datetime`, `date`, `UUID`, `Decimal`, `Enum`, `tuple` coercion |
+| JSON-LD | `@context` from `PrefixRegistry`; `@id`, `@type`, nested object links |
+| Turtle, N-Triples, RDF/XML | Via TripleModel `Store.serialize()` |
+| Nested entities | Recursively exported; object properties link by instance IRI |
 
-RDFLib remains an implementation detail; users interact with Python models and strings.
+TripleModel remains an implementation detail for most apps; users call `to_jsonld()` / `to_rdf()` on semantic instances.
+
+### Optional SparqlModel integration (`ontosql[sparql]`)
+
+For graph sync and hybrid architectures, SparqlModel provides `SPARQLSession` and SPARQL query compilation over the same TripleModel graph engine. See [ECOSYSTEM.md](ECOSYSTEM.md).
 
 ---
 
@@ -234,7 +242,7 @@ src/ontosql/
   compile/        # SQLAlchemy expression builders
   session/        # OntoSession, AsyncOntoSession
   query/          # semantic expressions
-  export/         # format helpers for FastAPI
+  export/         # instance export (TripleModel) + format helpers
   registry.py     # PrefixRegistry
   fastapi/
     negotiate.py
@@ -265,6 +273,7 @@ Do **not**:
 
 ## Related documents
 
+- [ECOSYSTEM.md](ECOSYSTEM.md)
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [ROADMAP.md](ROADMAP.md)
 - [DEPS.md](DEPS.md)

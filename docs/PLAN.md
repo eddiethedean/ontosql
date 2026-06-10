@@ -21,7 +21,8 @@ Real platforms have legacy schemas, bridge tables, and multiple views of the sam
 - **SQLModel for physical schema** — tables and FKs stay explicit and migration-friendly
 - **Session runtime** — `get`, `find`, `save`, `delete` without hand-written JOIN strings for common cases
 - **Interop as derivative** — JSON-LD, RDF, SHACL, and FastAPI negotiation from map metadata
-- **Standards without RDF ceremony** — RDFLib stays internal where possible
+- **Ecosystem alignment** — TripleModel for RDF serialization; SparqlModel for optional graph-side tooling
+- **Standards without RDF ceremony** — TripleModel stays internal where possible
 
 ## Target users
 
@@ -39,10 +40,11 @@ Version 0.2.0 delivers:
 - `OntoModel` and `onto_property` (semantic layer)
 - `OntoMapper`, `Map`, `Map.nested` (mapping layer)
 - `OntoSession` and `AsyncOntoSession` read path: `get`, `find`, semantic filters
-- `PrefixRegistry` (IRI and JSON-LD context)
-- Architecture and specification documentation
+- `PrefixRegistry` (IRI and JSON-LD context; CURIE expand via TripleModel)
+- `to_jsonld()` / `to_rdf()` export on semantic instances (TripleModel)
+- Architecture, ecosystem, and specification documentation
 
-Write path (`save`, `delete`, cascades) and export follow in 0.2.x / 0.3 — see [ROADMAP.md](ROADMAP.md).
+Write path (`save`, `delete`, cascades) follows in 0.2.x / 0.3 — see [ROADMAP.md](ROADMAP.md).
 
 ## Non-goals
 
@@ -60,8 +62,9 @@ Write path (`save`, `delete`, cascades) and export follow in 0.2.x / 0.3 — see
 | Semantic models | Pydantic v2 |
 | Physical models | SQLModel, SQLAlchemy 2.x |
 | Runtime | OntoSQL session + compile |
+| RDF / export | TripleModel (core), pyoxigraph |
+| Graph ORM (optional) | SparqlModel (`ontosql[sparql]`) |
 | API | FastAPI (optional extra) |
-| Graph serialization | RDFLib |
 | Validation (future) | pySHACL |
 | HTTP (tests) | httpx |
 | Typing | typing_extensions |
@@ -88,6 +91,7 @@ OntoSQL becomes the default **operational semantic layer** for Python + SQL:
 
 ## Related documents
 
+- [ECOSYSTEM.md](ECOSYSTEM.md)
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [SPECS.md](SPECS.md)
 - [DEPS.md](DEPS.md)

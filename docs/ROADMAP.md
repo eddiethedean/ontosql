@@ -6,6 +6,8 @@ This document describes planned releases for **ontosql**. For the API contract, 
 
 OntoSQL is the **operational semantic layer** for Python apps on SQL: define relational schemas with SQLModel, define application concepts with Pydantic semantic models, connect them with explicit maps, and get CRUD plus JSON-LD/RDF/FastAPI from one source of truth.
 
+OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethedean/triplemodel) and aligns with [SparqlModel](https://github.com/eddiethedean/sparqlmodel) for graph-native workloads — see [ECOSYSTEM.md](ECOSYSTEM.md).
+
 ## Current release: 0.2.0
 
 | Area | Status |
@@ -14,10 +16,12 @@ OntoSQL is the **operational semantic layer** for Python apps on SQL: define rel
 | `OntoMapper`, `Map`, `Map.nested` | Shipped |
 | `OntoSession` / `AsyncOntoSession` `get` / `find` | Shipped |
 | Semantic query expressions | Shipped |
-| `PrefixRegistry` | Shipped |
+| `PrefixRegistry` | Shipped (CURIE expand via TripleModel) |
+| Export (`to_jsonld`, `to_rdf`) | Shipped (TripleModel serializers) |
+| TripleModel dependency | Shipped |
 | `save` / `delete` | Planned 0.2.x / 0.3 |
-| Export (`to_jsonld`, `to_rdf`) | Planned 0.2.x |
 | `OntoRouter` | Planned 0.3 |
+| SparqlModel graph sync (`ontosql[sparql]`) | Planned 0.4 |
 
 ---
 
@@ -30,7 +34,7 @@ OntoSQL is the **operational semantic layer** for Python apps on SQL: define rel
 - **`save` / `delete`** — insert/update/delete plans across tables; transactions
 - **Nested cascade policies** — `link`, `upsert`, `replace`, `ignore` on `Map.nested`
 - **Partial updates** — `model_dump(exclude_unset=True)` drives PATCH-style SQL
-- **Export** — `to_jsonld` / `to_rdf` from semantic instances + maps
+- **Export enhancements** — literal typing (`datetime`, `LangString`), list-valued properties, mapper-driven export
 - **`OntoRouter`** — auto-register CRUD routes
 - **OpenAPI enrichment** — ontology IRIs and semantic media types in schema docs
 - **Bulk `find`** — lists of semantic instances; pagination helpers
@@ -51,7 +55,7 @@ OntoSQL is the **operational semantic layer** for Python apps on SQL: define rel
 
 - **SHACL generation** — `NodeShape`s from maps and semantic field types
 - **RDF import** — hydrate semantic instances from JSON-LD / Turtle
-- **Graph sync adapters** — push/pull to graph stores
+- **Graph sync adapters** — push/pull between `OntoSession` and `SPARQLSession` (SparqlModel via `ontosql[sparql]`)
 - **SPARQL endpoint helpers** — read-only views of exported graphs
 - **`ontosql[shacl]` extra** — optional pySHACL validation
 
@@ -114,5 +118,13 @@ Focus stays on **explicit maps** and **Pythonic semantic models**, with RDF as i
 3. **Standards alignment** — JSON-LD 1.1, RDF 1.1 serializations, SHACL where applicable
 4. **Optional weight** — heavy deps in extras (`fastapi`, `shacl`, `jsonld`, `graphdb`)
 5. **Incremental delivery** — each minor version ships documented, testable scope
+6. **Ecosystem reuse** — TripleModel for RDF; SparqlModel for graph ORM — avoid parallel serialization stacks
 
 Feedback welcome via [GitHub Issues](https://github.com/eddiethedean/ontosql/issues).
+
+## Related packages
+
+| Package | Role in ecosystem |
+|---------|-------------------|
+| [triplemodel](https://github.com/eddiethedean/triplemodel) | Core RDF dependency — export, CURIEs |
+| [sparqlmodel](https://github.com/eddiethedean/sparqlmodel) | Optional — graph sessions, SPARQL, hybrid sync |

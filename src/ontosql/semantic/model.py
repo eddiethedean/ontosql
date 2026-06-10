@@ -23,6 +23,18 @@ class OntoModel(BaseModel, metaclass=OntoModelMeta):
     registry: ClassVar[PrefixRegistry | None] = None
     identity_field: ClassVar[str] = "id"
 
+    def to_jsonld(self, registry: PrefixRegistry | None = None) -> dict[str, Any]:
+        """Export this instance as a JSON-LD document (via TripleModel)."""
+        from ontosql.export.instance import instance_to_jsonld
+
+        return instance_to_jsonld(self, registry=registry)
+
+    def to_rdf(self, *, format: str = "turtle", registry: PrefixRegistry | None = None) -> str:
+        """Export this instance as an RDF serialization (via TripleModel)."""
+        from ontosql.export.instance import instance_to_rdf
+
+        return instance_to_rdf(self, format=format, registry=registry)
+
 
 def onto_property(
     curie: str,

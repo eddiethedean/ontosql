@@ -57,7 +57,7 @@ flowchart TB
 | Semantic | Pydantic (`OntoModel`) | Application concepts, validation, ontology metadata |
 | Mapping | `OntoMapper`, `Map` | Field → column/join; nested entities; cascade policies |
 | Runtime | `OntoSession` | Transactions, identity, query compilation |
-| Interop | `export` + `fastapi` | JSON-LD, RDF, content negotiation from mapper metadata |
+| Interop | `export` + `fastapi` + **TripleModel** | JSON-LD, RDF, content negotiation from mapper metadata |
 
 ### Why Pydantic + SQLModel (not one model)
 
@@ -107,9 +107,11 @@ sequenceDiagram
 
 ## Interop
 
-JSON-LD and RDF export will walk **semantic instances + mapper metadata** (`type_iri`, `onto_property`, IRI templates). The same `PrefixRegistry` resolves CURIEs for queries and serialization.
+JSON-LD and RDF export walk **semantic instances + mapper metadata** (`type_iri`, `onto_property`, IRI templates). Serialization uses [TripleModel](https://github.com/eddiethedean/triplemodel) (`Store`, `bind_namespaces`, `serialize()`). `PrefixRegistry.expand()` delegates CURIE expansion to TripleModel's `expand_curie()`.
 
-See [ROADMAP.md](ROADMAP.md) for SHACL, RDF import, and graph sync milestones.
+For graph-native persistence and SPARQL queries, the sibling package [SparqlModel](https://github.com/eddiethedean/sparqlmodel) builds on the same TripleModel stack. Install via `ontosql[sparql]` when planning hybrid SQL + graph architectures.
+
+See [ECOSYSTEM.md](ECOSYSTEM.md) for package boundaries and [ROADMAP.md](ROADMAP.md) for SHACL, RDF import, and graph sync milestones.
 
 ## Non-goals
 
@@ -120,6 +122,7 @@ See [ROADMAP.md](ROADMAP.md) for SHACL, RDF import, and graph sync milestones.
 
 ## Further reading
 
+- [ECOSYSTEM.md](ECOSYSTEM.md) — OntoSQL, TripleModel, SparqlModel
 - [SPECS.md](SPECS.md) — API contract
 - [ROADMAP.md](ROADMAP.md) — release milestones
 - [DEPS.md](DEPS.md) — dependency choices

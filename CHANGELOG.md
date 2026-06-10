@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **TripleModel** (`triplemodel>=0.12.0`) as core RDF dependency — replaces RDFLib
+- `OntoModel.to_jsonld()` and `to_rdf()` — export semantic instances via TripleModel
+- `ontosql.export` — `instance_to_graph`, `instance_to_jsonld`, `instance_to_rdf`
+- Optional `ontosql[sparql]` extra — SparqlModel for graph-native / hybrid workflows
+- [ECOSYSTEM.md](docs/ECOSYSTEM.md) — OntoSQL, TripleModel, and SparqlModel boundaries
+
+### Changed
+
+- `PrefixRegistry.expand()` delegates to TripleModel `expand_curie()`
+- Documentation updated across README, ARCHITECTURE, SPECS, PLAN, DEPS, ROADMAP
+
 ## [0.2.0] - 2026-05-16
 
 First release of **OntoSQL** — semantic data access for SQL via explicit maps.

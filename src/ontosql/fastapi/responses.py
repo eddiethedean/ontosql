@@ -22,9 +22,9 @@ def _dumps_json(data: Any) -> str:
 
 def _serialize_data(data: Any, fmt: str) -> tuple[str, str]:
     """Return (body, media_type) for export-capable instance or pre-built payload."""
-    rdflib_fmt = normalize_format(fmt)
+    rdf_fmt = normalize_format(fmt)
 
-    if rdflib_fmt == "json-ld":
+    if rdf_fmt == "json-ld":
         if hasattr(data, "to_jsonld") and callable(data.to_jsonld):
             body = _dumps_json(data.to_jsonld())
             return body, "application/ld+json"
@@ -32,11 +32,11 @@ def _serialize_data(data: Any, fmt: str) -> tuple[str, str]:
             return _dumps_json(data), "application/ld+json"
 
     if hasattr(data, "to_rdf") and callable(data.to_rdf):
-        body = data.to_rdf(format=rdflib_fmt)
-        return body, media_type_for_format(rdflib_fmt)
+        body = data.to_rdf(format=rdf_fmt)
+        return body, media_type_for_format(rdf_fmt)
 
     if isinstance(data, str):
-        return data, media_type_for_format(rdflib_fmt)
+        return data, media_type_for_format(rdf_fmt)
 
     raise TypeError(
         "Response data must support to_jsonld/to_rdf, be a JSON-LD dict, or an RDF string"
