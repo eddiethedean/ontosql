@@ -28,7 +28,7 @@ flowchart LR
 
 ## Push on save
 
-Wire a graph target when creating a session. After each successful `save()`, OntoSQL pushes the reloaded instance to the graph.
+Wire a graph target when creating a session. Graph updates are **queued** during `save()` and `delete()`, then applied **after the SQL transaction commits** when the session context exits (`__exit__` / `__aexit__`). If the session rolls back, queued graph updates are discarded.
 
 ```python
 from ontosql import OntoSession
@@ -43,9 +43,14 @@ with OntoSession(
     graph_sync_mode="replace",  # or "patch" (default)
 ) as session:
     person = session.save(Person(id=1, name="Ada", employer=org))
+# Graph is updated here, after commit — not inside save()
 ```
 
-`graph_sync` accepts any object with `graph` and `update_graph(add=, remove=)` — including SparqlModel `MemoryStore` via `session._store`.
+`flush()` applies pending SQL writes and queues graph sync for those entities; graph updates still run at commit.
+
+`delete()` queues removal of the instance subgraph from the graph target (via `remove_instance`).
+
+`graph_sync` accepts any object with `graph` and `update_graph(add=, remove=)` — including SparqlModel stores that implement the `GraphSyncTarget` protocol.
 
 ## Manual push / pull (SparqlModel)
 
@@ -117,7 +122,7 @@ reg = PrefixRegistry.curated("schema_org")  # or "dcterms"
 
 ## CascadePolicy.REPLACE
 
-When a nested association changes, `REPLACE` deletes the **old** nested row (from session snapshot) before upserting the new one. Use `LINK` or `IGNORE` for shared entities referenced by multiple parents.
+When a nested association changes, `REPLACE` deletes the **old** nested row (from session snapshot) before upserting the new one, but only when no other parent row still references that nested row. Use `LINK` or `IGNORE` for shared entities referenced by multiple parents.
 
 ## When to use what
 
@@ -131,6 +136,8 @@ When a nested association changes, `REPLACE` deletes the **old** nested row (fro
 
 ## Related documents
 
+- [guides/cascade-policies.md](guides/cascade-policies.md) — nested write policies
+- [SECURITY.md](SECURITY.md) — graph/SQL consistency
 - [SPECS.md](SPECS.md) — API contract
 - [ECOSYSTEM.md](ECOSYSTEM.md) — package boundaries
-- [examples/hybrid_person_org.py](../examples/hybrid_person_org.py) — runnable demo
+- [examples/hybrid_person_org.py](https://github.com/eddiethedean/ontosql/blob/main/examples/hybrid_person_org.py) — runnable demo

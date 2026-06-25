@@ -5,6 +5,7 @@ __pycache__/
 .eggs/
 dist/
 build/
+site/
 .coverage
 htmlcov/
 .pytest_cache/

@@ -59,11 +59,15 @@ Install SparqlModel when you need graph-side tooling alongside OntoSQL:
 pip install ontosql[sparql]
 ```
 
+**Graph sync (0.4, shipped)** — push/pull between `OntoSession` and RDF graph targets using shared IRIs and TripleModel graphs. See [HYBRID.md](HYBRID.md).
+
+**Hybrid APIs** — SQL operational store + RDF graph mirror or metadata graph (see [HYBRID.md](HYBRID.md)).
+
+**Aligned registries** — `PrefixRegistry` / `OntologyRegistry` for consistent `@context` across SQL and graph exports.
+
 Planned integrations (see [ROADMAP.md](ROADMAP.md)):
 
-- **Graph sync (0.4)** — push/pull between `OntoSession` and `SPARQLSession` using shared IRIs and TripleModel graphs
-- **Hybrid APIs** — SQL operational store + SPARQL read replica or metadata graph
-- **Aligned registries** — `PrefixRegistry` / `OntologyRegistry` for consistent `@context` across SQL and graph exports
+- **Neo4j / remote SPARQL** — property-graph and HTTP endpoint adapters beyond in-process `StoreSyncTarget`
 
 ## Choosing a package
 

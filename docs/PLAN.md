@@ -1,5 +1,7 @@
 # OntoSQL Project Plan
 
+> **Maintainer note:** This is an internal planning document. For public roadmap and version goals, see [ROADMAP.md](ROADMAP.md). This file is not linked from the README navigation.
+
 ## Vision
 
 Build **ontosql** — a Python package that lets teams use **semantic, ontology-shaped models** for application logic while persisting to **existing SQL schemas** through explicit maps. Developers keep SQLModel for tables, Pydantic for concepts, and gain JSON-LD, RDF, and FastAPI interoperability from the same definitions.

@@ -1,0 +1,72 @@
+site_name: OntoSQL
+site_description: Semantic data access for SQL
+site_url: https://eddiethedean.github.io/ontosql/
+repo_url: https://github.com/eddiethedean/ontosql
+repo_name: eddiethedean/ontosql
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.snippets:
+      base_path: ["."]
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+  links:
+    not_found: warn
+    anchors: warn
+
+exclude_docs: |
+  PLAN.md
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Quick start: getting-started/quickstart.md
+      - Async sessions: getting-started/async.md
+  - Guides:
+      - Cascade policies: guides/cascade-policies.md
+      - Hybrid SQL + graph: HYBRID.md
+      - FAQ: FAQ.md
+      - Troubleshooting: TROUBLESHOOTING.md
+  - Architecture and reference:
+      - Architecture: ARCHITECTURE.md
+      - Ecosystem: ECOSYSTEM.md
+      - Technical specification: SPECS.md
+      - Compatibility: COMPATIBILITY.md
+      - Security: SECURITY.md
+      - Dependencies: DEPS.md
+  - Project:
+      - Roadmap: ROADMAP.md
+      - Changelog: changelog.md
+      - Contributing: contributing.md
+      - Releasing: RELEASING.md

@@ -74,12 +74,12 @@ See [SPECS.md](SPECS.md#fastapi-ontosqlfastapi) for production limitations of `O
 - Compaction and framing beyond TripleModel/pyoxigraph basics
 - `compact_jsonld` / `frame_jsonld` helpers (0.3+)
 
-## Semantic validation (future extra)
+## Semantic validation (`ontosql[shacl]`)
 
-### pySHACL (`ontosql[shacl]`)
+### pySHACL
 
-- Validate graphs generated from maps + session
-- `validate_instance()` in `ontosql.shacl`
+- Validate graphs generated from maps + session (shipped in 0.4)
+- `validate_instance()` and shape generation in `ontosql.shacl`
 
 ## Graph database integrations (future)
 
@@ -91,7 +91,7 @@ See [SPECS.md](SPECS.md#fastapi-ontosqlfastapi) for production limitations of `O
 
 - Hybrid SQL + property graph architectures
 
-Not committed until graph sync adapters are specified in [ROADMAP.md](ROADMAP.md).
+Remote endpoint and Neo4j adapters remain on the [ROADMAP](ROADMAP.md). In-process graph sync via `StoreSyncTarget` and SparqlModel `OntoGraphSync` shipped in 0.4.
 
 ## AI and LLM ecosystem (long-term)
 

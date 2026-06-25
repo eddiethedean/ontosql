@@ -37,6 +37,22 @@ jobs:
       - name: Pytest with coverage
         run: pytest --cov=ontosql --cov-report=term-missing --cov-fail-under=90
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install docs dependencies
+        run: pip install ".[docs]"
+
+      - name: Build documentation (strict)
+        run: mkdocs build --strict
+
   fastapi-extra:
     runs-on: ubuntu-latest
     steps:

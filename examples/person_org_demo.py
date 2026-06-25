@@ -1,20 +1,17 @@
-"""Full CRUD round-trip for Person / Organization through OntoSQL 0.3."""
+"""Full CRUD round-trip for Person / Organization through OntoSQL."""
 
 from __future__ import annotations
 
-from sqlmodel import Session, SQLModel, create_engine
+import _bootstrap  # noqa: F401 — adds examples/ to sys.path
+from sqlmodel import create_engine
 
+from models import Organization, OrganizationMap, Person, PersonMap, seed_demo_data
 from ontosql import OntoSession
-from tests.models import OrgRow, Organization, OrganizationMap, Person, PersonMap, PersonRow
 
 
 def main() -> None:
     engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as raw:
-        raw.add(OrgRow(id=10, name="Analytical Engines Inc."))
-        raw.add(PersonRow(id=1, name="Ada Lovelace", org_id=10))
-        raw.commit()
+    seed_demo_data(engine)
 
     with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
         ada = session.get(Person, id=1)

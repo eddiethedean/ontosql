@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
+import _bootstrap  # noqa: F401
 from fastapi import FastAPI
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import create_engine
 
+from models import Organization, OrganizationMap, Person, PersonMap, seed_demo_data
 from ontosql.fastapi.deps import onto_session_lifespan
 from ontosql.fastapi.router import OntoRouter
-from tests.models import OrgRow, Organization, OrganizationMap, Person, PersonMap, PersonRow
 
 
 def main() -> None:
     engine = create_engine("sqlite://")
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as raw:
-        raw.add(OrgRow(id=10, name="Analytical Engines Inc."))
-        raw.add(PersonRow(id=1, name="Ada Lovelace", org_id=10))
-        raw.commit()
+    seed_demo_data(engine)
 
     app = FastAPI(title="Person Org API")
     onto_session_lifespan(app, engine, [PersonMap, OrganizationMap])

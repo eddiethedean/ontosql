@@ -4,6 +4,10 @@
 
 Real databases are not one table per ontology class. OntoSQL separates **physical** SQLModel tables from **semantic** Pydantic entities and connects them with an explicit **mapper**. Application code uses semantic types; OntoSQL compiles SQL on the backend. RDF export uses [TripleModel](https://github.com/eddiethedean/triplemodel); graph-native apps can pair OntoSQL with [SparqlModel](https://github.com/eddiethedean/sparqlmodel) — see [Ecosystem](docs/ECOSYSTEM.md).
 
+**Requirements:** Python 3.10+. See [Compatibility](docs/COMPATIBILITY.md).
+
+## Install
+
 ```bash
 pip install ontosql
 pip install "ontosql[fastapi]"   # OntoRouter + content negotiation
@@ -12,7 +16,41 @@ pip install "ontosql[sparql]"    # SparqlModel graph sync adapter
 pip install "ontosql[shacl]"     # SHACL shape generation + validation
 ```
 
+For async SQLite examples: `pip install aiosqlite greenlet`.
+
+## Start here
+
+1. **Quick start** (below) — models, maps, session CRUD in ~10 minutes
+2. [Architecture](docs/ARCHITECTURE.md) — why two model layers and explicit maps
+3. [Hybrid deployments](docs/HYBRID.md) — SQL + RDF graph sync (optional)
+4. [Technical specification](docs/SPECS.md) — full API reference
+5. [FAQ](docs/FAQ.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
+
+Runnable examples (after `pip install ontosql`):
+
+```bash
+python examples/person_org_demo.py          # sync CRUD
+python examples/person_org_async.py         # async session (needs aiosqlite)
+python examples/hybrid_person_org.py        # graph sync + import + SHACL
+pip install "ontosql[fastapi]" uvicorn && python examples/person_org_api.py
+```
+
 ## Quick start
+
+### 0. Database engine
+
+```python
+from sqlmodel import Session, SQLModel, create_engine
+
+from ontosql import OntoSession
+
+engine = create_engine("sqlite:///./app.db")
+SQLModel.metadata.create_all(engine)  # use Alembic in production
+
+# Optional: seed data
+with Session(engine) as raw:
+  ...
+```
 
 ### 1. Physical models (database truth)
 
@@ -82,6 +120,8 @@ class PersonMap(OntoMapper[Person]):
     )
 ```
 
+See [Cascade policies](docs/guides/cascade-policies.md) for nested write behavior (`link`, `upsert`, `replace`, `ignore`).
+
 ### 4. Session (CRUD)
 
 ```python
@@ -98,16 +138,20 @@ with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
     session.delete(new_person)
 ```
 
-Async sessions use `AsyncOntoSession` with the same API (`async with`, `await session.get`, `await session.find`).
+Async sessions use `AsyncOntoSession` with the same API — see [Async guide](docs/getting-started/async.md) and [examples/person_org_async.py](examples/person_org_async.py).
 
-### 5. Export
+### 5. Export and import
 
 ```python
 print(ada.to_rdf(format="turtle"))
 print(ada.to_jsonld())
+
+from ontosql.import_ import import_from_jsonld  # trailing underscore (import is reserved)
+
+restored = import_from_jsonld(ada.to_jsonld(), PersonMap)
 ```
 
-Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleModel** (pyoxigraph). Nested semantic objects become linked RDF resources.
+Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleModel**. Nested semantic objects become linked RDF resources.
 
 ## Features
 
@@ -115,13 +159,12 @@ Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleM
 - **OntoMapper** / **Map** — declarative bindings to columns, joins, and nested entities
 - **OntoSession** / **AsyncOntoSession** — `get`, `find`, `save`, `delete`, `paginate`, identity map
 - **Semantic queries** — nested paths, `contains` / `endswith`, `OrderBy(desc=True)`
-- **CascadePolicy** — explicit nested write behavior on `Map.nested`
+- **CascadePolicy** — explicit nested write behavior on `Map.nested` ([guide](docs/guides/cascade-policies.md))
 - **OntoRouter** (`ontosql[fastapi]`) — auto CRUD routes + content negotiation
-- **PrefixRegistry** — CURIE expansion and JSON-LD `@context` (CURIE expand via TripleModel)
-- **Export** — `to_jsonld()` / `to_rdf()` on semantic instances (TripleModel serializers)
-- **FastAPI** (`ontosql[fastapi]`) — content negotiation for JSON-LD and RDF payloads
-- **Import** — `import_from_jsonld` / `import_from_rdf` hydrate `OntoModel` from RDF
-- **Graph sync** — push instances to graphs on `save()`; `OntoGraphSync` for SparqlModel
+- **PrefixRegistry** — CURIE expansion and JSON-LD `@context`
+- **Export** — `to_jsonld()` / `to_rdf()` on semantic instances
+- **Import** — `ontosql.import_` hydrates `OntoModel` from RDF ([FAQ](docs/FAQ.md#import-path))
+- **Graph sync** — mirror SQL writes to RDF graphs on commit ([HYBRID.md](docs/HYBRID.md))
 - **SHACL** — generate and validate shapes from maps (`ontosql[shacl]`)
 - **Prefix bundles** — `PrefixRegistry.curated()` for schema.org / DC Terms
 
@@ -138,24 +181,45 @@ router.register(Person)
 router.include_in(app)
 ```
 
-See [examples/person_org_demo.py](examples/person_org_demo.py) for CRUD and [examples/person_org_api.py](examples/person_org_api.py) for a runnable API.
+See [examples/person_org_api.py](examples/person_org_api.py) for a runnable API.
 
-> **Production warning:** `OntoRouter` is intended for **development and demos only**. It has **no authentication**, **no authorization**, and **does not validate request bodies** with Pydantic (POST/PATCH accept raw JSON). Add auth, input validation, and rate limiting before exposing it on a public network. See [SPECS.md](docs/SPECS.md#fastapi-ontosqlfastapi).
+> **Production warning:** `OntoRouter` is for **development and demos only**. POST/PATCH bodies are validated with generated Pydantic models, but there is **no authentication, authorization, or rate limiting**. Use `AsyncOntoSession` for async apps. See [Security](docs/SECURITY.md) and [SPECS.md](docs/SPECS.md#fastapi-ontosqlfastapi).
 
 ## Documentation
 
-- [Architecture](https://github.com/eddiethedean/ontosql/blob/main/docs/ARCHITECTURE.md)
-- [Hybrid deployments](https://github.com/eddiethedean/ontosql/blob/main/docs/HYBRID.md)
-- [Ecosystem](https://github.com/eddiethedean/ontosql/blob/main/docs/ECOSYSTEM.md) — OntoSQL, TripleModel, SparqlModel
-- [Technical specification](https://github.com/eddiethedean/ontosql/blob/main/docs/SPECS.md)
-- [Roadmap](https://github.com/eddiethedean/ontosql/blob/main/docs/ROADMAP.md)
-- [Project plan](https://github.com/eddiethedean/ontosql/blob/main/docs/PLAN.md)
-- [Dependency assessment](https://github.com/eddiethedean/ontosql/blob/main/docs/DEPS.md)
-- [Changelog](https://github.com/eddiethedean/ontosql/blob/main/CHANGELOG.md)
+### Getting started
+
+- [Installation](docs/getting-started/installation.md)
+- [Quick start (standalone)](docs/getting-started/quickstart.md)
+- [Async sessions](docs/getting-started/async.md)
+
+### Guides
+
+- [Cascade policies](docs/guides/cascade-policies.md)
+- [Hybrid SQL + graph](docs/HYBRID.md)
+- [FAQ](docs/FAQ.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+
+### Architecture and reference
+
+- [Architecture](docs/ARCHITECTURE.md)
+- [Ecosystem](docs/ECOSYSTEM.md) — OntoSQL, TripleModel, SparqlModel
+- [Technical specification](docs/SPECS.md)
+- [Compatibility](docs/COMPATIBILITY.md)
+- [Security](docs/SECURITY.md)
+- [Dependencies](docs/DEPS.md)
+
+### Project
+
+- [Roadmap](docs/ROADMAP.md)
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
+- [Releasing](docs/RELEASING.md) (maintainers)
+- [Documentation site](mkdocs.yml) — build with `mkdocs serve` or `mkdocs build --strict`
 
 ## Development
 
-See [Releasing](https://github.com/eddiethedean/ontosql/blob/main/docs/RELEASING.md) for the version publish checklist.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [Releasing](docs/RELEASING.md).
 
 ```bash
 pip install -e ".[dev]"
@@ -163,8 +227,9 @@ ruff check src tests
 ruff format src tests
 ty check
 pytest --cov=ontosql --cov-fail-under=90
+mkdocs build --strict
 ```
 
 ## License
 
-MIT — see [LICENSE](https://github.com/eddiethedean/ontosql/blob/main/LICENSE).
+MIT — see [LICENSE](LICENSE).

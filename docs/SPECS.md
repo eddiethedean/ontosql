@@ -169,8 +169,10 @@ async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as sessio
 
 Optional constructor arguments (0.4.0):
 
-- `graph_sync` — target with `graph` and `update_graph(add=, remove=)`; pushes after `save()`
+- `graph_sync` — target with `graph` and `update_graph(add=, remove=)`; queues graph push/remove on `save()` / `delete()`
 - `graph_sync_mode` — `"patch"` (default), `"replace"`, or `"add"`
+
+Graph sync is applied **after SQL commit** on session exit. Rolled-back sessions discard queued graph updates. `flush()` queues graph sync for flushed writes; commit still required before the graph updates.
 
 - Transactions: one transaction per context manager; rollback on exception.
 - Identity map for repeated `get` in one session (0.3.0).
@@ -248,7 +250,7 @@ Hydration uses **mapper metadata** (`Map.property`, `Map.nested`, `type_iri`, `i
 Module: `ontosql.sync`
 
 ```python
-from ontosql.sync import push_instance, StoreSyncTarget, replace_subject, patch_subject
+from ontosql.sync import push_instance, remove_instance, StoreSyncTarget, replace_subject, patch_subject
 from ontosql.sync.graph import sync_instance_to_store
 from ontosql.sync.materialize import materialize_find, materialize_entity
 ```
@@ -256,6 +258,7 @@ from ontosql.sync.materialize import materialize_find, materialize_entity
 | API | Description |
 |-----|-------------|
 | `push_instance(instance, target, *, mode="patch")` | Push instance subgraph to a `Store` or `GraphSyncTarget` |
+| `remove_instance(instance, target)` | Remove instance subgraph from a graph target |
 | `sync_instance_to_store(instance, store, *, mode, mapper_cls)` | Lower-level; mutates a `Store` in place |
 | `StoreSyncTarget` | In-memory target wrapping a `Store` |
 | `materialize_find(session, entity_type, ...)` | Merge `find()` results into one `Store` |
@@ -319,11 +322,11 @@ return negotiate_onto_response(request, semantic_instance)
 | Gap | Detail |
 |-----|--------|
 | No auth | All CRUD routes are unauthenticated unless the host app adds middleware or dependencies |
-| No body validation | POST/PATCH handlers use `model_construct` / raw JSON — no Pydantic `model_validate` |
+| Body validation | POST/PATCH validate with generated Pydantic body models before `model_construct` / `model_copy` |
 | Sync session in async handlers | Blocking I/O under load; use `AsyncOntoSession` with app-level wiring |
 | List `limit` | Capped at 100 (0.3.1+); still runs find + count per list request |
 
-Before production: wire auth dependencies, validate bodies with generated Pydantic models, and restrict mount paths.
+Before production: wire auth dependencies, use async sessions where appropriate, and restrict mount paths. See [SECURITY.md](SECURITY.md).
 
 ---
 
