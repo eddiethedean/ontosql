@@ -44,5 +44,6 @@ class SessionBase:
         self._state.expire(entity_type, id)
 
     def rollback_pending(self) -> None:
-        """Discard queued save/delete plans without touching the database."""
+        """Discard queued save/delete plans and graph sync queues without touching the database."""
         self._state.clear_pending()
+        self._state.clear_graph_sync()

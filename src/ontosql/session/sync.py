@@ -8,7 +8,7 @@ from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel
 
 from ontosql.compile.execute import execute_delete_plan, execute_write_plan
-from ontosql.compile.plan import DeletePlan, WritePlan
+from ontosql.compile.plan import WritePlan
 from ontosql.compile.select import compile_count_statement, compile_select_plan
 from ontosql.compile.write import compile_delete_plan, compile_save_plan
 from ontosql.mapping.registry import MapperRegistry
@@ -16,6 +16,7 @@ from ontosql.semantic.model import OntoModel
 from ontosql.session.base import SessionBase
 from ontosql.session.graph_sync import flush_graph_sync, queue_graph_push, queue_graph_remove
 from ontosql.session.hydrate import hydrate_first, hydrate_row
+from ontosql.session.state import PendingDelete
 from ontosql.sync.graph import GraphSyncMode
 
 
@@ -50,18 +51,22 @@ class OntoSession(SessionBase):
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        if exc_type is None:
-            self._session.commit()
-            flush_graph_sync(
-                self._state,
-                self._graph_sync,
-                mode=self._graph_sync_mode,
-                mapper_for=self._mapper_for,
-            )
-        else:
-            self._state.clear_graph_sync()
-            self._session.rollback()
-        self._session.close()
+        try:
+            if exc_type is None:
+                if self._state.pending:
+                    self.flush()
+                self._session.commit()
+                flush_graph_sync(
+                    self._state,
+                    self._graph_sync,
+                    mode=self._graph_sync_mode,
+                    mapper_for=self._mapper_for,
+                )
+            else:
+                self._state.clear_graph_sync()
+                self._session.rollback()
+        finally:
+            self._session.close()
 
     def create_tables(self, *models: type[SQLModel]) -> None:
         """Create physical tables (convenience for tests)."""
@@ -159,15 +164,41 @@ class OntoSession(SessionBase):
             queue_graph_push(self._state, reloaded)
         return reloaded
 
+    def _load_snapshot_from_db(
+        self, instance: OntoModel, mapper_cls: type[Any]
+    ) -> dict[str, Any] | None:
+        identity = getattr(instance, mapper_cls.identity_field, None)
+        if identity is None:
+            return None
+        plan = compile_select_plan(mapper_cls, id_value=identity, limit=1)
+        row_instance = hydrate_first(plan, self._session.exec(plan.select))
+        if row_instance is None:
+            return None
+        return row_instance.model_dump()
+
+    def _resolve_snapshot(
+        self, instance: OntoModel, mapper_cls: type[Any], *, is_new: bool
+    ) -> dict[str, Any] | None:
+        snapshot = self._state.get_snapshot(instance)
+        if snapshot is not None or is_new:
+            return snapshot
+        return self._load_snapshot_from_db(instance, mapper_cls)
+
     def save(self, instance: OntoModel, *, flush: bool = True) -> OntoModel:
         mapper_cls = self._mapper_for(type(instance))
         is_new = self._is_new_instance(mapper_cls, instance)
+        snapshot = self._resolve_snapshot(instance, mapper_cls, is_new=is_new)
+        if is_new:
+            db_snapshot = self._load_snapshot_from_db(instance, mapper_cls)
+            if db_snapshot is not None:
+                is_new = False
+                snapshot = db_snapshot
         plan = compile_save_plan(
             mapper_cls,
             instance,
             partial_fields=instance.model_fields_set if not is_new else None,
             is_new=is_new,
-            snapshot=self._state.get_snapshot(instance),
+            snapshot=snapshot,
         )
         if flush:
             inserted_id = self._execute_write(plan)
@@ -179,21 +210,31 @@ class OntoSession(SessionBase):
         mapper_cls = self._mapper_for(type(instance))
         plan = compile_delete_plan(mapper_cls, instance)
         identity = getattr(instance, mapper_cls.identity_field, None)
-        if self._graph_sync is not None:
-            queue_graph_remove(self._state, instance)
         if flush:
             execute_delete_plan(self._session, plan)
             if identity is not None:
                 self._state.expire(type(instance), identity)
+            if self._graph_sync is not None:
+                queue_graph_remove(self._state, instance)
         else:
-            self._state.pending.append(plan)
+            self._state.pending.append(PendingDelete(plan=plan, instance=instance))
+
+    def _apply_pending_delete(self, pending: PendingDelete) -> None:
+        execute_delete_plan(self._session, pending.plan)
+        mapper_cls = pending.plan.mapper_cls
+        identity = getattr(pending.instance, mapper_cls.identity_field, None)
+        if identity is not None:
+            self._state.expire(mapper_cls.entity, identity)
+        if self._graph_sync is not None:
+            queue_graph_remove(self._state, pending.instance)
 
     def flush(self) -> None:
         """Apply all pending save/delete plans."""
         pending = list(self._state.pending)
         self._state.clear_pending()
-        for plan in pending:
-            if isinstance(plan, WritePlan):
+        for item in pending:
+            if isinstance(item, WritePlan):
+                plan = item
                 inserted_id = self._execute_write(plan)
                 entity_type = plan.mapper_cls.entity
                 identity = inserted_id
@@ -203,11 +244,8 @@ class OntoSession(SessionBase):
                     reloaded = self.get(entity_type, id=identity)
                     if reloaded is not None:
                         queue_graph_push(self._state, reloaded)
-            elif isinstance(plan, DeletePlan):
-                execute_delete_plan(self._session, plan)
-                if plan.root.where:
-                    identity = next(iter(plan.root.where.values()))
-                    self._state.expire(plan.mapper_cls.entity, identity)
+            elif isinstance(item, PendingDelete):
+                self._apply_pending_delete(item)
 
     def _execute_write(self, plan: WritePlan) -> Any:
         identity = execute_write_plan(self._session, plan)

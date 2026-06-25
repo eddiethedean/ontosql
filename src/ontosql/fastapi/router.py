@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, create_model
 
 from ontosql.fastapi.deps import SessionDep
-from ontosql.fastapi.negotiate import negotiate_onto_response
+from ontosql.fastapi.negotiate import negotiate_onto_response, parse_accept_mime
 from ontosql.fastapi.openapi import install_onto_openapi
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
@@ -35,9 +35,11 @@ def _create_body_model(entity_type: type[OntoModel], *, identity_field: str) -> 
     return create_model(f"{entity_type.__name__}Create", **fields)  # type: ignore[call-overload]
 
 
-def _patch_body_model(entity_type: type[OntoModel]) -> type[BaseModel]:
+def _patch_body_model(entity_type: type[OntoModel], *, identity_field: str) -> type[BaseModel]:
     fields: dict[str, Any] = {}
     for name, field_info in entity_type.model_fields.items():
+        if name == identity_field:
+            continue
         fields[name] = (field_info.annotation | None, None)  # type: ignore[operator]
     return create_model(f"{entity_type.__name__}Patch", **fields)  # type: ignore[call-overload]
 
@@ -66,7 +68,7 @@ class OntoRouter:
         create_body_model = _create_body_model(
             entity_type, identity_field=mapper_cls.identity_field
         )
-        patch_body_model = _patch_body_model(entity_type)
+        patch_body_model = _patch_body_model(entity_type, identity_field=mapper_cls.identity_field)
         CreateBody = create_body_model
         PatchBody = patch_body_model
 
@@ -82,11 +84,32 @@ class OntoRouter:
             request: Request,
             session: SessionDep,
             limit: int = Query(20, le=100),
-            offset: int = 0,
+            offset: int = Query(0, ge=0),
         ) -> Any:
+            accept = request.headers.get("accept")
+            chosen = parse_accept_mime(accept)
+            rdf_formats = {
+                "text/turtle": "turtle",
+                "application/n-triples": "nt",
+                "application/rdf+xml": "xml",
+            }
+            if chosen in rdf_formats:
+                from ontosql.export._formats import media_type_for_format
+                from ontosql.sync.materialize import materialize_find
+
+                fmt = rdf_formats[chosen]
+                graph = materialize_find(session, entity_type, limit=limit, offset=offset)
+                body = graph.serialize(format=fmt)
+                from fastapi.responses import Response
+
+                return Response(
+                    content=body,
+                    media_type=media_type_for_format(fmt),
+                )
+
             page = paginate(session, entity_type, limit=limit, offset=offset)
             payload: list[Any] | dict[str, Any]
-            if request.headers.get("accept", "").startswith("application/ld+json"):
+            if accept and accept.startswith("application/ld+json"):
                 payload = {
                     "@context": getattr(entity_type, "jsonld_context", {}),
                     "@graph": [item.to_jsonld() for item in page.items],
@@ -113,8 +136,16 @@ class OntoRouter:
             if instance is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
             data = await request.json()
+            identity_field = mapper_cls.identity_field
+            if identity_field in data and data[identity_field] != entity_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Cannot change {identity_field!r} via PATCH",
+                )
+            data.pop(identity_field, None)
             validated = PatchBody.model_validate(data)
             updated = instance.model_copy(update=validated.model_dump(exclude_unset=True))
+            setattr(updated, identity_field, entity_id)
             saved = session.save(updated)
             return negotiate_onto_response(request, saved)
 

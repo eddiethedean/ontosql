@@ -75,6 +75,11 @@ def _parse_accept(accept: str | None) -> str | None:
     return candidates[0][1]
 
 
+def parse_accept_mime(accept: str | None) -> str | None:
+    """Public helper: best matching semantic MIME type from an Accept header."""
+    return _parse_accept(accept)
+
+
 def negotiate_onto_response(request: Request, data: Any) -> Response:
     """
     Return a FastAPI Response based on the request Accept header.

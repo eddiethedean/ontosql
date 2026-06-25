@@ -15,6 +15,7 @@ Checklist for publishing a new version.
    ruff format --check src tests
    ty check
    pytest --cov=ontosql --cov-fail-under=90
+   mkdocs build --strict
    ```
 
 5. Build and smoke-test the wheel:

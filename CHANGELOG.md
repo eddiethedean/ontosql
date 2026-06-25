@@ -7,31 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-
-- **Graph sync** — updates apply after SQL commit on session exit, not immediately on `save()`; rolled-back sessions discard queued graph updates
-- **Graph sync on delete** — `delete()` queues subgraph removal via `remove_instance`
-- **`push_instance` / `GraphSyncTarget`** — patch mode mutates `target.graph` in place (fixes SparqlModel adapter)
-- **REPLACE cascade** — nulls parent FK before deleting old nested row; raises `ExecuteError` when a shared nested row is still referenced
-- **Session snapshots** — keyed by `(entity_type, identity)` instead of `id(instance)` for stable REPLACE behavior
-- **Import coercion** — hardened type coercion for JSON-LD / RDF import paths
-- **FastAPI `OntoRouter`** — POST/PATCH validate request bodies with generated Pydantic models before construct/patch
-
-### Changed
-
-- Documentation pass: standalone examples, quick start bootstrap, graph sync timing, cascade policies guide, FAQ, troubleshooting, security notes
-
 ## [0.4.0] - 2026-06-25
 
 ### Added
 
 - **RDF import** — `ontosql.import_` with `import_from_jsonld`, `import_from_rdf`, `graph_to_instance`; `OntoModel.from_jsonld()`
-- **Graph sync** — `ontosql.sync` with `push_instance`, `StoreSyncTarget`, `sync_instance_to_store` (`add` / `replace` / `patch` modes)
+- **Graph sync** — `ontosql.sync` with `push_instance`, `remove_instance`, `StoreSyncTarget`, `sync_instance_to_store` (`add` / `replace` / `patch` modes)
 - **Session graph hook** — `OntoSession` / `AsyncOntoSession` `graph_sync` and `graph_sync_mode` queue graph updates on `save()` / `delete()` and apply after commit
 - **SparqlModel adapter** — `OntoGraphSync` push/pull (`ontosql.sync.sparql`)
 - **Materialized views** — `materialize_find`, `materialize_entity`
 - **SHACL** — `ontosql.shacl` shape generation and `validate_instance`; optional `ontosql[shacl]` extra (pyshacl)
 - **Prefix bundles** — `PrefixRegistry.curated("schema_org" | "dcterms")`
+- **Documentation site** — MkDocs + Material theme; `pip install ontosql[docs]`; CI `mkdocs build --strict`
+- **Contributor docs** — `CONTRIBUTING.md`, FAQ, troubleshooting, security notes, cascade policies guide, compatibility matrix
+- Standalone PyPI-runnable examples (`examples/models.py`); async session example
 - [HYBRID.md](https://github.com/eddiethedean/ontosql/blob/main/docs/HYBRID.md) and [examples/hybrid_person_org.py](https://github.com/eddiethedean/ontosql/blob/main/examples/hybrid_person_org.py)
 
 ### Changed
@@ -39,6 +28,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`CascadePolicy.REPLACE`** — deletes old nested row when FK changes or nested becomes `None` (snapshot-based)
 - Export honors `onto_property(datatype=..., language=...)` on literals
 - CI coverage threshold lowered to 90%
+- Documentation pass: quick start bootstrap, graph sync timing, shipped vs planned labels in ecosystem docs
+
+### Fixed
+
+- **Graph sync** — updates apply after SQL commit on session exit, not immediately on `save()`; rolled-back sessions discard queued graph updates
+- **Graph sync on delete** — `delete()` queues subgraph removal via `remove_instance` only after SQL delete succeeds
+- **`push_instance` / `GraphSyncTarget`** — patch mode mutates `target.graph` in place (fixes SparqlModel adapter)
+- **Graph patch root IRI** — uses `build_instance_iri(instance)` instead of nondeterministic set iteration
+- **Shared nested graph nodes** — nested subjects patched by owned predicates only; delete removes root subject only
+- **REPLACE cascade** — nulls parent FK before deleting old nested row; raises `ExecuteError` when a shared nested row is still referenced
+- **Session snapshots** — keyed by `(entity_type, identity)` instead of `id(instance)` for stable REPLACE behavior
+- **Detached updates** — load DB snapshot when session snapshot missing so REPLACE and updates work without prior `get()`
+- **Pending writes** — `save(flush=False)` / `delete(flush=False)` auto-flush on session exit; `rollback_pending()` clears graph sync queues
+- **Import** — `model_validate` after hydrate; `Optional[T]` / `int | None` coercion
+- **FastAPI `OntoRouter`** — POST/PATCH validate bodies with generated Pydantic models; PATCH cannot retarget row via body `id`; list supports RDF `Accept` headers; `offset` validated `ge=0`
+- Invalid `graph_sync_mode` raises `ValueError` instead of silent no-op
 
 ## [0.3.1] - 2026-06-10
 
@@ -91,6 +96,7 @@ First release of **OntoSQL** — semantic data access for SQL via explicit maps.
 - Example: `examples/person_org_demo.py`
 - Documentation: [ARCHITECTURE.md](https://github.com/eddiethedean/ontosql/blob/main/docs/ARCHITECTURE.md), [SPECS.md](https://github.com/eddiethedean/ontosql/blob/main/docs/SPECS.md), [ROADMAP.md](https://github.com/eddiethedean/ontosql/blob/main/docs/ROADMAP.md)
 
+[0.4.0]: https://github.com/eddiethedean/ontosql/releases/tag/v0.4.0
 [0.3.1]: https://github.com/eddiethedean/ontosql/releases/tag/v0.3.1
 [0.3.0]: https://github.com/eddiethedean/ontosql/releases/tag/v0.3.0
 [0.2.0]: https://github.com/eddiethedean/ontosql/releases/tag/v0.2.0

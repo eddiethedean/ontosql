@@ -12,12 +12,20 @@ SnapshotKey = tuple[type[OntoModel], Any]
 
 
 @dataclass
+class PendingDelete:
+    """Queued delete plan with instance retained for deferred graph sync."""
+
+    plan: DeletePlan
+    instance: OntoModel
+
+
+@dataclass
 class SessionState:
     """Unit-of-work state for OntoSession."""
 
     identity_map: dict[tuple[type[OntoModel], Any], OntoModel] = field(default_factory=dict)
     snapshots: dict[SnapshotKey, dict[str, Any]] = field(default_factory=dict)
-    pending: list[WritePlan | DeletePlan] = field(default_factory=list)
+    pending: list[WritePlan | PendingDelete] = field(default_factory=list)
     graph_sync_pushes: list[OntoModel] = field(default_factory=list)
     graph_sync_removes: list[OntoModel] = field(default_factory=list)
 

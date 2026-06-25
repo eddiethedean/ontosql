@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any
+import types
+from typing import Any, Union, get_args, get_origin
 
 from pyoxigraph import Literal, NamedNode
 from triplemodel import RDF_TYPE, Store
@@ -53,6 +54,16 @@ def _objects_for_predicate(
     return list(graph.objects(subject, pred))
 
 
+def _scalar_type(py_type: Any) -> Any:
+    """Unwrap Optional[T] / Union[T, None] to T for coercion."""
+    origin = get_origin(py_type)
+    if origin is Union or origin is types.UnionType:
+        args = [a for a in get_args(py_type) if a is not type(None)]
+        if len(args) == 1:
+            return args[0]
+    return py_type
+
+
 def _coerce_literal(
     term: Any,
     *,
@@ -65,19 +76,20 @@ def _coerce_literal(
     if not isinstance(term, Literal):
         return str(term)
     raw = str(term.value)
-    if py_type is bool:
+    scalar = _scalar_type(py_type)
+    if scalar is bool:
         lowered = raw.lower()
         if lowered in ("true", "1"):
             return True
         if lowered in ("false", "0"):
             return False
         raise OntoImportError(f"Cannot coerce literal {raw!r} to bool")
-    if py_type is int:
+    if scalar is int:
         try:
             return int(raw)
         except ValueError as exc:
             raise OntoImportError(f"Cannot coerce literal {raw!r} to int") from exc
-    if py_type is float:
+    if scalar is float:
         try:
             return float(raw)
         except ValueError as exc:
@@ -196,7 +208,7 @@ def graph_to_instance(
         else:
             fields[field_name] = None
 
-    return entity_type.model_construct(**fields)
+    return entity_type.model_validate(fields)
 
 
 def subject_iri_from_jsonld(doc: dict[str, Any]) -> str:

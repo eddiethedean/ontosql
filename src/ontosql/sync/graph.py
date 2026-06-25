@@ -11,7 +11,7 @@ from triplemodel.store.terms import term_str
 
 from ontosql.export.instance import instance_to_graph
 from ontosql.registry import PrefixRegistry
-from ontosql.semantic.model import OntoModel, get_onto_property_meta
+from ontosql.semantic.model import OntoModel, build_instance_iri, get_onto_property_meta
 
 GraphSyncMode = Literal["add", "replace", "patch"]
 
@@ -61,8 +61,6 @@ def owned_predicates(mapper_cls: type[Any], registry: PrefixRegistry) -> frozens
 
 
 def _subjects_in_graph(graph: Store) -> set[str]:
-    from triplemodel.store.terms import term_str
-
     return {term_str(triple[0]) for triple in graph}
 
 
@@ -75,6 +73,52 @@ def _remove_all_subject_triples(target: Store, subject_iri: str) -> None:
 def _add_graph_triples(target: Store, source: Store) -> None:
     for triple in source:
         target.add(triple)
+
+
+def _nested_mapper_for_iri(
+    instance: OntoModel,
+    mapper_cls: type[Any],
+    nested_iri: str,
+    registry: PrefixRegistry,
+) -> type[Any] | None:
+    for field_name, nmap in mapper_cls.nested_maps.items():
+        nested_value = getattr(instance, field_name, None)
+        if nested_value is not None and build_instance_iri(nested_value, registry) == nested_iri:
+            return nmap.nested_mapper
+    return None
+
+
+def _patch_subject_in_store(
+    target: Store,
+    new_graph: Store,
+    subject_iri: str,
+    owned: frozenset[str],
+) -> None:
+    remove_triples_for_predicates(target, NamedNode(subject_iri), set(owned))
+    for triple in new_graph:
+        if term_str(triple[0]) == subject_iri:
+            target.add(triple)
+
+
+def _sync_nested_subjects(
+    target: Store,
+    new_graph: Store,
+    instance: OntoModel,
+    mapper_cls: type[Any],
+    nested_subjects: set[str],
+    registry: PrefixRegistry,
+) -> None:
+    """Patch nested subjects by owned predicates only (preserves shared nested nodes)."""
+    for nested_iri in nested_subjects:
+        nested_mapper = _nested_mapper_for_iri(instance, mapper_cls, nested_iri, registry)
+        if nested_mapper is not None:
+            owned = owned_predicates(nested_mapper, registry)
+            _patch_subject_in_store(target, new_graph, nested_iri, owned)
+        else:
+            _remove_all_subject_triples(target, nested_iri)
+            for triple in new_graph:
+                if term_str(triple[0]) == nested_iri:
+                    target.add(triple)
 
 
 def sync_instance_to_store(
@@ -94,35 +138,30 @@ def sync_instance_to_store(
 
     new_graph = instance_to_graph(instance, registry=reg)
     subjects = _subjects_in_graph(new_graph)
+    root_iri = build_instance_iri(instance, reg)
+    nested_subjects = subjects - {root_iri}
 
     if mode == "add":
         _add_graph_triples(target, new_graph)
         return target
 
     if mode == "replace":
-        for subject_iri in subjects:
-            _remove_all_subject_triples(target, subject_iri)
-        _add_graph_triples(target, new_graph)
-        return target
-
-    if mode == "patch":
-        owned = owned_predicates(mapper_cls, reg)
-        root_iri = next(iter(subjects)) if subjects else None
-        if root_iri is not None:
-            remove_triples_for_predicates(target, NamedNode(root_iri), set(owned))
+        if root_iri in subjects:
+            _remove_all_subject_triples(target, root_iri)
             for triple in new_graph:
                 if term_str(triple[0]) == root_iri:
                     target.add(triple)
-
-        nested_subjects = subjects - {root_iri} if root_iri else subjects
-        for nested_iri in nested_subjects:
-            _remove_all_subject_triples(target, nested_iri)
-            for triple in new_graph:
-                if term_str(triple[0]) == nested_iri:
-                    target.add(triple)
+        _sync_nested_subjects(target, new_graph, instance, mapper_cls, nested_subjects, reg)
         return target
 
-    return target
+    if mode == "patch":
+        if root_iri in subjects:
+            owned = owned_predicates(mapper_cls, reg)
+            _patch_subject_in_store(target, new_graph, root_iri, owned)
+        _sync_nested_subjects(target, new_graph, instance, mapper_cls, nested_subjects, reg)
+        return target
+
+    raise ValueError(f"Unknown graph sync mode: {mode!r}")
 
 
 def remove_instance_from_store(
@@ -132,9 +171,8 @@ def remove_instance_from_store(
     registry: PrefixRegistry | None = None,
     mapper_cls: type[Any] | None = None,
 ) -> Store:
-    """Remove all triples for subjects exported from a semantic instance."""
+    """Remove all triples for the root instance subject only (not shared nested nodes)."""
     reg = _resolve_registry(instance, registry)
-    subgraph = instance_to_graph(instance, registry=reg)
-    for subject_iri in _subjects_in_graph(subgraph):
-        _remove_all_subject_triples(target, subject_iri)
+    root_iri = build_instance_iri(instance, reg)
+    _remove_all_subject_triples(target, root_iri)
     return target
