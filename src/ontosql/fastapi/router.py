@@ -63,8 +63,12 @@ class OntoRouter:
         self._entities.append(entity_type)
         name = _entity_route_name(entity_type)
         mapper_cls = _mapper_for(self.maps, entity_type)
-        _ = _create_body_model(entity_type, identity_field=mapper_cls.identity_field)
-        _ = _patch_body_model(entity_type)
+        create_body_model = _create_body_model(
+            entity_type, identity_field=mapper_cls.identity_field
+        )
+        patch_body_model = _patch_body_model(entity_type)
+        CreateBody = create_body_model
+        PatchBody = patch_body_model
 
         @self.router.get(f"/{name}/{{entity_id}}")
         def get_one(entity_id: int, request: Request, session: SessionDep) -> Any:
@@ -96,7 +100,8 @@ class OntoRouter:
             data = await request.json()
             if mapper_cls.identity_field not in data:
                 data[mapper_cls.identity_field] = None
-            instance = entity_type.model_construct(**data)
+            validated = CreateBody.model_validate(data)
+            instance = entity_type.model_construct(**validated.model_dump())
             saved = session.save(instance)
             response = negotiate_onto_response(request, saved)
             response.status_code = status.HTTP_201_CREATED
@@ -108,7 +113,8 @@ class OntoRouter:
             if instance is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
             data = await request.json()
-            updated = instance.model_copy(update=data)
+            validated = PatchBody.model_validate(data)
+            updated = instance.model_copy(update=validated.model_dump(exclude_unset=True))
             saved = session.save(updated)
             return negotiate_onto_response(request, saved)
 

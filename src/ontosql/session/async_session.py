@@ -13,6 +13,7 @@ from ontosql.compile.write import compile_delete_plan, compile_save_plan
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session.base import SessionBase
+from ontosql.session.graph_sync import flush_graph_sync, queue_graph_push, queue_graph_remove
 from ontosql.session.hydrate import hydrate_first, hydrate_row
 from ontosql.sync.graph import GraphSyncMode
 
@@ -52,7 +53,14 @@ class AsyncOntoSession(SessionBase):
         assert self._session is not None
         if exc_type is None:
             await self._session.commit()
+            flush_graph_sync(
+                self._state,
+                self._graph_sync,
+                mode=self._graph_sync_mode,
+                mapper_for=self._mapper_for,
+            )
         else:
+            self._state.clear_graph_sync()
             await self._session.rollback()
         await self._session.close()
         self._session = None
@@ -126,17 +134,35 @@ class AsyncOntoSession(SessionBase):
         row = result.one()
         return _count_scalar(row)
 
-    def _push_graph_sync(self, instance: OntoModel) -> None:
-        if self._graph_sync is None:
-            return
-        from ontosql.sync import push_instance
+    async def _reload_after_save(
+        self,
+        instance: OntoModel,
+        mapper_cls: type[Any],
+        plan: WritePlan,
+        inserted_id: Any,
+    ) -> OntoModel:
+        identity = getattr(instance, mapper_cls.identity_field, None)
+        if identity is None:
+            identity = inserted_id
+        if identity is None and plan.root.where:
+            identity = next(iter(plan.root.where.values()))  # pragma: no cover
+        if identity is not None:
+            reloaded = await self.get(type(instance), id=identity)
+            if reloaded is not None:
+                return reloaded
+        return instance
 
-        push_instance(
-            instance,
-            self._graph_sync,
-            mode=self._graph_sync_mode,
-            mapper_cls=self._mapper_for(type(instance)),
-        )
+    async def _queue_graph_sync_after_save(
+        self,
+        instance: OntoModel,
+        mapper_cls: type[Any],
+        plan: WritePlan,
+        inserted_id: Any,
+    ) -> OntoModel:
+        reloaded = await self._reload_after_save(instance, mapper_cls, plan, inserted_id)
+        if self._graph_sync is not None:
+            queue_graph_push(self._state, reloaded)
+        return reloaded
 
     async def save(self, instance: OntoModel, *, flush: bool = True) -> OntoModel:
         mapper_cls = self._mapper_for(type(instance))
@@ -146,22 +172,11 @@ class AsyncOntoSession(SessionBase):
             instance,
             partial_fields=instance.model_fields_set if not is_new else None,
             is_new=is_new,
-            snapshot=self._state.snapshots.get(id(instance)),
+            snapshot=self._state.get_snapshot(instance),
         )
         if flush:
             inserted_id = await self._execute_write(plan)
-            identity = getattr(instance, mapper_cls.identity_field, None)
-            if identity is None:
-                identity = inserted_id
-            if identity is None and plan.root.where:
-                identity = next(iter(plan.root.where.values()))  # pragma: no cover
-            if identity is not None:
-                reloaded = await self.get(type(instance), id=identity)
-                if reloaded is not None:
-                    self._push_graph_sync(reloaded)
-                    return reloaded
-            self._push_graph_sync(instance)
-            return instance
+            return await self._queue_graph_sync_after_save(instance, mapper_cls, plan, inserted_id)
         self._state.pending.append(plan)
         return instance
 
@@ -169,6 +184,8 @@ class AsyncOntoSession(SessionBase):
         mapper_cls = self._mapper_for(type(instance))
         plan = compile_delete_plan(mapper_cls, instance)
         identity = getattr(instance, mapper_cls.identity_field, None)
+        if self._graph_sync is not None:
+            queue_graph_remove(self._state, instance)
         if flush:
             await self._execute_delete(plan)
             if identity is not None:
@@ -181,7 +198,15 @@ class AsyncOntoSession(SessionBase):
         self._state.clear_pending()
         for plan in pending:
             if isinstance(plan, WritePlan):
-                await self._execute_write(plan)
+                inserted_id = await self._execute_write(plan)
+                entity_type = plan.mapper_cls.entity
+                identity = inserted_id
+                if identity is None and plan.root.where:
+                    identity = next(iter(plan.root.where.values()))
+                if identity is not None and self._graph_sync is not None:
+                    reloaded = await self.get(entity_type, id=identity)
+                    if reloaded is not None:
+                        queue_graph_push(self._state, reloaded)
             elif isinstance(plan, DeletePlan):
                 await self._execute_delete(plan)
 

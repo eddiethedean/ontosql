@@ -8,14 +8,18 @@ from typing import Any
 from ontosql.compile.plan import DeletePlan, WritePlan
 from ontosql.semantic.model import OntoModel
 
+SnapshotKey = tuple[type[OntoModel], Any]
+
 
 @dataclass
 class SessionState:
     """Unit-of-work state for OntoSession."""
 
     identity_map: dict[tuple[type[OntoModel], Any], OntoModel] = field(default_factory=dict)
-    snapshots: dict[int, dict[str, Any]] = field(default_factory=dict)
+    snapshots: dict[SnapshotKey, dict[str, Any]] = field(default_factory=dict)
     pending: list[WritePlan | DeletePlan] = field(default_factory=list)
+    graph_sync_pushes: list[OntoModel] = field(default_factory=list)
+    graph_sync_removes: list[OntoModel] = field(default_factory=list)
 
     def identity_key(
         self, entity_type: type[OntoModel], instance: OntoModel
@@ -24,6 +28,19 @@ class SessionState:
         value = getattr(instance, mapper_identity)
         return (entity_type, value)
 
+    def snapshot_key(self, instance: OntoModel) -> SnapshotKey | None:
+        entity_type = type(instance)
+        identity = getattr(instance, entity_type.identity_field, None)
+        if identity is None:
+            return None
+        return (entity_type, identity)
+
+    def get_snapshot(self, instance: OntoModel) -> dict[str, Any] | None:
+        key = self.snapshot_key(instance)
+        if key is None:
+            return None
+        return self.snapshots.get(key)
+
     def register(self, instance: OntoModel) -> None:
         entity_type = type(instance)
         identity = getattr(instance, entity_type.identity_field, None)
@@ -31,16 +48,25 @@ class SessionState:
             return
         key = (entity_type, identity)
         self.identity_map[key] = instance
-        self.snapshots[id(instance)] = instance.model_dump()
+        self.snapshots[key] = instance.model_dump()
 
     def get_cached(self, entity_type: type[OntoModel], identity: Any) -> OntoModel | None:
         return self.identity_map.get((entity_type, identity))
 
     def expire(self, entity_type: type[OntoModel], identity: Any) -> None:
         key = (entity_type, identity)
-        instance = self.identity_map.pop(key, None)
-        if instance is not None:
-            self.snapshots.pop(id(instance), None)
+        self.identity_map.pop(key, None)
+        self.snapshots.pop(key, None)
 
     def clear_pending(self) -> None:
         self.pending.clear()
+
+    def queue_graph_push(self, instance: OntoModel) -> None:
+        self.graph_sync_pushes.append(instance)
+
+    def queue_graph_remove(self, instance: OntoModel) -> None:
+        self.graph_sync_removes.append(instance)
+
+    def clear_graph_sync(self) -> None:
+        self.graph_sync_pushes.clear()
+        self.graph_sync_removes.clear()

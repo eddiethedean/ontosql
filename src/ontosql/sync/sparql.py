@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from triplemodel import Store
 from triplemodel.store.terms import term_str
 
 from ontosql.mapping.registry import MapperRegistry
@@ -34,20 +33,13 @@ class OntoGraphSync:
     def push(self, instance: OntoModel) -> None:
         """Push a semantic instance into the SPARQL session store."""
         mapper_cls = self._mappers.get(type(instance))
-        scratch = Store()
         sync_instance_to_store(
             instance,
-            scratch,
+            self._session._store.graph,
             mode=self._mode,
             registry=self._registry,
             mapper_cls=mapper_cls,
         )
-        remove_store = Store()
-        subjects = {term_str(t[0]) for t in scratch}
-        for triple in self._session._store.graph:
-            if term_str(triple[0]) in subjects:
-                remove_store.add(triple)
-        self._session._store.update_graph(add=scratch, remove=remove_store)
 
     def pull(
         self,

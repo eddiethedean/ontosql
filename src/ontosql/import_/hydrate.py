@@ -66,11 +66,22 @@ def _coerce_literal(
         return str(term)
     raw = str(term.value)
     if py_type is bool:
-        return raw.lower() in ("true", "1")
+        lowered = raw.lower()
+        if lowered in ("true", "1"):
+            return True
+        if lowered in ("false", "0"):
+            return False
+        raise OntoImportError(f"Cannot coerce literal {raw!r} to bool")
     if py_type is int:
-        return int(raw)
+        try:
+            return int(raw)
+        except ValueError as exc:
+            raise OntoImportError(f"Cannot coerce literal {raw!r} to int") from exc
     if py_type is float:
-        return float(raw)
+        try:
+            return float(raw)
+        except ValueError as exc:
+            raise OntoImportError(f"Cannot coerce literal {raw!r} to float") from exc
     return raw
 
 
@@ -120,6 +131,7 @@ def graph_to_instance(
     *,
     iri: str | None = None,
     registry: PrefixRegistry | None = None,
+    _visited: set[str] | None = None,
 ) -> OntoModel:
     """Hydrate a semantic instance from triples using mapper metadata."""
     reg = _resolve_registry(mapper_cls, registry)
@@ -127,6 +139,11 @@ def graph_to_instance(
 
     if iri is None:
         raise OntoImportError("graph_to_instance requires iri=")
+
+    visited = _visited if _visited is not None else set()
+    if iri in visited:
+        raise OntoImportError(f"Circular nested reference at {iri!r}")
+    visited.add(iri)
 
     subject = NamedNode(iri)
     _validate_type(graph, subject, entity_type, reg)
@@ -174,6 +191,7 @@ def graph_to_instance(
                 nmap.nested_mapper,
                 iri=nested_iri,
                 registry=reg,
+                _visited=visited,
             )
         else:
             fields[field_name] = None

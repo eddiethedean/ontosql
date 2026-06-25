@@ -123,3 +123,18 @@ def sync_instance_to_store(
         return target
 
     return target
+
+
+def remove_instance_from_store(
+    instance: OntoModel,
+    target: Store,
+    *,
+    registry: PrefixRegistry | None = None,
+    mapper_cls: type[Any] | None = None,
+) -> Store:
+    """Remove all triples for subjects exported from a semantic instance."""
+    reg = _resolve_registry(instance, registry)
+    subgraph = instance_to_graph(instance, registry=reg)
+    for subject_iri in _subjects_in_graph(subgraph):
+        _remove_all_subject_triples(target, subject_iri)
+    return target

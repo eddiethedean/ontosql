@@ -30,9 +30,11 @@ class SessionBase:
         identity = getattr(instance, mapper_cls.identity_field, None)
         if identity is None:
             return True
+        entity_type = type(instance)
+        key = (entity_type, identity)
         return not (
-            id(instance) in self._state.snapshots
-            or self._state.get_cached(type(instance), identity) is not None
+            key in self._state.snapshots
+            or self._state.get_cached(entity_type, identity) is not None
         )
 
     def expire(self, entity_type: type[Any], *, id: Any) -> None:

@@ -35,6 +35,12 @@ class StoreSyncTarget:
                 self._store.add(triple)
 
 
+def _target_store(target: GraphSyncTarget | Store) -> Store:
+    if isinstance(target, Store):
+        return target
+    return target.graph
+
+
 def push_instance(
     instance: OntoModel,
     target: GraphSyncTarget | Store,
@@ -44,32 +50,33 @@ def push_instance(
     registry: Any | None = None,
 ) -> None:
     """Push a semantic instance into a graph sync target."""
-    if isinstance(target, Store):
-        sync_instance_to_store(
-            instance,
-            target,
-            mode=mode,
-            mapper_cls=mapper_cls,
-            registry=registry,
-        )
-        return
+    from ontosql.sync.graph import sync_instance_to_store
 
-    scratch = Store()
     sync_instance_to_store(
         instance,
-        scratch,
+        _target_store(target),
         mode=mode,
         mapper_cls=mapper_cls,
         registry=registry,
     )
-    from triplemodel.store.terms import term_str
 
-    remove_store = Store()
-    subjects = {term_str(t[0]) for t in scratch}
-    for triple in target.graph:
-        if term_str(triple[0]) in subjects:
-            remove_store.add(triple)
-    target.update_graph(add=scratch, remove=remove_store)
+
+def remove_instance(
+    instance: OntoModel,
+    target: GraphSyncTarget | Store,
+    *,
+    mapper_cls: type[Any] | None = None,
+    registry: Any | None = None,
+) -> None:
+    """Remove an instance subgraph from a graph sync target."""
+    from ontosql.sync.graph import remove_instance_from_store
+
+    remove_instance_from_store(
+        instance,
+        _target_store(target),
+        mapper_cls=mapper_cls,
+        registry=registry,
+    )
 
 
 def replace_subject(
@@ -95,6 +102,7 @@ __all__ = [
     "StoreSyncTarget",
     "patch_subject",
     "push_instance",
+    "remove_instance",
     "replace_subject",
     "sync_instance_to_store",
 ]

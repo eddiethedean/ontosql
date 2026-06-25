@@ -29,14 +29,20 @@ def hybrid_setup(sync_engine):
         yield sql_session, graph_session
 
 
-def test_save_pushes_to_sparql_session(hybrid_setup) -> None:
-    sql_session, graph_session = hybrid_setup
-    person = Person(
-        id=60,
-        name="Graph Sync Person",
-        employer=Organization(id=10, name="Analytical Engines Inc."),
-    )
-    saved = sql_session.save(person)
+def test_save_pushes_to_sparql_session(sync_engine) -> None:
+    graph_session = SPARQLSession()
+    with OntoSession(
+        sync_engine,
+        maps=[PersonMap, OrganizationMap],
+        graph_sync=graph_session._store,
+        graph_sync_mode="replace",
+    ) as sql_session:
+        person = Person(
+            id=60,
+            name="Graph Sync Person",
+            employer=Organization(id=10, name="Analytical Engines Inc."),
+        )
+        saved = sql_session.save(person)
     sync = OntoGraphSync(graph_session, maps=[PersonMap, OrganizationMap])
     iri = sync.instance_iri(saved)
     reg = PrefixRegistry()
