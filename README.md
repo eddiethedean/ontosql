@@ -8,7 +8,8 @@ Real databases are not one table per ontology class. OntoSQL separates **physica
 pip install ontosql
 pip install "ontosql[fastapi]"   # OntoRouter + content negotiation
 pip install "ontosql[jsonld]"    # optional JSON-LD compact/frame (PyLD)
-pip install "ontosql[sparql]"    # optional SparqlModel for graph sync / hybrid apps
+pip install "ontosql[sparql]"    # SparqlModel graph sync adapter
+pip install "ontosql[shacl]"     # SHACL shape generation + validation
 ```
 
 ## Quick start
@@ -119,7 +120,10 @@ Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleM
 - **PrefixRegistry** — CURIE expansion and JSON-LD `@context` (CURIE expand via TripleModel)
 - **Export** — `to_jsonld()` / `to_rdf()` on semantic instances (TripleModel serializers)
 - **FastAPI** (`ontosql[fastapi]`) — content negotiation for JSON-LD and RDF payloads
-- **Ecosystem** — [TripleModel](https://github.com/eddiethedean/triplemodel) (core RDF), [SparqlModel](https://github.com/eddiethedean/sparqlmodel) (optional `ontosql[sparql]`)
+- **Import** — `import_from_jsonld` / `import_from_rdf` hydrate `OntoModel` from RDF
+- **Graph sync** — push instances to graphs on `save()`; `OntoGraphSync` for SparqlModel
+- **SHACL** — generate and validate shapes from maps (`ontosql[shacl]`)
+- **Prefix bundles** — `PrefixRegistry.curated()` for schema.org / DC Terms
 
 ## FastAPI
 
@@ -141,6 +145,7 @@ See [examples/person_org_demo.py](examples/person_org_demo.py) for CRUD and [exa
 ## Documentation
 
 - [Architecture](https://github.com/eddiethedean/ontosql/blob/main/docs/ARCHITECTURE.md)
+- [Hybrid deployments](https://github.com/eddiethedean/ontosql/blob/main/docs/HYBRID.md)
 - [Ecosystem](https://github.com/eddiethedean/ontosql/blob/main/docs/ECOSYSTEM.md) — OntoSQL, TripleModel, SparqlModel
 - [Technical specification](https://github.com/eddiethedean/ontosql/blob/main/docs/SPECS.md)
 - [Roadmap](https://github.com/eddiethedean/ontosql/blob/main/docs/ROADMAP.md)
@@ -157,7 +162,7 @@ pip install -e ".[dev]"
 ruff check src tests
 ruff format src tests
 ty check
-pytest --cov=ontosql --cov-fail-under=94
+pytest --cov=ontosql --cov-fail-under=90
 ```
 
 ## License

@@ -61,6 +61,9 @@ def _update_identity(plan: WritePlan) -> Any:
 
 def execute_write_plan(session: Any, plan: WritePlan) -> Any:
     """Execute a WritePlan synchronously; returns root identity value after insert."""
+    for _, delete_plan in plan.nested_deletes:
+        execute_delete_plan(session, delete_plan)
+
     fk_updates = dict(plan.fk_updates)
     for field_name, nested in plan.nested:
         nested_id = execute_write_plan(session, nested)
@@ -95,6 +98,9 @@ def execute_delete_plan(session: Any, plan: DeletePlan) -> None:
 
 async def async_execute_write_plan(session: AsyncSession, plan: WritePlan) -> Any:
     """Execute a WritePlan on an AsyncSession."""
+    for _, delete_plan in plan.nested_deletes:
+        await async_execute_delete_plan(session, delete_plan)
+
     fk_updates = dict(plan.fk_updates)
     for field_name, nested in plan.nested:
         nested_id = await async_execute_write_plan(session, nested)

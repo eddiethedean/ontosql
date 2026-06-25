@@ -1,6 +1,6 @@
 # OntoSQL Technical Specification
 
-API contract for **ontosql 0.3.1**. Sections marked *planned* are on the [roadmap](ROADMAP.md).
+API contract for **ontosql 0.4.0**. Sections marked *planned* are on the [roadmap](ROADMAP.md).
 
 ## Overview
 
@@ -22,7 +22,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 | **0.2.0** | Mapper registry, `get` / `find`, semantic filters, `PrefixRegistry` |
 | **0.2.x** | Export (`to_jsonld` / `to_rdf`); export polish via TripleModel APIs |
 | **0.3.0** | `save` / `delete`, cascade policies, partial updates, `OntoRouter`, OpenAPI |
-| **0.4** | RDF import, graph sync (`ontosql[sparql]`), SHACL from maps |
+| **0.4.0** | RDF import, graph sync, SHACL, `REPLACE` cascade, prefix bundles |
 | **0.5** | Advanced mapper patterns, batch export, dialect / performance |
 | **0.6** | Aggregations, extended filters, `explain`, mapper lint |
 | **0.7** | Bulk write, observability, read-replica routing, production guides |
@@ -125,12 +125,12 @@ Nested `save` behavior is **explicit** on `Map.nested`:
 |--------|----------|
 | `link` | Update FK only; nested row must exist |
 | `upsert` | Insert or update nested entity |
-| `replace` | **Reserved (0.3.x):** behaves identically to `upsert`; distinct replace semantics planned for 0.4 |
+| `replace` | On update: delete old nested row when FK changes or nested becomes `None`; then upsert new nested (0.4.0) |
 | `ignore` | Do not persist nested changes |
 
 Default for new maps: `link` (fail closed on ambiguous graphs).
 
-> **0.3.x note:** Do not rely on `CascadePolicy.REPLACE` to delete or detach an old nested row — it currently compiles and executes the same path as `UPSERT`. Use explicit `delete()` on nested entities or wait for 0.4 replace semantics.
+> **REPLACE note:** Deletes the previous nested entity referenced by the session snapshot when the association changes. Do not use `REPLACE` for nested rows shared across multiple parents — use `LINK` or `IGNORE`.
 
 ### Registry
 
@@ -167,6 +167,11 @@ async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as sessio
 | `paginate(...)` | 0.3.0 | `Page` with optional total count |
 | `execute_sql(...)` | 0.2.0 | Escape hatch for raw SQL |
 
+Optional constructor arguments (0.4.0):
+
+- `graph_sync` — target with `graph` and `update_graph(add=, remove=)`; pushes after `save()`
+- `graph_sync_mode` — `"patch"` (default), `"replace"`, or `"add"`
+
 - Transactions: one transaction per context manager; rollback on exception.
 - Identity map for repeated `get` in one session (0.3.0).
 
@@ -190,8 +195,9 @@ CURIE and JSON-LD context utilities backed by semantic/map metadata:
 - CURIE `compact` — longest-prefix match (OntoSQL-local)
 - JSON-LD `@context` via `context_dict()`
 - Copy-on-write `with_prefix`, `freeze()`
+- `PrefixRegistry.curated(bundle)` — `"schema_org"` or `"dcterms"` vocabulary bundles (0.4.0)
 
-Used by session (IRI resolution), export, and FastAPI responses.
+Used by session (IRI resolution), export, import, sync, and FastAPI responses.
 
 ---
 
@@ -214,9 +220,75 @@ Module-level helpers: `ontosql.export.instance_to_jsonld`, `instance_to_rdf`, `i
 
 TripleModel remains an implementation detail for most apps; users call `to_jsonld()` / `to_rdf()` on semantic instances.
 
-### Optional SparqlModel integration (`ontosql[sparql]`)
+Export honors `onto_property(datatype=..., language=...)` on literals (0.4.0).
 
-For graph sync and hybrid architectures, SparqlModel provides `SPARQLSession` and SPARQL query compilation over the same TripleModel graph engine. See [ECOSYSTEM.md](ECOSYSTEM.md).
+---
+
+## Import (0.4.0)
+
+Module: `ontosql.import_` (note trailing underscore — `import` is a Python keyword).
+
+```python
+from ontosql.import_ import import_from_jsonld, import_from_rdf, graph_to_instance
+
+restored = import_from_jsonld(doc, PersonMap)
+restored = import_from_rdf(turtle_bytes, PersonMap, format="turtle")
+```
+
+```python
+person = Person.from_jsonld(doc, mapper=PersonMap)
+```
+
+Hydration uses **mapper metadata** (`Map.property`, `Map.nested`, `type_iri`, `iri_template`). Raises `OntoImportError` on type mismatch or ambiguous subjects.
+
+---
+
+## Graph sync (0.4.0)
+
+Module: `ontosql.sync`
+
+```python
+from ontosql.sync import push_instance, StoreSyncTarget, replace_subject, patch_subject
+from ontosql.sync.graph import sync_instance_to_store
+from ontosql.sync.materialize import materialize_find, materialize_entity
+```
+
+| API | Description |
+|-----|-------------|
+| `push_instance(instance, target, *, mode="patch")` | Push instance subgraph to a `Store` or `GraphSyncTarget` |
+| `sync_instance_to_store(instance, store, *, mode, mapper_cls)` | Lower-level; mutates a `Store` in place |
+| `StoreSyncTarget` | In-memory target wrapping a `Store` |
+| `materialize_find(session, entity_type, ...)` | Merge `find()` results into one `Store` |
+| `materialize_entity(instance)` | Single-instance graph |
+
+Modes: `add` (append), `replace` (remove subject triples then add), `patch` (owned-predicate diff).
+
+### SparqlModel adapter (`ontosql[sparql]`)
+
+```python
+from ontosql.sync.sparql import OntoGraphSync
+
+sync = OntoGraphSync(sparql_session, maps=[PersonMap], mode="patch")
+sync.push(person)
+restored = sync.pull(Person, iri="https://data.example.org/person/1")
+```
+
+See [HYBRID.md](HYBRID.md) for deployment patterns.
+
+---
+
+## SHACL (0.4.0, `ontosql[shacl]`)
+
+Module: `ontosql.shacl`
+
+```python
+from ontosql.shacl import shapes_from_mapper, shapes_from_mappers, validate_instance
+
+shapes = shapes_from_mapper(PersonMap)
+report = validate_instance(person, PersonMap)  # report.conforms, report.message
+```
+
+Generates `sh:NodeShape` / `sh:PropertyShape` from `OntoMapper` and field types. Validation uses pySHACL.
 
 ---
 
@@ -248,10 +320,10 @@ return negotiate_onto_response(request, semantic_instance)
 |-----|--------|
 | No auth | All CRUD routes are unauthenticated unless the host app adds middleware or dependencies |
 | No body validation | POST/PATCH handlers use `model_construct` / raw JSON — no Pydantic `model_validate` |
-| Sync session in async handlers | Blocking I/O under load; use app-level async session wiring in 0.4 |
+| Sync session in async handlers | Blocking I/O under load; use `AsyncOntoSession` with app-level wiring |
 | List `limit` | Capped at 100 (0.3.1+); still runs find + count per list request |
 
-Before production: wire auth dependencies, validate bodies with generated Pydantic models, and restrict mount paths. Full validation and async router variants are planned for 0.4.
+Before production: wire auth dependencies, validate bodies with generated Pydantic models, and restrict mount paths.
 
 ---
 
@@ -266,6 +338,9 @@ src/ontosql/
   session/        # OntoSession, AsyncOntoSession, pagination
   query/          # semantic expressions, FieldPath
   export/         # instance export (TripleModel) + jsonld helpers
+  import_/        # RDF import into OntoModel (0.4.0)
+  sync/           # graph sync, materialize, SparqlModel adapter (0.4.0)
+  shacl/          # shape generation + validation (0.4.0)
   registry.py     # PrefixRegistry
   fastapi/
     deps.py
@@ -294,12 +369,13 @@ Do **not**:
 - Pythonic models first — semantic types are what you import in app code
 - Explicit over magical — maps are reviewable data
 - SQL is compiled, not hand-written for the happy path
-- Standards compliance for **export** (JSON-LD, RDF); SHACL validation planned
-- Progressive enhancement via optional extras (`fastapi`, future `shacl`, `jsonld`)
+- Standards compliance for **export** and **import** (JSON-LD, RDF); SHACL validation via `ontosql[shacl]`
+- Progressive enhancement via optional extras (`fastapi`, `shacl`, `jsonld`, `sparql`)
 
 ## Related documents
 
 - [ECOSYSTEM.md](ECOSYSTEM.md)
+- [HYBRID.md](HYBRID.md)
 - [ARCHITECTURE.md](ARCHITECTURE.md)
 - [ROADMAP.md](ROADMAP.md)
 - [DEPS.md](DEPS.md)

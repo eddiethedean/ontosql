@@ -35,6 +35,22 @@ class OntoModel(BaseModel, metaclass=OntoModelMeta):
 
         return instance_to_rdf(self, format=format, registry=registry)
 
+    @classmethod
+    def from_jsonld(
+        cls,
+        doc: dict[str, Any],
+        *,
+        mapper: type[Any],
+        registry: PrefixRegistry | None = None,
+    ) -> OntoModel:
+        """Hydrate an instance from a JSON-LD document using a mapper."""
+        from ontosql.import_ import import_from_jsonld
+
+        instance = import_from_jsonld(doc, mapper, registry=registry)
+        if not isinstance(instance, cls):
+            raise TypeError(f"Expected {cls.__name__}, got {type(instance).__name__}")
+        return instance
+
 
 def onto_property(
     curie: str,

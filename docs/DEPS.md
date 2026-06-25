@@ -76,10 +76,10 @@ See [SPECS.md](SPECS.md#fastapi-ontosqlfastapi) for production limitations of `O
 
 ## Semantic validation (future extra)
 
-### pySHACL
+### pySHACL (`ontosql[shacl]`)
 
 - Validate graphs generated from maps + session
-- Planned for 0.4 (`ontosql[shacl]`)
+- `validate_instance()` in `ontosql.shacl`
 
 ## Graph database integrations (future)
 
@@ -130,6 +130,7 @@ Not committed until graph sync adapters are specified in [ROADMAP.md](ROADMAP.md
 fastapi = ["fastapi>=0.100", "orjson>=3.9"]
 jsonld = ["PyLD>=3.0"]
 sparql = ["sparqlmodel>=0.13.1"]
+shacl = ["pyshacl>=0.29"]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
@@ -143,11 +144,9 @@ dev = [
     "aiosqlite>=0.20",
     "greenlet>=3.0",
     "PyLD>=3.0",
+    "pyshacl>=0.29",
+    "sparqlmodel>=0.13.1",
 ]
-# Planned extras:
-# shacl = ["pySHACL"]
-# graphdb = ["neo4j"]
-# ai = ["instructor", "pydantic-ai"]
 ```
 
 Install examples:
@@ -157,6 +156,7 @@ pip install ontosql
 pip install ontosql[fastapi]
 pip install ontosql[jsonld]
 pip install ontosql[sparql]
+pip install ontosql[shacl]
 pip install -e ".[dev]"
 ```
 
@@ -192,11 +192,11 @@ flowchart LR
 - FastAPI + orjson
 - SparqlModel (hybrid SQL + graph)
 - PyLD (framing)
-- pySHACL (validation — planned)
+- pySHACL (validation — `ontosql[shacl]`)
 
 **Highest long-term opportunities:**
 
-- OntoSQL ↔ SparqlModel graph sync
+- OntoSQL ↔ SparqlModel graph sync (shipped in 0.4.0)
 - PydanticAI / Instructor
 - Graph DB adapters
 - Polars for ETL pipelines over semantic rows

@@ -22,7 +22,22 @@ async def test_async_save_insert(async_engine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_delete(async_engine) -> None:
+async def test_async_graph_sync_on_save(async_engine) -> None:
+    from ontosql import AsyncOntoSession
+    from ontosql.sync import StoreSyncTarget
+    from tests.models import OrganizationMap, PersonMap
+
+    target = StoreSyncTarget()
+    async with AsyncOntoSession(
+        async_engine,
+        maps=[PersonMap, OrganizationMap],
+        graph_sync=target,
+        graph_sync_mode="replace",
+    ) as session:
+        person = Person(id=55, name="Async Sync", employer=None)
+        await session.save(person)
+    assert len(target.graph) > 0
+
     from ontosql import AsyncOntoSession
     from tests.models import OrganizationMap, PersonMap
 

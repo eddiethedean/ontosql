@@ -15,6 +15,15 @@ DEFAULT_PREFIXES: dict[str, str] = {
     "sh": "http://www.w3.org/ns/shacl#",
 }
 
+CURATED_PREFIXES: dict[str, dict[str, str]] = {
+    "schema_org": dict(DEFAULT_PREFIXES),
+    "dcterms": {
+        **DEFAULT_PREFIXES,
+        "dcterms": "http://purl.org/dc/terms/",
+        "dc": "http://purl.org/dc/elements/1.1/",
+    },
+}
+
 
 class PrefixRegistry:
     """Manage namespace prefixes for CURIEs and JSON-LD contexts."""
@@ -32,6 +41,23 @@ class PrefixRegistry:
             self._prefixes.update(prefixes)
         self._vocab: str | None = vocab
         self._frozen = False
+
+    @classmethod
+    def curated(
+        cls,
+        bundle: str = "schema_org",
+        *,
+        extra: dict[str, str] | None = None,
+        vocab: str | None = None,
+    ) -> PrefixRegistry:
+        """Build a registry from a curated vocabulary bundle."""
+        if bundle not in CURATED_PREFIXES:
+            known = sorted(CURATED_PREFIXES)
+            raise KeyError(f"Unknown prefix bundle {bundle!r}; choose from {known}")
+        prefixes = dict(CURATED_PREFIXES[bundle])
+        if extra:
+            prefixes.update(extra)
+        return cls(prefixes, vocab=vocab)
 
     def with_prefix(self, prefix: str, iri: str) -> PrefixRegistry:
         """Return a new registry with an additional prefix (copy-on-write)."""

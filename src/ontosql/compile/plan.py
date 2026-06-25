@@ -55,6 +55,7 @@ class WritePlan:
     operation: Literal["insert", "update"]
     root: TableWrite
     nested: list[tuple[str, WritePlan]] = field(default_factory=list)
+    nested_deletes: list[tuple[str, DeletePlan]] = field(default_factory=list)
     fk_updates: dict[str, Any] = field(default_factory=dict)
 
 

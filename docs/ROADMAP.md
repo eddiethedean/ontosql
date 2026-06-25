@@ -8,6 +8,22 @@ OntoSQL is the **operational semantic layer** for Python apps on SQL: define rel
 
 OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethedean/triplemodel) and aligns with [SparqlModel](https://github.com/eddiethedean/sparqlmodel) for graph-native workloads — see [ECOSYSTEM.md](ECOSYSTEM.md).
 
+## Shipped (0.4.0)
+
+| Area | Status |
+|------|--------|
+| RDF import (`ontosql.import_`) | Shipped |
+| Graph sync (`ontosql.sync`) + session `graph_sync` hook | Shipped |
+| `OntoGraphSync` SparqlModel adapter (`ontosql[sparql]`) | Shipped |
+| Materialized graph views (`materialize_find`, `materialize_entity`) | Shipped |
+| SHACL generation + validation (`ontosql[shacl]`) | Shipped |
+| `CascadePolicy.REPLACE` distinct semantics | Shipped |
+| `PrefixRegistry.curated()` bundles | Shipped |
+| Export literal `datatype` / `language` | Shipped |
+| [HYBRID.md](HYBRID.md) deployment guide | Shipped |
+
+---
+
 ## Shipped (0.3.1)
 
 | Area | Status |
@@ -99,33 +115,26 @@ OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethe
 
 ---
 
-## v0.4 — Validation and graph interoperability
+---
+
+## v0.4 — Validation and graph interoperability (shipped in 0.4.0)
 
 **Theme:** Close the loop between SQL operational stores and RDF graphs.
 
-### Planned
+### Shipped
 
-#### RDF import and sync
+- **RDF import** — `import_from_jsonld`, `import_from_rdf`, `graph_to_instance` via mapper metadata
+- **Graph sync** — `push_instance`, `sync_instance_to_store`, `OntoSession(graph_sync=...)`
+- **SparqlModel adapter** — `OntoGraphSync` push/pull (`ontosql[sparql]`)
+- **Materialized views** — `materialize_find`, `materialize_entity`
+- **SHACL** — `shapes_from_mapper`, `validate_instance` (`ontosql[shacl]`)
+- **Prefix bundles** — `PrefixRegistry.curated("schema_org" | "dcterms")`
+- **`CascadePolicy.REPLACE`** — delete old nested row on association change
 
-- **RDF import** — hydrate `OntoModel` instances from JSON-LD / Turtle (via TripleModel reverse import ([#20](https://github.com/eddiethedean/triplemodel/issues/20)))
-- **Graph sync adapters** — push/pull between `OntoSession` and `SPARQLSession` (`ontosql[sparql]`)
-- **Incremental sync** — subject-scoped graph diff on `save` ([#23](https://github.com/eddiethedean/triplemodel/issues/23))
-- **SPARQL endpoint helpers** — read-only materialized views of exported graphs
-
-#### Validation and shapes
-
-- **SHACL generation** — `NodeShape`s from maps and semantic field types ([#21](https://github.com/eddiethedean/triplemodel/issues/21))
-- **`ontosql[shacl]` extra** — optional pySHACL validation of exported graphs
-
-#### Ecosystem alignment
-
-- **Shared prefix bundles** — adopt TripleModel curated vocab defaults ([#24](https://github.com/eddiethedean/triplemodel/issues/24))
-- **Hybrid deployment guide** — SQL system of record + SparqlModel metadata graph
-
-### Success criteria
+### Success criteria (met)
 
 - Export → import preserves `@id`, `@type`, and mapped properties for Person / Organization
-- `OntoSession.save()` can push a semantic instance to an in-memory `SPARQLSession` with matching IRIs
+- `OntoSession.save()` can push to an in-memory `SPARQLSession` with matching IRIs
 - SHACL shapes validate graphs produced by session + export
 
 ---

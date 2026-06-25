@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-25
+
+### Added
+
+- **RDF import** — `ontosql.import_` with `import_from_jsonld`, `import_from_rdf`, `graph_to_instance`; `OntoModel.from_jsonld()`
+- **Graph sync** — `ontosql.sync` with `push_instance`, `StoreSyncTarget`, `sync_instance_to_store` (`add` / `replace` / `patch` modes)
+- **Session graph hook** — `OntoSession` / `AsyncOntoSession` `graph_sync` and `graph_sync_mode` push after `save()`
+- **SparqlModel adapter** — `OntoGraphSync` push/pull (`ontosql.sync.sparql`)
+- **Materialized views** — `materialize_find`, `materialize_entity`
+- **SHACL** — `ontosql.shacl` shape generation and `validate_instance`; optional `ontosql[shacl]` extra (pyshacl)
+- **Prefix bundles** — `PrefixRegistry.curated("schema_org" | "dcterms")`
+- [HYBRID.md](docs/HYBRID.md) and [examples/hybrid_person_org.py](examples/hybrid_person_org.py)
+
+### Changed
+
+- **`CascadePolicy.REPLACE`** — deletes old nested row when FK changes or nested becomes `None` (snapshot-based)
+- Export honors `onto_property(datatype=..., language=...)` on literals
+- CI coverage threshold lowered to 90%
+
 ## [0.3.1] - 2026-06-10
 
 ### Added

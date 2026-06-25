@@ -45,11 +45,24 @@ def _predicate_iri(
     return None
 
 
-def _literal_object(value: Any) -> Literal | NamedNode:
+def _literal_object(
+    value: Any,
+    *,
+    registry: PrefixRegistry,
+    meta: dict[str, Any] | None = None,
+) -> Literal | NamedNode:
     if isinstance(value, str) and ("://" in value or value.startswith("urn:")):
         return NamedNode(value)
     if isinstance(value, bool):
         return Literal(value)
+    datatype = meta.get("datatype") if meta else None
+    language = meta.get("language") if meta else None
+    if datatype is not None:
+        is_curie = ":" in datatype and "://" not in datatype
+        dt_iri = registry.expand(datatype) if is_curie else datatype
+        return Literal(str(value), datatype=NamedNode(dt_iri))
+    if language is not None:
+        return Literal(str(value), language=language)
     return Literal(str(value))
 
 
@@ -95,6 +108,7 @@ def _write_instance(
         if predicate is None:
             continue
         pred_node = NamedNode(predicate)
+        field_meta = get_onto_property_meta(model_cls, field_name)
 
         if isinstance(value, OntoModel):
             nested_iri = _write_instance(graph, value, registry, visited=visited)
@@ -105,9 +119,12 @@ def _write_instance(
                     nested_iri = _write_instance(graph, item, registry, visited=visited)
                     graph.add((subject, pred_node, NamedNode(nested_iri)))
                 elif item is not None:
-                    graph.add((subject, pred_node, _literal_object(item)))
+                    lit = _literal_object(item, registry=registry, meta=field_meta)
+                    graph.add((subject, pred_node, lit))
         else:
-            graph.add((subject, pred_node, _literal_object(value)))
+            graph.add(
+                (subject, pred_node, _literal_object(value, registry=registry, meta=field_meta))
+            )
 
     return subject_iri
 

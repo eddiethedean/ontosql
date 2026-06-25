@@ -15,6 +15,7 @@ from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session.base import SessionBase
 from ontosql.session.hydrate import hydrate_first, hydrate_row
+from ontosql.sync.graph import GraphSyncMode
 
 
 def _count_scalar(row: Any) -> int:
@@ -34,11 +35,15 @@ class OntoSession(SessionBase):
         maps: list[type[Any]] | None = None,
         *,
         registry: MapperRegistry | None = None,
+        graph_sync: Any | None = None,
+        graph_sync_mode: GraphSyncMode = "patch",
     ) -> None:
         super().__init__(maps, registry=registry)
         self._engine = engine
         self._session = Session(engine)
         self._owns_commit = True
+        self._graph_sync = graph_sync
+        self._graph_sync_mode = graph_sync_mode
 
     def __enter__(self) -> OntoSession:
         return self
@@ -116,6 +121,18 @@ class OntoSession(SessionBase):
         result = self._session.exec(stmt).one()
         return _count_scalar(result)
 
+    def _push_graph_sync(self, instance: OntoModel) -> None:
+        if self._graph_sync is None:
+            return
+        from ontosql.sync import push_instance
+
+        push_instance(
+            instance,
+            self._graph_sync,
+            mode=self._graph_sync_mode,
+            mapper_cls=self._mapper_for(type(instance)),
+        )
+
     def save(self, instance: OntoModel, *, flush: bool = True) -> OntoModel:
         mapper_cls = self._mapper_for(type(instance))
         is_new = self._is_new_instance(mapper_cls, instance)
@@ -124,6 +141,7 @@ class OntoSession(SessionBase):
             instance,
             partial_fields=instance.model_fields_set if not is_new else None,
             is_new=is_new,
+            snapshot=self._state.snapshots.get(id(instance)),
         )
         if flush:
             inserted_id = self._execute_write(plan)
@@ -135,7 +153,9 @@ class OntoSession(SessionBase):
             if identity is not None:
                 reloaded = self.get(type(instance), id=identity)
                 if reloaded is not None:
+                    self._push_graph_sync(reloaded)
                     return reloaded
+            self._push_graph_sync(instance)
             return instance
         self._state.pending.append(plan)
         return instance

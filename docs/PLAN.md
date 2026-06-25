@@ -33,22 +33,21 @@ Real platforms have legacy schemas, bridge tables, and multiple views of the sam
 - Government and defense metadata systems
 - Research and biomedical platforms with ontology constraints
 
-## Current scope (0.3.1)
+## Current scope (0.4.0)
 
-Version 0.3.1 is the current release (patch on 0.3.0):
+Version 0.4.0 adds graph interoperability on top of 0.3.x:
 
-- `OntoModel` and `onto_property` (semantic layer)
-- `OntoMapper`, `Map`, `Map.nested`, `CascadePolicy` (mapping layer)
-- `OntoSession` and `AsyncOntoSession` full CRUD: `get`, `find`, `save`, `delete`, `paginate`
-- Identity map, partial updates, nested write cascades
-- Semantic query expressions with nested `FieldPath`, `contains` / `endswith`
-- `PrefixRegistry` (IRI and JSON-LD context; CURIE expand via TripleModel)
-- `to_jsonld()` / `to_rdf()` export on semantic instances (TripleModel)
-- `OntoRouter` and content negotiation (`ontosql[fastapi]`)
-- Optional `ontosql[jsonld]` and `ontosql[sparql]` extras
-- Architecture, ecosystem, and specification documentation
+- RDF import (`ontosql.import_`)
+- Graph sync (`ontosql.sync`) with optional `graph_sync` session hook
+- `OntoGraphSync` SparqlModel adapter (`ontosql[sparql]`)
+- SHACL generation and validation (`ontosql[shacl]`)
+- `CascadePolicy.REPLACE` semantics
+- `PrefixRegistry.curated()` bundles
+- [HYBRID.md](HYBRID.md) deployment guide
 
-Next milestones: export polish (0.2.x patches), RDF import and graph sync (0.4) — see [ROADMAP.md](ROADMAP.md).
+Prior releases (0.3.x) shipped full CRUD, `OntoRouter`, export, and semantic queries — see [ROADMAP.md](ROADMAP.md).
+
+Next milestones: advanced maps and scale (0.5) — see [ROADMAP.md](ROADMAP.md).
 
 ## Non-goals
 
@@ -69,7 +68,7 @@ Next milestones: export polish (0.2.x patches), RDF import and graph sync (0.4) 
 | RDF / export | TripleModel (core), pyoxigraph |
 | Graph ORM (optional) | SparqlModel (`ontosql[sparql]`) |
 | API | FastAPI (optional extra) |
-| Validation (future) | pySHACL |
+| Validation | pySHACL (`ontosql[shacl]`) |
 | HTTP (tests) | httpx |
 | Typing | typing_extensions |
 
@@ -81,7 +80,7 @@ Next milestones: export polish (0.2.x patches), RDF import and graph sync (0.4) 
 | **0.2.x** | Export polish (TripleModel ecosystem APIs) |
 | **0.3.1** | Test hardening, PyPI release workflow, delete safety guard |
 | **0.3.0** | Write path (`save` / `delete`), `OntoRouter`, OpenAPI |
-| **0.4** | RDF import, graph sync (`ontosql[sparql]`), SHACL |
+| **0.4.0** | RDF import, graph sync, SHACL, REPLACE cascade |
 | **0.5** | Advanced maps, batch export, scale |
 | **0.6** | Query power, `explain`, mapper lint |
 | **0.7** | Bulk write, observability, production FastAPI patterns |

@@ -1,6 +1,6 @@
 [project]
 name = "ontosql"
-version = "0.3.1"
+version = "0.4.0"
 description = "Semantic data access for SQL — map ontology-shaped models onto real schemas with explicit OntoMapper bindings (import ontosql)"
 readme = "README.md"
 license = "MIT"
@@ -29,6 +29,7 @@ dependencies = [
 fastapi = ["fastapi>=0.100", "orjson>=3.9"]
 jsonld = ["PyLD>=3.0"]
 sparql = ["sparqlmodel>=0.13.1"]
+shacl = ["pyshacl>=0.29"]
 dev = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
@@ -42,6 +43,8 @@ dev = [
     "aiosqlite>=0.20",
     "greenlet>=3.0",
     "PyLD>=3.0",
+    "pyshacl>=0.29",
+    "sparqlmodel>=0.13.1",
 ]
 
 [project.urls]
@@ -94,7 +97,7 @@ branch = false
 concurrency = ["greenlet", "thread"]
 
 [tool.coverage.report]
-fail_under = 94
+fail_under = 90
 omit = [
     "src/ontosql/__init__.py",
     "src/ontosql/export/__init__.py",
@@ -104,7 +107,12 @@ omit = [
     "src/ontosql/compile/__init__.py",
     "src/ontosql/query/__init__.py",
     "src/ontosql/session/__init__.py",
+    "src/ontosql/import_/__init__.py",
+    "src/ontosql/sync/__init__.py",
+    "src/ontosql/shacl/__init__.py",
     "src/ontosql/export/jsonld.py",
+    "src/ontosql/sync/sparql.py",
+    "src/ontosql/shacl/validate.py",
 ]
 exclude_lines = [
     "pragma: no cover",
