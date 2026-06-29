@@ -55,6 +55,9 @@ nav:
       - Async sessions: getting-started/async.md
   - Guides:
       - Cascade policies: guides/cascade-policies.md
+      - Bridge tables: guides/bridge-tables.md
+      - Multi-map views: guides/multi-map-views.md
+      - Postgres dialect: guides/postgres-dialect.md
       - Hybrid SQL + graph: HYBRID.md
       - FAQ: FAQ.md
       - Troubleshooting: TROUBLESHOOTING.md

@@ -66,6 +66,17 @@ def _literal_object(
     return Literal(str(value))
 
 
+def write_instance_to_graph(
+    graph: Store,
+    instance: OntoModel,
+    registry: PrefixRegistry,
+    *,
+    visited: set[int] | None = None,
+) -> str:
+    """Write one semantic instance subgraph into an existing Store."""
+    return _write_instance(graph, instance, registry, visited=visited or set())
+
+
 def instance_to_graph(
     instance: OntoModel,
     *,
@@ -76,8 +87,77 @@ def instance_to_graph(
     reg = _resolve_registry(instance, registry)
     graph = Store()
     bind_namespaces(graph, reg.prefixes())
-    _write_instance(graph, instance, reg, visited=visited or set())
+    write_instance_to_graph(graph, instance, reg, visited=visited)
     return graph
+
+
+def _resolve_batch_registry(
+    instances: list[OntoModel],
+    registry: PrefixRegistry | None,
+) -> PrefixRegistry:
+    if registry is not None:
+        return registry
+    for instance in instances:
+        model_registry = type(instance).registry
+        if model_registry is not None:
+            return model_registry
+    return PrefixRegistry()
+
+
+def instances_to_graph(
+    instances: list[OntoModel],
+    *,
+    registry: PrefixRegistry | None = None,
+    visited: set[int] | None = None,
+) -> Store:
+    """Build a single Store from many semantic instances (shared visited set)."""
+    if not instances:
+        graph = Store()
+        reg = registry or PrefixRegistry()
+        bind_namespaces(graph, reg.prefixes())
+        return graph
+    reg = _resolve_batch_registry(instances, registry)
+    graph = Store()
+    bind_namespaces(graph, reg.prefixes())
+    seen = visited if visited is not None else set()
+    for instance in instances:
+        write_instance_to_graph(graph, instance, reg, visited=seen)
+    return graph
+
+
+def _graph_to_jsonld_doc(graph: Store, registry: PrefixRegistry) -> dict[str, Any]:
+    payload = json.loads(graph.serialize(format="json-ld"))
+    if isinstance(payload, list) and len(payload) == 1:
+        doc: dict[str, Any] = dict(payload[0])
+    elif isinstance(payload, dict):
+        doc = dict(payload)
+    else:
+        doc = {"@graph": payload}
+    doc["@context"] = registry.context_dict()
+    return doc
+
+
+def instances_to_jsonld(
+    instances: list[OntoModel],
+    *,
+    registry: PrefixRegistry | None = None,
+) -> dict[str, Any]:
+    """Serialize many semantic instances to one JSON-LD document dict."""
+    reg = _resolve_batch_registry(instances, registry)
+    graph = instances_to_graph(instances, registry=reg)
+    return _graph_to_jsonld_doc(graph, reg)
+
+
+def instances_to_rdf(
+    instances: list[OntoModel],
+    *,
+    format: str = "turtle",
+    registry: PrefixRegistry | None = None,
+) -> str:
+    """Serialize many semantic instances to one RDF string."""
+    reg = _resolve_batch_registry(instances, registry)
+    graph = instances_to_graph(instances, registry=reg)
+    return graph.serialize(format=normalize_format(format))
 
 
 def _write_instance(
@@ -137,15 +217,7 @@ def instance_to_jsonld(
     """Serialize a semantic instance to a JSON-LD document dict."""
     reg = _resolve_registry(instance, registry)
     graph = instance_to_graph(instance, registry=reg)
-    payload = json.loads(graph.serialize(format="json-ld"))
-    if isinstance(payload, list) and len(payload) == 1:
-        doc: dict[str, Any] = dict(payload[0])
-    elif isinstance(payload, dict):
-        doc = dict(payload)
-    else:
-        doc = {"@graph": payload}
-    doc["@context"] = reg.context_dict()
-    return doc
+    return _graph_to_jsonld_doc(graph, reg)
 
 
 def instance_to_rdf(

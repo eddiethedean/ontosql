@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from triplemodel import Store, bind_namespaces
+from triplemodel import Store
 
-from ontosql.export.instance import instance_to_graph
+from ontosql.export.instance import instances_to_graph
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel
 
@@ -17,7 +17,7 @@ def materialize_entity(
     registry: PrefixRegistry | None = None,
 ) -> Store:
     """Build a Store containing one semantic instance subgraph."""
-    return instance_to_graph(instance, registry=registry)
+    return instances_to_graph([instance], registry=registry)
 
 
 def materialize_find(
@@ -38,13 +38,4 @@ def materialize_find(
         limit=limit,
         offset=offset,
     )
-    merged = Store()
-    reg = registry
-    if reg is not None:
-        bind_namespaces(merged, reg.prefixes())
-    visited: set[int] = set()
-    for instance in instances:
-        subgraph = instance_to_graph(instance, registry=reg, visited=visited)
-        for triple in subgraph:
-            merged.add(triple)
-    return merged
+    return instances_to_graph(instances, registry=registry)

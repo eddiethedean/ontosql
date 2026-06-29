@@ -35,9 +35,17 @@ Real platforms have legacy schemas, bridge tables, and multiple views of the sam
 - Government and defense metadata systems
 - Research and biomedical platforms with ontology constraints
 
-## Current scope (0.4.0)
+## Current scope (0.5.0)
 
-Version 0.4.0 adds graph interoperability on top of 0.3.x:
+Version 0.5.0 adds advanced mapping and scale on top of 0.4.x:
+
+- `Map.computed` read-only fields
+- `Map.collection` many-to-many bridge tables
+- Batch RDF export (`instances_to_graph`)
+- Select-plan skeleton caching
+- Multi-map and Postgres dialect guides
+
+Prior release 0.4.0 added graph interoperability:
 
 - RDF import (`ontosql.import_`)
 - Graph sync (`ontosql.sync`) with optional `graph_sync` session hook
@@ -49,7 +57,7 @@ Version 0.4.0 adds graph interoperability on top of 0.3.x:
 
 Prior releases (0.3.x) shipped full CRUD, `OntoRouter`, export, and semantic queries — see [ROADMAP.md](ROADMAP.md).
 
-Next milestones: advanced maps and scale (0.5) — see [ROADMAP.md](ROADMAP.md).
+Next milestones: query power and DX (0.6) — see [ROADMAP.md](ROADMAP.md).
 
 ## Non-goals
 
@@ -83,7 +91,7 @@ Next milestones: advanced maps and scale (0.5) — see [ROADMAP.md](ROADMAP.md).
 | **0.3.1** | Test hardening, PyPI release workflow, delete safety guard |
 | **0.3.0** | Write path (`save` / `delete`), `OntoRouter`, OpenAPI |
 | **0.4.0** | RDF import, graph sync, SHACL, REPLACE cascade |
-| **0.5** | Advanced maps, batch export, scale |
+| **0.5.0** | Advanced maps, batch export, scale |
 | **0.6** | Query power, `explain`, mapper lint |
 | **0.7** | Bulk write, observability, production FastAPI patterns |
 | **0.8** | Schema packs, OWL codegen |

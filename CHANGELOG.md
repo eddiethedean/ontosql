@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-29
+
+### Added
+
+- **`Map.computed`** — read-only semantic fields from SQL expressions; filterable and orderable
+- **`Map.collection`** — many-to-many bridge-table mappings with `link` / `upsert` / `replace` / `ignore` cascade policies
+- **Batch export** — `instances_to_graph`, `instances_to_jsonld`, `instances_to_rdf`, `write_instance_to_graph`
+- **Select-plan cache** — `compile/cache.py` skeleton cache per mapper
+- **Batched collection hydration** — one query per collection field after `find` / `get`
+- **Guides** — [bridge-tables.md](guides/bridge-tables.md), [multi-map-views.md](guides/multi-map-views.md), [postgres-dialect.md](guides/postgres-dialect.md)
+- **Example** — `examples/multi_map_person.py`
+- RDF import hydrates `Map.collection` list fields
+
+### Changed
+
+- `materialize_find` uses `instances_to_graph` (single `Store` allocation)
+- `ComputedMap` / `CollectionMap` exported from `ontosql.mapping`
+
 ## [0.4.0] - 2026-06-25
 
 ### Added

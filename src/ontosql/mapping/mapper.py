@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, ClassVar, Generic, TypeVar
 
 from ontosql.mapping.cascade import CascadePolicy
-from ontosql.mapping.map import ColumnMap, NestedMap
+from ontosql.mapping.map import CollectionMap, ColumnMap, ComputedMap, NestedMap
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
 
@@ -22,6 +22,8 @@ class OntoMapper(Generic[E]):
 
     column_maps: ClassVar[dict[str, ColumnMap]]
     nested_maps: ClassVar[dict[str, NestedMap]]
+    computed_maps: ClassVar[dict[str, ComputedMap]]
+    collection_maps: ClassVar[dict[str, CollectionMap]]
     primary_table: ClassVar[Any]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -30,6 +32,8 @@ class OntoMapper(Generic[E]):
             return
         column_maps: dict[str, ColumnMap] = {}
         nested_maps: dict[str, NestedMap] = {}
+        computed_maps: dict[str, ComputedMap] = {}
+        collection_maps: dict[str, CollectionMap] = {}
         for name, value in vars(cls).items():
             if isinstance(value, ColumnMap):
                 column_maps[name] = ColumnMap(
@@ -47,8 +51,37 @@ class OntoMapper(Generic[E]):
                     cascade=value.cascade,
                     fk_column=value.fk_column,
                 )
+            elif isinstance(value, ComputedMap):
+                computed_maps[name] = ComputedMap(
+                    semantic_field=value.semantic_field,
+                    expression=value.expression,
+                    property_curie=value.property_curie,
+                )
+            elif isinstance(value, CollectionMap):
+                collection_maps[name] = CollectionMap(
+                    semantic_field=name,
+                    entity_type=value.entity_type,
+                    through=value.through,
+                    source_fk=value.source_fk,
+                    target_fk=value.target_fk,
+                    nested_mapper=value.nested_mapper,
+                    property_curie=value.property_curie,
+                    cascade=value.cascade,
+                )
         cls.column_maps = column_maps
         cls.nested_maps = nested_maps
+        cls.computed_maps = computed_maps
+        cls.collection_maps = collection_maps
+        semantic_fields: list[str] = []
+        semantic_fields.extend(cmap.semantic_field for cmap in column_maps.values())
+        semantic_fields.extend(nmap.semantic_field for nmap in nested_maps.values())
+        semantic_fields.extend(cmap.semantic_field for cmap in computed_maps.values())
+        semantic_fields.extend(cmap.semantic_field for cmap in collection_maps.values())
+        if len(semantic_fields) != len(set(semantic_fields)):
+            raise ValueError(
+                f"OntoMapper {cls.__name__}: duplicate semantic field names across column, "
+                f"nested, and computed maps"
+            )
         for nmap in nested_maps.values():
             if nmap.cascade is not CascadePolicy.IGNORE and nmap.fk_column is None:
                 raise ValueError(

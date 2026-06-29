@@ -48,6 +48,16 @@ class TableWrite:
 
 
 @dataclass
+class CollectionWritePlan:
+    """Bridge-table sync for a collection field on save."""
+
+    field_name: str
+    policy: str
+    items: list[Any]
+    nested_writes: list[Any] = field(default_factory=list)
+
+
+@dataclass
 class WritePlan:
     """Insert or update plan for one semantic entity."""
 
@@ -57,6 +67,7 @@ class WritePlan:
     nested: list[tuple[str, WritePlan]] = field(default_factory=list)
     nested_deletes: list[tuple[str, DeletePlan]] = field(default_factory=list)
     fk_updates: dict[str, Any] = field(default_factory=dict)
+    collections: list[CollectionWritePlan] = field(default_factory=list)
 
 
 @dataclass

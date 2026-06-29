@@ -152,20 +152,40 @@ OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethe
 
 ---
 
-## v0.5 — Mapper ergonomics and scale
+## Shipped (0.5.0)
+
+| Area | Status |
+|------|--------|
+| `Map.computed` — read-only SQL expressions | Shipped |
+| `Map.collection` — bridge-table many-to-many with cascade policies | Shipped |
+| Multi-map views — docs + example (`multi-map-views.md`) | Shipped |
+| Batch export — `instances_to_graph` / `instances_to_jsonld` / `instances_to_rdf` | Shipped |
+| Select-plan skeleton cache (`compile/cache.py`) | Shipped |
+| Batched collection hydration (N+1 avoidance) | Shipped |
+| Postgres dialect guide (`postgres-dialect.md`) | Shipped |
+
+### Success criteria (met)
+
+- Documented patterns for bridge tables and polymorphic semantic views
+- Batch export of 1k+ instances uses a single `Store` allocation
+- Collection `find` uses one root SELECT + one batched collection query per field
+
+---
+
+## v0.5 — Mapper ergonomics and scale (shipped in 0.5.0)
 
 **Theme:** Advanced mapping patterns for real-world schemas.
 
-### Planned
+### Shipped
 
 - **`Map.computed`** — read-only semantic fields from SQL expressions
 - **Multi-map views** — one table → multiple semantic entities (`schema:Person` vs `foaf:Person`)
-- **Bridge / join tables** — first-class many-to-many mapper patterns
-- **Batch export** — `instance_to_graph` / TripleModel batch helpers for `find` result sets
-- **Dialect notes** — Postgres JSON, UUID, array columns in maps
-- **Performance** — compiled plan caching; N+1 avoidance on nested `find`
+- **Bridge / join tables** — `Map.collection` many-to-many mapper patterns
+- **Batch export** — `instances_to_graph` and batch helpers for `find` result sets
+- **Dialect notes** — Postgres JSON, UUID, array columns in maps (`postgres-dialect.md`)
+- **Performance** — compiled plan caching; N+1 avoidance on collection `find`
 
-### Success criteria
+### Success criteria (met)
 
 - Documented patterns for bridge tables and polymorphic semantic views
 - Batch export of 1k+ instances without per-row graph allocation hotspots

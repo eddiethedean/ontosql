@@ -14,6 +14,7 @@ from ontosql.compile.write import compile_delete_plan, compile_save_plan
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session.base import SessionBase
+from ontosql.session.collections import attach_collections
 from ontosql.session.graph_sync import flush_graph_sync, queue_graph_push, queue_graph_remove
 from ontosql.session.hydrate import hydrate_first, hydrate_row
 from ontosql.session.state import PendingDelete
@@ -101,6 +102,7 @@ class OntoSession(SessionBase):
         instance = hydrate_first(plan, self._session.exec(plan.select))
         if instance is None:
             return None
+        attach_collections(self._session, mapper_cls, [instance])
         return self._register(instance)
 
     def find(
@@ -121,7 +123,9 @@ class OntoSession(SessionBase):
             offset=offset,
         )
         rows = self._session.exec(plan.select).all()
-        return [self._register(hydrate_row(plan, row)) for row in rows]
+        instances = [hydrate_row(plan, row) for row in rows]
+        attach_collections(self._session, mapper_cls, instances)
+        return [self._register(inst) for inst in instances]
 
     def count(
         self,

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ontosql.compile.plan import DeletePlan, WritePlan
 from ontosql.compile.write import _column_key
+from ontosql.mapping.cascade import CascadePolicy
 
 
 class ExecuteError(Exception):
@@ -162,6 +163,88 @@ async def _async_assert_replace_nested_exclusive(
         )
 
 
+def _execute_collection_writes(
+    session: Any,
+    plan: WritePlan,
+    parent_id: Any,
+) -> None:
+    if parent_id is None:
+        return
+    for cwp in plan.collections:
+        cmap = plan.mapper_cls.collection_maps[cwp.field_name]
+        through_table = cmap.through_table
+        source_key = _column_key(cmap.source_fk)
+        target_key = _column_key(cmap.target_fk)
+        stmt = delete(through_table).where(through_table.c[source_key] == parent_id)
+        session.exec(stmt)
+
+        target_ids: list[Any] = []
+        policy = CascadePolicy(cwp.policy)
+        if policy is CascadePolicy.LINK:
+            for item in cwp.items:
+                tid = getattr(item, cmap.nested_mapper.identity_field, None)
+                if tid is None:
+                    raise ExecuteError(
+                        f"Collection {cwp.field_name!r} link requires nested identity"
+                    )
+                target_ids.append(tid)
+        else:
+            for idx, nested_plan in enumerate(cwp.nested_writes):
+                tid = execute_write_plan(session, nested_plan)
+                if tid is None:
+                    tid = getattr(
+                        cwp.items[idx],
+                        nested_plan.mapper_cls.identity_field,
+                        None,
+                    )
+                target_ids.append(tid)
+
+        for tid in target_ids:
+            session.exec(insert(through_table).values({source_key: parent_id, target_key: tid}))
+
+
+async def _async_execute_collection_writes(
+    session: AsyncSession,
+    plan: WritePlan,
+    parent_id: Any,
+) -> None:
+    if parent_id is None:
+        return
+    for cwp in plan.collections:
+        cmap = plan.mapper_cls.collection_maps[cwp.field_name]
+        through_table = cmap.through_table
+        source_key = _column_key(cmap.source_fk)
+        target_key = _column_key(cmap.target_fk)
+        stmt = delete(through_table).where(through_table.c[source_key] == parent_id)
+        await session.execute(stmt)
+
+        target_ids: list[Any] = []
+        policy = CascadePolicy(cwp.policy)
+        if policy is CascadePolicy.LINK:
+            for item in cwp.items:
+                tid = getattr(item, cmap.nested_mapper.identity_field, None)
+                if tid is None:
+                    raise ExecuteError(
+                        f"Collection {cwp.field_name!r} link requires nested identity"
+                    )
+                target_ids.append(tid)
+        else:
+            for idx, nested_plan in enumerate(cwp.nested_writes):
+                tid = await async_execute_write_plan(session, nested_plan)
+                if tid is None:
+                    tid = getattr(
+                        cwp.items[idx],
+                        nested_plan.mapper_cls.identity_field,
+                        None,
+                    )
+                target_ids.append(tid)
+
+        for tid in target_ids:
+            await session.execute(
+                insert(through_table).values({source_key: parent_id, target_key: tid})
+            )
+
+
 def execute_write_plan(session: Any, plan: WritePlan) -> Any:
     """Execute a WritePlan synchronously; returns root identity value after insert."""
     _null_fks_for_nested_deletes(session, plan)
@@ -180,7 +263,9 @@ def execute_write_plan(session: Any, plan: WritePlan) -> Any:
 
     if plan.operation == "insert":
         result = session.exec(insert(table).values(**values))
-        return _inserted_identity(result, plan, values)
+        parent_id = _inserted_identity(result, plan, values)
+        _execute_collection_writes(session, plan, parent_id)
+        return parent_id
 
     if values:
         stmt = update(table).values(**values)
@@ -188,7 +273,9 @@ def execute_write_plan(session: Any, plan: WritePlan) -> Any:
             stmt = _apply_where(stmt, table, plan.root.where)
         session.exec(stmt)
 
-    return _update_identity(plan)
+    parent_id = _update_identity(plan)
+    _execute_collection_writes(session, plan, parent_id)
+    return parent_id
 
 
 def execute_delete_plan(session: Any, plan: DeletePlan) -> None:
@@ -219,7 +306,9 @@ async def async_execute_write_plan(session: AsyncSession, plan: WritePlan) -> An
 
     if plan.operation == "insert":
         result = await session.execute(insert(table).values(**values))
-        return _inserted_identity(result, plan, values)
+        parent_id = _inserted_identity(result, plan, values)
+        await _async_execute_collection_writes(session, plan, parent_id)
+        return parent_id
 
     if values:
         stmt = update(table).values(**values)
@@ -227,7 +316,9 @@ async def async_execute_write_plan(session: AsyncSession, plan: WritePlan) -> An
             stmt = _apply_where(stmt, table, plan.root.where)
         await session.execute(stmt)
 
-    return _update_identity(plan)
+    parent_id = _update_identity(plan)
+    await _async_execute_collection_writes(session, plan, parent_id)
+    return parent_id
 
 
 async def async_execute_delete_plan(session: AsyncSession, plan: DeletePlan) -> None:

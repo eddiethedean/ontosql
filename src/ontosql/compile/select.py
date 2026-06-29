@@ -7,13 +7,10 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.sql import Select
 
-from ontosql.compile.plan import ColumnProjection, SelectPlan
+from ontosql.compile.cache import select_skeleton, skeleton_to_plan_parts
+from ontosql.compile.plan import SelectPlan
 from ontosql.query.expr import AndExpr, FieldPath, FieldRef, OrderBy, OrExpr, compile_expr
 from ontosql.semantic.model import parse_iri_id
-
-
-def _label(table_name: str, field_name: str) -> str:
-    return f"{table_name}_{field_name}"
 
 
 def _column_for_field(mapper_cls: type[Any], field_ref: FieldRef | FieldPath) -> Any:
@@ -22,6 +19,8 @@ def _column_for_field(mapper_cls: type[Any], field_ref: FieldRef | FieldPath) ->
             name = field_ref.parts[0]
             if name in mapper_cls.column_maps:
                 return mapper_cls.column_maps[name].column
+            if name in mapper_cls.computed_maps:
+                return mapper_cls.computed_maps[name].expression
             raise KeyError(f"Field {name!r} is not a column on mapper {mapper_cls.__name__}")
         nested_field = field_ref.parts[0]
         if nested_field not in mapper_cls.nested_maps:
@@ -33,6 +32,8 @@ def _column_for_field(mapper_cls: type[Any], field_ref: FieldRef | FieldPath) ->
     name = field_ref.field_name
     if name in mapper_cls.column_maps:
         return mapper_cls.column_maps[name].column
+    if name in mapper_cls.computed_maps:
+        return mapper_cls.computed_maps[name].expression
     raise KeyError(f"Field {name!r} is not a column on mapper {mapper_cls.__name__}")
 
 
@@ -54,47 +55,8 @@ def compile_select_plan(
     iri: str | None = None,
 ) -> SelectPlan:
     """Build a SelectPlan for find or get."""
-    root_table = mapper_cls.primary_table
-    if root_table is None:
-        raise ValueError(f"Mapper {mapper_cls.__name__} has no primary_table")
-
-    projections: list[ColumnProjection] = []
-    nested_projections: dict[str, list[ColumnProjection]] = {}
-    columns: list[Any] = []
-
-    for field_name, cmap in mapper_cls.column_maps.items():
-        table_name = cmap.table_name
-        label = _label(table_name, field_name)
-        col = cmap.column.label(label)
-        columns.append(col)
-        projections.append(
-            ColumnProjection(
-                label=label,
-                semantic_field=field_name,
-                column=cmap.column,
-                source="root",
-            )
-        )
-
-    from_clause = root_table
-    for nested_field, nmap in mapper_cls.nested_maps.items():
-        nested_mapper = nmap.nested_mapper
-        nested_table = nested_mapper.primary_table
-        from_clause = from_clause.outerjoin(nested_table, nmap.join)  # type: ignore[union-attr]
-        nested_projections[nested_field] = []
-        for field_name, cmap in nested_mapper.column_maps.items():
-            table_name = cmap.table_name
-            label = _label(f"{nested_field}_{table_name}", field_name)
-            col = cmap.column.label(label)
-            columns.append(col)
-            nested_projections[nested_field].append(
-                ColumnProjection(
-                    label=label,
-                    semantic_field=field_name,
-                    column=cmap.column,
-                    source=nested_field,
-                )
-            )
+    skeleton = select_skeleton(mapper_cls)
+    projections, nested_projections, columns, from_clause = skeleton_to_plan_parts(skeleton)
 
     stmt: Select[Any] = select(*columns).select_from(from_clause)
 

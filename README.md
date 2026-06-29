@@ -32,6 +32,7 @@ Runnable examples (after `pip install ontosql`):
 python examples/person_org_demo.py          # sync CRUD
 python examples/person_org_async.py         # async session (needs aiosqlite)
 python examples/hybrid_person_org.py        # graph sync + import + SHACL
+python examples/multi_map_person.py         # schema:Person vs foaf:Person views
 pip install "ontosql[fastapi]" uvicorn && python examples/person_org_api.py
 ```
 
@@ -160,6 +161,8 @@ Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleM
 - **OntoSession** / **AsyncOntoSession** — `get`, `find`, `save`, `delete`, `paginate`, identity map
 - **Semantic queries** — nested paths, `contains` / `endswith`, `OrderBy(desc=True)`
 - **CascadePolicy** — explicit nested write behavior on `Map.nested` ([guide](docs/guides/cascade-policies.md))
+- **`Map.computed`** — read-only SQL expressions on semantic fields (0.5.0)
+- **`Map.collection`** — many-to-many bridge tables with cascade policies (0.5.0)
 - **OntoRouter** (`ontosql[fastapi]`) — auto CRUD routes + content negotiation
 - **PrefixRegistry** — CURIE expansion and JSON-LD `@context`
 - **Export** — `to_jsonld()` / `to_rdf()` on semantic instances
@@ -196,6 +199,9 @@ See [examples/person_org_api.py](examples/person_org_api.py) for a runnable API.
 ### Guides
 
 - [Cascade policies](docs/guides/cascade-policies.md)
+- [Bridge tables](docs/guides/bridge-tables.md) — many-to-many `Map.collection`
+- [Multi-map views](docs/guides/multi-map-views.md) — one table, multiple semantic entities
+- [Postgres dialect](docs/guides/postgres-dialect.md) — UUID, JSONB, ARRAY
 - [Hybrid SQL + graph](docs/HYBRID.md)
 - [FAQ](docs/FAQ.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)

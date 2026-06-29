@@ -77,11 +77,12 @@ See [SPECS.md](SPECS.md) for the mapper DSL and cascade policies.
 
 ## Read and write paths
 
-**Read (`get`, `find`) — shipped in 0.2.0:**
+**Read (`get`, `find`) — shipped in 0.2.0; collections batched in 0.5.0:**
 
 1. Resolve `OntoMapper` for the semantic type.
-2. Build a `SELECT` with required joins from field bindings.
+2. Build a `SELECT` with required joins from field bindings (cached skeleton per mapper).
 3. Load flat rows into nested Pydantic instances.
+4. For `Map.collection` fields, run one batched query per collection (not per row).
 
 **Write (`save`, `delete`) — shipped in 0.3.0:**
 

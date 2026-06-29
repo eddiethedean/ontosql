@@ -56,4 +56,7 @@ def hydrate_row(plan: SelectPlan, row: Any) -> OntoModel:
         else:
             data[nested_field] = None
 
+    for field_name in mapper_cls.collection_maps:
+        data.setdefault(field_name, [])
+
     return entity_cls(**data)

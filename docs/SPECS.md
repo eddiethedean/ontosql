@@ -1,6 +1,6 @@
 # OntoSQL Technical Specification
 
-API contract for **ontosql 0.4.0**. Sections marked *planned* are on the [roadmap](ROADMAP.md).
+API contract for **ontosql 0.5.0**. Sections marked *planned* are on the [roadmap](ROADMAP.md).
 
 ## Overview
 
@@ -23,7 +23,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 | **0.2.x** | Export (`to_jsonld` / `to_rdf`); export polish via TripleModel APIs |
 | **0.3.0** | `save` / `delete`, cascade policies, partial updates, `OntoRouter`, OpenAPI |
 | **0.4.0** | RDF import, graph sync, SHACL, `REPLACE` cascade, prefix bundles |
-| **0.5** | Advanced mapper patterns, batch export, dialect / performance |
+| **0.5.0** | `Map.computed`, `Map.collection`, batch export, select-plan cache, dialect guides |
 | **0.6** | Aggregations, extended filters, `explain`, mapper lint |
 | **0.7** | Bulk write, observability, read-replica routing, production guides |
 | **0.8** | Schema packs, OWL codegen, vocabulary modules |
@@ -115,7 +115,16 @@ class PersonMap(OntoMapper[Person]):
 | `Map(column)` | Direct column |
 | `Map(expr, property=...)` | SQLAlchemy column element |
 | `Map.nested(...)` | Join + nested semantic type via another mapper |
-| `Map.computed(...)` | Read-only semantic field from SQL expression *(planned)* |
+| `Map.computed(expr, field=..., property=...)` | Read-only semantic field from SQL expression (0.5.0) |
+| `Map.collection(...)` | Many-to-many via bridge table (0.5.0) |
+
+### `Map.computed` (0.5.0)
+
+Read-only fields compiled into `SELECT` projections. Excluded from `save()`; raises `WriteCompileError` if a computed field appears in a partial update.
+
+### `Map.collection` (0.5.0)
+
+Many-to-many lists via a bridge table. Loaded with batched queries after `find` / `get` (not joined into the root SELECT). Cascade policies: `link`, `upsert`, `replace`, `ignore`. See [bridge-tables.md](guides/bridge-tables.md).
 
 ### Cascade policies (write path — 0.3.0)
 
@@ -212,7 +221,7 @@ person.to_jsonld(registry=None) -> dict
 person.to_rdf(format="turtle", registry=None) -> str
 ```
 
-Module-level helpers: `ontosql.export.instance_to_jsonld`, `instance_to_rdf`, `instance_to_graph`.
+Module-level helpers: `ontosql.export.instance_to_jsonld`, `instance_to_rdf`, `instance_to_graph`, `instances_to_jsonld`, `instances_to_rdf`, `instances_to_graph` (0.5.0 batch).
 
 | Format | Notes |
 |--------|--------|
@@ -337,7 +346,7 @@ src/ontosql/
   __init__.py
   semantic/       # OntoModel, onto_property
   mapping/        # OntoMapper, Map, registry
-  compile/        # SQLAlchemy expression builders + write plans
+  compile/        # SQLAlchemy expression builders + write plans + cache + collection
   session/        # OntoSession, AsyncOntoSession, pagination
   query/          # semantic expressions, FieldPath
   export/         # instance export (TripleModel) + jsonld helpers

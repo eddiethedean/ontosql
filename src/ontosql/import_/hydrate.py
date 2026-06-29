@@ -208,6 +208,31 @@ def graph_to_instance(
         else:
             fields[field_name] = None
 
+    for field_name, cmap in mapper_cls.collection_maps.items():
+        predicate = _predicate_iri(entity_type, field_name, reg)
+        if predicate is None:
+            continue
+        objects = _objects_for_predicate(graph, subject, predicate)
+        if not objects:
+            fields[field_name] = []
+            continue
+        items: list[Any] = []
+        for obj in objects:
+            if isinstance(obj, NamedNode):
+                from triplemodel.store.terms import term_str
+
+                nested_iri = term_str(obj)
+                items.append(
+                    graph_to_instance(
+                        graph,
+                        cmap.nested_mapper,
+                        iri=nested_iri,
+                        registry=reg,
+                        _visited=visited,
+                    )
+                )
+        fields[field_name] = items
+
     return entity_type.model_validate(fields)
 
 

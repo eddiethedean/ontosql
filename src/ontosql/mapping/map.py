@@ -27,6 +27,35 @@ class ColumnMap:
 
 
 @dataclass(frozen=True)
+class ComputedMap:
+    """Maps a read-only semantic field to a SQL expression."""
+
+    semantic_field: str
+    expression: ColumnElement[Any]
+    property_curie: str | None = None
+
+
+@dataclass(frozen=True)
+class CollectionMap:
+    """Maps a semantic list field to related entities via a bridge table."""
+
+    semantic_field: str
+    entity_type: type[Any]
+    through: Any
+    source_fk: ColumnElement[Any]
+    target_fk: ColumnElement[Any]
+    nested_mapper: type[Any]
+    property_curie: str | None = None
+    cascade: CascadePolicy = CascadePolicy.LINK
+
+    @property
+    def through_table(self) -> Any:
+        if hasattr(self.through, "__table__"):
+            return self.through.__table__
+        return self.through
+
+
+@dataclass(frozen=True)
 class NestedMap:
     """Maps a semantic field to a nested entity via a join."""
 
@@ -81,6 +110,43 @@ class Map:
             property_curie=property,
             cascade=cascade,
             fk_column=fk_column,
+        )
+
+    @staticmethod
+    def computed(
+        expression: ColumnElement[Any],
+        *,
+        field: str,
+        property: str | None = None,
+    ) -> ComputedMap:
+        return ComputedMap(
+            semantic_field=field,
+            expression=expression,
+            property_curie=property,
+        )
+
+    @staticmethod
+    def collection(
+        entity_type: type[Any],
+        *,
+        through: Any,
+        source_fk: ColumnElement[Any],
+        target_fk: ColumnElement[Any],
+        nested_map: type[Any],
+        property: str | None = None,
+        field: str | None = None,
+        cascade: CascadePolicy = CascadePolicy.LINK,
+    ) -> CollectionMap:
+        name = field or f"{_guess_nested_field(entity_type)}s"
+        return CollectionMap(
+            semantic_field=name,
+            entity_type=entity_type,
+            through=through,
+            source_fk=source_fk,
+            target_fk=target_fk,
+            nested_mapper=nested_map,
+            property_curie=property,
+            cascade=cascade,
         )
 
 

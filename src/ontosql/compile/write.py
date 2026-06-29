@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ontosql.compile.plan import DeletePlan, TableWrite, WritePlan
+from ontosql.compile.plan import CollectionWritePlan, DeletePlan, TableWrite, WritePlan
 from ontosql.mapping.cascade import CascadePolicy
 from ontosql.mapping.map import ColumnMap
 from ontosql.semantic.model import OntoModel
@@ -176,6 +176,47 @@ def _compile_nested(
     return nested_plans, nested_deletes, fk_updates
 
 
+def _compile_collections(
+    mapper_cls: type[Any],
+    instance: OntoModel,
+    *,
+    partial_fields: set[str] | None,
+) -> list[CollectionWritePlan]:
+    plans: list[CollectionWritePlan] = []
+    for field_name, cmap in mapper_cls.collection_maps.items():
+        if partial_fields is not None and field_name not in partial_fields:
+            continue
+        if cmap.cascade is CascadePolicy.IGNORE:
+            continue
+        items = getattr(instance, field_name, None) or []
+        nested_writes: list[WritePlan] = []
+        if cmap.cascade in (CascadePolicy.UPSERT, CascadePolicy.REPLACE):
+            for item in items:
+                item_new = _identity_value(cmap.nested_mapper, item) is None
+                nested_writes.append(
+                    compile_save_plan(
+                        cmap.nested_mapper,
+                        item,
+                        is_new=item_new,
+                    )
+                )
+        elif cmap.cascade is CascadePolicy.LINK:
+            for item in items:
+                if _identity_value(cmap.nested_mapper, item) is None:
+                    raise WriteCompileError(
+                        f"Collection item in {field_name!r} requires an identity for cascade=link"
+                    )
+        plans.append(
+            CollectionWritePlan(
+                field_name=field_name,
+                policy=cmap.cascade.value,
+                items=list(items),
+                nested_writes=nested_writes,
+            )
+        )
+    return plans
+
+
 def compile_save_plan(
     mapper_cls: type[Any],
     instance: OntoModel,
@@ -187,6 +228,13 @@ def compile_save_plan(
     """Build a WritePlan for save()."""
     new = _is_new_instance(mapper_cls, instance) if is_new is None else is_new
     operation: str = "insert" if new else "update"
+
+    if partial_fields is not None:
+        computed_in_partial = partial_fields & set(mapper_cls.computed_maps)
+        if computed_in_partial:
+            raise WriteCompileError(
+                f"Cannot persist computed fields: {sorted(computed_in_partial)!r}"
+            )
 
     if new:
         partial = None
@@ -220,6 +268,12 @@ def compile_save_plan(
         is_new=new,
     )
 
+    collection_plans = _compile_collections(
+        mapper_cls,
+        instance,
+        partial_fields=partial_fields if not new else None,
+    )
+
     return WritePlan(
         mapper_cls=mapper_cls,
         operation=operation,  # type: ignore[arg-type]
@@ -227,6 +281,7 @@ def compile_save_plan(
         nested=nested_plans,
         nested_deletes=nested_deletes,
         fk_updates=fk_updates,
+        collections=collection_plans,
     )
 
 
