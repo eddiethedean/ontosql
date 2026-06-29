@@ -52,6 +52,39 @@ with OntoSession(
 
 `graph_sync` accepts any object with `graph` and `update_graph(add=, remove=)` — including SparqlModel stores that implement the `GraphSyncTarget` protocol.
 
+## Graph sync failures (split-brain)
+
+Graph updates run **after** SQL `commit()`. If `flush_graph_sync()` fails partway through, SQL is already durable but the graph may be stale or partially updated.
+
+OntoSQL processes removes then pushes **one instance at a time**. Completed operations stay applied; the remaining queue is preserved and `GraphSyncError` is raised with details in `session.graph_sync_failures`.
+
+```python
+from ontosql import OntoSession
+from ontosql.session import GraphSyncError
+
+try:
+    with OntoSession(engine, maps=[PersonMap], graph_sync=target) as session:
+        session.save(person_a)
+        session.save(person_b)
+except GraphSyncError as exc:
+    # SQL committed; graph may be partial
+    assert session.graph_sync_pending
+    # Fix remote graph / credentials, then:
+    session.retry_graph_sync()
+```
+
+### Reconciliation pattern (recommended for production)
+
+Do not treat SQL + in-process graph as a single transaction. Pick one:
+
+| Pattern | When |
+|---------|------|
+| **Outbox table** | Enqueue graph ops in SQL before commit; worker retries pushes |
+| **Nightly reconcile** | `materialize_find` → diff → repair graph |
+| **Disable graph_sync on hot path** | Batch export jobs only |
+
+Log `GraphSyncError` at warning level and alert on `session.graph_sync_pending` after request handling.
+
 ## Manual push / pull (SparqlModel)
 
 For explicit control, use `OntoGraphSync` with a `SPARQLSession`:

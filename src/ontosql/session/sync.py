@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel
 
+from ontosql._log import logger
 from ontosql.compile.execute import execute_delete_plan, execute_write_plan
 from ontosql.compile.plan import WritePlan
 from ontosql.compile.select import compile_count_statement, compile_select_plan
@@ -30,7 +32,13 @@ from ontosql.sync.graph import GraphSyncMode
 
 
 class OntoSession(SessionBase):
-    """Synchronous unit of work for semantic CRUD over SQL."""
+    """Synchronous unit of work for semantic CRUD over SQL.
+
+    Always use as a context manager::
+
+        with OntoSession(engine, maps=[...]) as session:
+            ...
+    """
 
     def __init__(
         self,
@@ -43,20 +51,25 @@ class OntoSession(SessionBase):
     ) -> None:
         super().__init__(maps, registry=registry)
         self._engine = engine
-        self._session = Session(engine)
-        self._owns_commit = True
+        self._session: Session | None = None
+        self._closed = False
         self._graph_sync = graph_sync
         self._graph_sync_mode = graph_sync_mode
 
     def __enter__(self) -> OntoSession:
+        self._session = Session(self._engine)
+        self._closed = False
+        logger.debug("session open sync")
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        assert self._session is not None
         try:
             if exc_type is None:
                 if self._state.pending:
                     self.flush()
                 self._session.commit()
+                logger.debug("session commit sync")
                 flush_graph_sync(
                     self._state,
                     self._graph_sync,
@@ -66,8 +79,32 @@ class OntoSession(SessionBase):
             else:
                 self._state.clear_graph_sync()
                 self._session.rollback()
+                logger.debug("session rollback sync exc_type=%s", exc_type.__name__)
         finally:
             self._session.close()
+            self._session = None
+            self._closed = True
+            logger.debug("session close sync")
+
+    def __del__(self) -> None:
+        if self._session is not None and not self._closed:
+            warnings.warn(
+                "OntoSession was not closed; use 'with OntoSession(...) as session:'",
+                ResourceWarning,
+                stacklevel=2,
+            )
+
+    def _require_session(self) -> Session:
+        if self._session is None:
+            raise RuntimeError(
+                "OntoSession is not active; use 'with OntoSession(engine, maps=[...]) as session:'"
+            )
+        return self._session
+
+    def rollback(self) -> None:
+        """Roll back the current SQLAlchemy transaction (uncommitted work only)."""
+        self._require_session().rollback()
+        logger.debug("session rollback sync explicit")
 
     def create_tables(self, *models: type[SQLModel]) -> None:
         """Create physical tables (convenience for tests)."""
@@ -96,10 +133,10 @@ class OntoSession(SessionBase):
             iri=iri,
             limit=1,
         )
-        instance = hydrate_first(plan, self._session.exec(plan.select))
+        instance = hydrate_first(plan, self._require_session().exec(plan.select))
         if instance is None:
             return None
-        attach_collections(self._session, mapper_cls, [instance])
+        attach_collections(self._require_session(), mapper_cls, [instance])
         return self._register(instance)
 
     def find(
@@ -119,9 +156,9 @@ class OntoSession(SessionBase):
             limit=limit,
             offset=offset,
         )
-        rows = self._session.exec(plan.select).all()
+        rows = self._require_session().exec(plan.select).all()
         instances = [hydrate_row(plan, row) for row in rows]
-        attach_collections(self._session, mapper_cls, instances)
+        attach_collections(self._require_session(), mapper_cls, instances)
         return [self._register(inst) for inst in instances]
 
     def count(
@@ -132,7 +169,7 @@ class OntoSession(SessionBase):
     ) -> int:
         mapper_cls = self._mapper_for(entity_type)
         stmt = compile_count_statement(mapper_cls, where=where)
-        result = self._session.exec(stmt).one()
+        result = self._require_session().exec(stmt).one()
         return count_scalar(result)
 
     def _reload_after_save(
@@ -168,7 +205,7 @@ class OntoSession(SessionBase):
         if identity is None:
             return None
         plan = compile_select_plan(mapper_cls, id_value=identity, limit=1)
-        row_instance = hydrate_first(plan, self._session.exec(plan.select))
+        row_instance = hydrate_first(plan, self._require_session().exec(plan.select))
         if row_instance is None:
             return None
         return row_instance.model_dump()
@@ -197,7 +234,7 @@ class OntoSession(SessionBase):
         plan = compile_delete_plan(mapper_cls, instance)
         identity = getattr(instance, mapper_cls.identity_field, None)
         if flush:
-            execute_delete_plan(self._session, plan)
+            execute_delete_plan(self._require_session(), plan)
             if identity is not None:
                 self._state.expire(type(instance), identity)
             if self._graph_sync is not None:
@@ -206,7 +243,7 @@ class OntoSession(SessionBase):
             self._state.pending.append(PendingDelete(plan=plan, instance=instance))
 
     def _apply_pending_delete(self, pending: PendingDelete) -> None:
-        execute_delete_plan(self._session, pending.plan)
+        execute_delete_plan(self._require_session(), pending.plan)
         mapper_cls = pending.plan.mapper_cls
         identity = getattr(pending.instance, mapper_cls.identity_field, None)
         if identity is not None:
@@ -215,10 +252,9 @@ class OntoSession(SessionBase):
             queue_graph_remove(self._state, pending.instance)
 
     def flush(self) -> None:
-        """Apply all pending save/delete plans."""
-        pending = list(self._state.pending)
-        self._state.clear_pending()
-        for item in pending:
+        """Apply all pending save/delete plans (stops on first error; queue preserved)."""
+        while self._state.pending:
+            item = self._state.pending[0]
             if isinstance(item, WritePlan):
                 plan = item
                 inserted_id = self._execute_write(plan)
@@ -230,9 +266,11 @@ class OntoSession(SessionBase):
                         queue_graph_push(self._state, reloaded)
             elif isinstance(item, PendingDelete):
                 self._apply_pending_delete(item)
+            self._state.pending.pop(0)
+        logger.debug("session flush sync complete")
 
     def _execute_write(self, plan: WritePlan) -> Any:
-        returned = execute_write_plan(self._session, plan)
+        returned = execute_write_plan(self._require_session(), plan)
         identity = identity_from_write_plan(plan, returned)
         if identity is not None:
             self._state.expire(plan.mapper_cls.entity, identity)
@@ -242,4 +280,4 @@ class OntoSession(SessionBase):
         """Execute raw SQL and return the result."""
         from sqlalchemy import text
 
-        return self._session.exec(text(statement), params=params or {})
+        return self._require_session().exec(text(statement), params=params or {})

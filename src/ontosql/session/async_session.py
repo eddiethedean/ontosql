@@ -6,6 +6,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from ontosql._log import logger
 from ontosql.compile.execute import async_execute_delete_plan, async_execute_write_plan
 from ontosql.compile.plan import DeletePlan, WritePlan
 from ontosql.compile.select import compile_count_statement, compile_select_plan
@@ -49,6 +50,7 @@ class AsyncOntoSession(SessionBase):
 
     async def __aenter__(self) -> AsyncOntoSession:
         self._session = self._maker()
+        logger.debug("session open async")
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -58,6 +60,7 @@ class AsyncOntoSession(SessionBase):
                 if self._state.pending:
                     await self.flush()
                 await self._session.commit()
+                logger.debug("session commit async")
                 flush_graph_sync(
                     self._state,
                     self._graph_sync,
@@ -67,9 +70,16 @@ class AsyncOntoSession(SessionBase):
             else:
                 self._state.clear_graph_sync()
                 await self._session.rollback()
+                logger.debug("session rollback async exc_type=%s", exc_type.__name__)
         finally:
             await self._session.close()
             self._session = None
+            logger.debug("session close async")
+
+    async def rollback(self) -> None:
+        """Roll back the current SQLAlchemy transaction (uncommitted work only)."""
+        await self._require_session().rollback()
+        logger.debug("session rollback async explicit")
 
     def _require_session(self) -> AsyncSession:
         if self._session is None:
@@ -218,9 +228,9 @@ class AsyncOntoSession(SessionBase):
             queue_graph_remove(self._state, pending.instance)
 
     async def flush(self) -> None:
-        pending = list(self._state.pending)
-        self._state.clear_pending()
-        for item in pending:
+        """Apply all pending save/delete plans (stops on first error; queue preserved)."""
+        while self._state.pending:
+            item = self._state.pending[0]
             if isinstance(item, WritePlan):
                 plan = item
                 inserted_id = await self._execute_write(plan)
@@ -232,6 +242,8 @@ class AsyncOntoSession(SessionBase):
                         queue_graph_push(self._state, reloaded)
             elif isinstance(item, PendingDelete):
                 await self._apply_pending_delete(item)
+            self._state.pending.pop(0)
+        logger.debug("session flush async complete")
 
     async def _execute_write(self, plan: WritePlan) -> Any:
         session = self._require_session()

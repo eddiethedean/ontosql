@@ -8,6 +8,7 @@ from typing import Any
 from pyoxigraph import NamedNode
 from triplemodel import RDF_TYPE, Store, bind_namespaces
 
+from ontosql.import_.hydrate import OntoImportError
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel
 
@@ -17,12 +18,32 @@ def load_graph(
     *,
     format: str = "turtle",
     registry: PrefixRegistry | None = None,
+    max_bytes: int | None = None,
+    max_triples: int | None = None,
 ) -> Store:
-    """Parse RDF text into a Store."""
+    """Parse RDF text into a Store.
+
+    Optional ``max_bytes`` and ``max_triples`` guard untrusted input (raises
+    ``OntoImportError`` when exceeded).
+    """
+    if isinstance(data, str):
+        text = data
+        raw = data.encode("utf-8")
+    else:
+        raw = data
+        text = data.decode("utf-8")
+    if max_bytes is not None and len(raw) > max_bytes:
+        raise OntoImportError(
+            f"RDF payload exceeds max_bytes={max_bytes} (got {len(raw)} bytes)"
+        )
     graph = Store()
     if registry is not None:
         bind_namespaces(graph, registry.prefixes())
-    graph.parse(data, format=format)
+    graph.parse(text, format=format)
+    if max_triples is not None and len(graph) > max_triples:
+        raise OntoImportError(
+            f"RDF graph exceeds max_triples={max_triples} (got {len(graph)} triples)"
+        )
     return graph
 
 
@@ -30,10 +51,18 @@ def load_graph_from_jsonld(
     doc: dict[str, Any],
     *,
     registry: PrefixRegistry | None = None,
+    max_bytes: int | None = None,
+    max_triples: int | None = None,
 ) -> Store:
     """Parse a JSON-LD document dict into a Store."""
     payload = json.dumps(doc)
-    return load_graph(payload, format="json-ld", registry=registry)
+    return load_graph(
+        payload,
+        format="json-ld",
+        registry=registry,
+        max_bytes=max_bytes,
+        max_triples=max_triples,
+    )
 
 
 def find_subjects_by_type(

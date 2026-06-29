@@ -41,5 +41,6 @@ __all__ = [
     "get_onto_session",
     "install_onto_openapi",
     "negotiate_onto_response",
+    "onto_async_session_lifespan",
     "onto_session_lifespan",
 ]

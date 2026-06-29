@@ -26,15 +26,21 @@ session.execute_sql(f"SELECT * FROM people WHERE id = {user_id}")
 | Authorization | Not provided |
 | Rate limiting | Not provided |
 | Request body validation | Generated Pydantic models validate POST/PATCH bodies |
-| Sync session in async routes | Blocking I/O |
+| Semantic validation | Optional `validate_entities=True` runs `OntoModel.model_validate` |
+| Body size cap | Optional `max_body_bytes` on POST/PATCH (413 when exceeded) |
+| Sync session in async routes | Blocking I/O (default) |
 
-Do not expose `OntoRouter` on public networks without auth middleware, rate limits, and async session wiring for production load.
+Do not expose `OntoRouter` on public networks without auth middleware, rate limits, and async session wiring for production load. See [guides/production-router.md](guides/production-router.md).
+
+## RDF import limits
+
+`import_from_rdf` and `load_graph` accept optional `max_bytes` and `max_triples` to bound untrusted payloads (raises `OntoImportError`). Cap sizes at your API boundary for public endpoints.
 
 ## Graph sync consistency
 
-When `graph_sync` is configured, graph updates are queued during `save()` / `delete()` and applied **after SQL commit**. If the session rolls back, queued graph updates are discarded. Plan hybrid architectures accordingly — the graph is a derived view, not a two-phase commit with SQL.
+When `graph_sync` is configured, graph updates are queued during `save()` / `delete()` and applied **after SQL commit**. If the session rolls back, queued graph updates are discarded.
 
-See [HYBRID.md](HYBRID.md).
+If graph sync fails after commit, SQL remains committed and the queue is preserved for `retry_graph_sync()` — plan hybrid architectures with an outbox or reconcile job. See [HYBRID.md](HYBRID.md#graph-sync-failures-split-brain).
 
 ## REPLACE cascade
 

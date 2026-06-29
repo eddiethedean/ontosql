@@ -15,9 +15,17 @@ from ontosql.session.sync import OntoSession
 
 
 def onto_session_lifespan(app: FastAPI, engine: Engine, maps: list[type[Any]]) -> None:
-    """Store engine and maps on app.state for session dependencies."""
+    """Store engine and maps on app.state for sync session dependencies."""
     app.state.onto_engine = engine
     app.state.onto_maps = maps
+    app.state.onto_async_engine = None
+
+
+def onto_async_session_lifespan(app: FastAPI, engine: AsyncEngine, maps: list[type[Any]]) -> None:
+    """Store async engine and maps on app.state for AsyncSessionDep."""
+    app.state.onto_async_engine = engine
+    app.state.onto_maps = maps
+    app.state.onto_engine = None
 
 
 @contextmanager
@@ -43,8 +51,17 @@ def get_onto_session(request: Request) -> Iterator[OntoSession]:
 
 
 async def get_async_onto_session(request: Request) -> AsyncIterator[AsyncOntoSession]:
-    """Yield an AsyncOntoSession bound to app.state engine and maps."""
-    engine: AsyncEngine = request.app.state.onto_engine
+    """Yield an AsyncOntoSession bound to app.state async engine and maps."""
+    engine: AsyncEngine | None = getattr(request.app.state, "onto_async_engine", None)
+    if engine is None:
+        fallback = getattr(request.app.state, "onto_engine", None)
+        if isinstance(fallback, AsyncEngine):
+            engine = fallback
+    if engine is None:
+        raise RuntimeError(
+            "app.state.onto_async_engine is missing; "
+            "call onto_async_session_lifespan(app, engine, maps)"
+        )
     maps: list[type[Any]] = request.app.state.onto_maps
     async with _async_session(engine, maps) as session:
         yield session

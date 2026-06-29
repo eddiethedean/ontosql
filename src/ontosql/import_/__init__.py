@@ -22,10 +22,18 @@ def import_from_rdf(
     format: str = "turtle",
     iri: str | None = None,
     registry: PrefixRegistry | None = None,
+    max_bytes: int | None = None,
+    max_triples: int | None = None,
 ) -> OntoModel:
     """Hydrate a semantic instance from an RDF serialization."""
     reg = resolve_mapper_registry(mapper_cls, registry)
-    graph = load_graph(data, format=format, registry=reg)
+    graph = load_graph(
+        data,
+        format=format,
+        registry=reg,
+        max_bytes=max_bytes,
+        max_triples=max_triples,
+    )
     if iri is None:
         entity_type: type[OntoModel] = mapper_cls.entity
         type_iri = entity_type.type_iri
@@ -45,10 +53,17 @@ def import_from_jsonld(
     mapper_cls: type[Any],
     *,
     registry: PrefixRegistry | None = None,
+    max_bytes: int | None = None,
+    max_triples: int | None = None,
 ) -> OntoModel:
     """Hydrate a semantic instance from a JSON-LD document dict."""
     reg = resolve_mapper_registry(mapper_cls, registry)
-    graph = load_graph_from_jsonld(doc, registry=reg)
+    graph = load_graph_from_jsonld(
+        doc,
+        registry=reg,
+        max_bytes=max_bytes,
+        max_triples=max_triples,
+    )
     iri = doc.get("@id")
     if not isinstance(iri, str):
         entity_type: type[OntoModel] = mapper_cls.entity

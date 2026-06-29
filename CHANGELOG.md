@@ -9,10 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Graph sync** — partial failures after SQL commit preserve the remaining queue; raises `GraphSyncError` with `retry_graph_sync()` for recovery
+- **Session flush** — mid-flush errors no longer drop unprocessed pending plans
+- **Sync session** — SQLAlchemy session opens in `__enter__`; use as context manager (warns on leak via `ResourceWarning`)
+
+### Added
+
+- **Observability** — `ontosql` logger with debug/warning hooks at session commit, flush, and graph sync boundaries
+- **RDF import guards** — `max_bytes` and `max_triples` on `load_graph` / `import_from_rdf`
+- **OntoRouter** — `validate_entities` and `max_body_bytes` options; `onto_async_session_lifespan` for `AsyncSessionDep`
+- **Docs** — [production-router.md](guides/production-router.md), graph split-brain reconciliation in [HYBRID.md](HYBRID.md)
+- **Exports** — `GraphSyncError`, `GraphSyncFailure` from `ontosql.session`
+
+### Fixed (prior unreleased)
+
 - **SHACL** — `shapes_from_mapper` now sets `sh:minCount` to `1` for required scalar properties (was incorrectly `0` for all non-identity fields)
 - **Async session** — `save()` snapshot resolution aligned with sync session via shared `session/_ops.py`
 
-### Added
+### Added (prior unreleased)
 
 - Shared session orchestration helpers in `ontosql.session._ops` (used by sync and async sessions)
 - Public API stability tiers documented in [SPECS.md](SPECS.md)

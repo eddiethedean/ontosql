@@ -58,6 +58,7 @@ nav:
       - Bridge tables: guides/bridge-tables.md
       - Multi-map views: guides/multi-map-views.md
       - Postgres dialect: guides/postgres-dialect.md
+      - Production FastAPI: guides/production-router.md
       - Hybrid SQL + graph: HYBRID.md
       - FAQ: FAQ.md
       - Troubleshooting: TROUBLESHOOTING.md

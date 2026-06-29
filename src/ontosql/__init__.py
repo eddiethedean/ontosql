@@ -7,7 +7,7 @@ from importlib.metadata import PackageNotFoundError, version
 from ontosql.mapping import CascadePolicy, Map, OntoMapper
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic import OntoModel, onto_property
-from ontosql.session import AsyncOntoSession, OntoSession, Page, paginate
+from ontosql.session import AsyncOntoSession, GraphSyncError, OntoSession, Page, paginate
 
 try:
     __version__ = version("ontosql")
@@ -17,6 +17,7 @@ except PackageNotFoundError:
 __all__ = [
     "AsyncOntoSession",
     "CascadePolicy",
+    "GraphSyncError",
     "Map",
     "OntoMapper",
     "OntoModel",

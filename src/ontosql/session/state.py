@@ -28,6 +28,7 @@ class SessionState:
     pending: list[WritePlan | PendingDelete] = field(default_factory=list)
     graph_sync_pushes: list[OntoModel] = field(default_factory=list)
     graph_sync_removes: list[OntoModel] = field(default_factory=list)
+    graph_sync_failures: list[Any] = field(default_factory=list)
 
     def identity_key(
         self, entity_type: type[OntoModel], instance: OntoModel
@@ -78,3 +79,8 @@ class SessionState:
     def clear_graph_sync(self) -> None:
         self.graph_sync_pushes.clear()
         self.graph_sync_removes.clear()
+        self.graph_sync_failures.clear()
+
+    @property
+    def has_graph_sync_pending(self) -> bool:
+        return bool(self.graph_sync_pushes or self.graph_sync_removes)

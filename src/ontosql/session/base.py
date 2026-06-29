@@ -6,6 +6,7 @@ from typing import Any
 
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
+from ontosql.session.graph_sync import flush_graph_sync
 from ontosql.session.state import SessionState
 
 
@@ -22,6 +23,8 @@ class SessionBase:
         if maps:
             self._registry.register_many(maps)
         self._state = SessionState()
+        self._graph_sync: Any | None = None
+        self._graph_sync_mode: Any = "patch"
 
     def _mapper_for(self, entity_type: type[Any]) -> type[Any]:
         return self._registry.get(entity_type)
@@ -44,6 +47,30 @@ class SessionBase:
         self._state.expire(entity_type, id)
 
     def rollback_pending(self) -> None:
-        """Discard queued save/delete plans and graph sync queues without touching the database."""
+        """Discard queued save/delete plans and graph sync queues without touching SQL.
+
+        Does **not** roll back flushed writes or an open database transaction. Use
+        ``session.rollback()`` on the underlying SQLAlchemy session for that, or
+        exit the context manager with an exception to roll back uncommitted work.
+        """
         self._state.clear_pending()
         self._state.clear_graph_sync()
+
+    @property
+    def graph_sync_pending(self) -> bool:
+        """True when graph sync operations remain queued (e.g. after partial failure)."""
+        return self._state.has_graph_sync_pending
+
+    @property
+    def graph_sync_failures(self) -> list[Any]:
+        """Failures from the last ``flush_graph_sync`` attempt (after SQL commit)."""
+        return list(self._state.graph_sync_failures)
+
+    def retry_graph_sync(self) -> None:
+        """Retry queued graph sync after a partial failure (SQL already committed)."""
+        flush_graph_sync(
+            self._state,
+            self._graph_sync,
+            mode=self._graph_sync_mode,
+            mapper_for=self._mapper_for,
+        )

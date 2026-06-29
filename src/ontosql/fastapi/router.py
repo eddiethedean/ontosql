@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
@@ -13,6 +14,8 @@ from ontosql.fastapi.openapi import install_onto_openapi
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session.pagination import paginate
+
+_HTTP_413 = getattr(status, "HTTP_413_CONTENT_TOO_LARGE", 413)
 
 
 def _entity_route_name(entity_type: type[OntoModel]) -> str:
@@ -44,17 +47,59 @@ def _patch_body_model(entity_type: type[OntoModel], *, identity_field: str) -> t
     return create_model(f"{entity_type.__name__}Patch", **fields)  # type: ignore[call-overload]
 
 
+async def _read_json_body(request: Request, max_body_bytes: int | None) -> Any:
+    if max_body_bytes is not None:
+        content_length = request.headers.get("content-length")
+        if content_length is not None and int(content_length) > max_body_bytes:
+            raise HTTPException(
+                status_code=_HTTP_413,
+                detail=f"Request body exceeds max_body_bytes={max_body_bytes}",
+            )
+        raw = await request.body()
+        if len(raw) > max_body_bytes:
+            raise HTTPException(
+                status_code=_HTTP_413,
+                detail=f"Request body exceeds max_body_bytes={max_body_bytes}",
+            )
+        return json.loads(raw)
+    return await request.json()
+
+
+def _instance_from_create(
+    entity_type: type[OntoModel],
+    validated: BaseModel,
+    *,
+    validate_entities: bool,
+    identity_field: str,
+) -> OntoModel:
+    data = validated.model_dump()
+    if validate_entities:
+        probe = dict(data)
+        if probe.get(identity_field) is None:
+            probe[identity_field] = 0
+        entity_type.model_validate(probe)
+    return entity_type.model_construct(**data)
+
+
 class OntoRouter:
-    """Register CRUD routes for OntoModel entities with content negotiation."""
+    """Register CRUD routes for OntoModel entities with content negotiation.
+
+    **Demo-grade** — no auth, rate limits, or async SQL. For production patterns see
+    ``docs/guides/production-router.md`` and ``examples/person_org_api_production.py``.
+    """
 
     def __init__(
         self,
         *,
         maps: list[type[Any]],
         prefix: str = "/onto",
+        validate_entities: bool = False,
+        max_body_bytes: int | None = None,
     ) -> None:
         self.maps = maps
         self.prefix = prefix.rstrip("/")
+        self.validate_entities = validate_entities
+        self.max_body_bytes = max_body_bytes
         self.router = APIRouter()
         self._entities: list[type[OntoModel]] = []
 
@@ -71,6 +116,8 @@ class OntoRouter:
         patch_body_model = _patch_body_model(entity_type, identity_field=mapper_cls.identity_field)
         CreateBody = create_body_model
         PatchBody = patch_body_model
+        validate_entities = self.validate_entities
+        max_body_bytes = self.max_body_bytes
 
         @self.router.get(f"/{name}/{{entity_id}}")
         def get_one(entity_id: int, request: Request, session: SessionDep) -> Any:
@@ -95,7 +142,7 @@ class OntoRouter:
             }
             if chosen in rdf_formats:
                 from ontosql.export._formats import media_type_for_format
-                from ontosql.sync.materialize import materialize_find
+                from ontosql.sync import materialize_find
 
                 fmt = rdf_formats[chosen]
                 graph = materialize_find(session, entity_type, limit=limit, offset=offset)
@@ -120,11 +167,16 @@ class OntoRouter:
 
         @self.router.post(f"/{name}", status_code=status.HTTP_201_CREATED)
         async def create_entity(request: Request, session: SessionDep) -> Any:
-            data = await request.json()
+            data = await _read_json_body(request, max_body_bytes)
             if mapper_cls.identity_field not in data:
                 data[mapper_cls.identity_field] = None
             validated = CreateBody.model_validate(data)
-            instance = entity_type.model_construct(**validated.model_dump())
+            instance = _instance_from_create(
+                entity_type,
+                validated,
+                validate_entities=validate_entities,
+                identity_field=mapper_cls.identity_field,
+            )
             saved = session.save(instance)
             response = negotiate_onto_response(request, saved)
             response.status_code = status.HTTP_201_CREATED
@@ -135,7 +187,7 @@ class OntoRouter:
             instance = session.get(entity_type, id=entity_id)
             if instance is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-            data = await request.json()
+            data = await _read_json_body(request, max_body_bytes)
             identity_field = mapper_cls.identity_field
             if identity_field in data and data[identity_field] != entity_id:
                 raise HTTPException(
@@ -146,6 +198,8 @@ class OntoRouter:
             validated = PatchBody.model_validate(data)
             updated = instance.model_copy(update=validated.model_dump(exclude_unset=True))
             setattr(updated, identity_field, entity_id)
+            if validate_entities:
+                updated = entity_type.model_validate(updated.model_dump())
             saved = session.save(updated)
             return negotiate_onto_response(request, saved)
 
