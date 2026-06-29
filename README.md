@@ -4,7 +4,8 @@
 [![CI](https://github.com/eddiethedean/ontosql/actions/workflows/ci.yml/badge.svg)](https://github.com/eddiethedean/ontosql/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/pypi/pyversions/ontosql)](https://pypi.org/project/ontosql/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://eddiethedean.github.io/ontosql/)
+[![Documentation Status](https://readthedocs.org/projects/ontosql/badge/?version=latest)](https://ontosql.readthedocs.io/en/latest/?badge=latest)
+[![Docs (GitHub Pages)](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://eddiethedean.github.io/ontosql/)
 
 **Semantic data access for SQL** — a Python mapper (SQLModel + Pydantic) with optional RDF export. **Not** a SPARQL database or OBDA query engine.
 
@@ -33,7 +34,7 @@ pip install "ontosql[shacl]"     # SHACL shape generation + validation
 1. **Try it (PyPI)** — copy the [standalone quick start](docs/getting-started/quickstart.md#tier-1-sql-crud-no-rdf-required) into `demo.py` (no clone required)
 2. [Architecture](docs/ARCHITECTURE.md) — why two model layers and explicit maps
 3. [Hybrid deployments](docs/HYBRID.md) — SQL + RDF graph sync (optional)
-4. [Technical specification](docs/SPECS.md) — full API reference · [hosted docs](https://eddiethedean.github.io/ontosql/)
+4. [Technical specification](docs/SPECS.md) — full API reference · [hosted docs](https://ontosql.readthedocs.io/)
 5. [FAQ](docs/FAQ.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
 
 ### Examples (repository clone)
@@ -268,7 +269,8 @@ See [examples/person_org_api_production.py](examples/person_org_api_production.p
 - [Contributing](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Releasing](docs/RELEASING.md) (maintainers)
-- [Documentation site](https://eddiethedean.github.io/ontosql/) — built from [mkdocs.yml](mkdocs.yml) on every push to `main`
+- [Documentation (Read the Docs)](https://ontosql.readthedocs.io/) — primary docs host; builds from [`.readthedocs.yaml`](.readthedocs.yaml)
+- [Documentation (GitHub Pages)](https://eddiethedean.github.io/ontosql/) — mirror built from [mkdocs.yml](mkdocs.yml) on every push to `main`
 
 ## Development
 

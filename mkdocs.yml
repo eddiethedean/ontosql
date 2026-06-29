@@ -1,6 +1,7 @@
 site_name: OntoSQL
 site_description: Semantic data access for SQL
-site_url: https://eddiethedean.github.io/ontosql/
+# RTD sets READTHEDOCS_CANONICAL_URL; GitHub Pages uses the fallback.
+site_url: !ENV [READTHEDOCS_CANONICAL_URL, 'https://eddiethedean.github.io/ontosql/']
 repo_url: https://github.com/eddiethedean/ontosql
 repo_name: eddiethedean/ontosql
 edit_uri: edit/main/docs/

@@ -65,3 +65,14 @@ twine upload dist/*
 Requires PyPI credentials configured (`~/.pypirc` or `TWINE_USERNAME=__token__` / `TWINE_PASSWORD`).
 
 PyPI `description` and `readme` come from [pyproject.toml](https://github.com/eddiethedean/ontosql/blob/main/pyproject.toml) — update them in the same release PR as [README.md](https://github.com/eddiethedean/ontosql/blob/main/README.md).
+
+## Documentation hosting
+
+Docs are built with MkDocs (`mkdocs build --strict`) from [mkdocs.yml](https://github.com/eddiethedean/ontosql/blob/main/mkdocs.yml).
+
+| Host | Config | Trigger |
+|------|--------|---------|
+| **Read the Docs** (primary) | [`.readthedocs.yaml`](https://github.com/eddiethedean/ontosql/blob/main/.readthedocs.yaml) | Import the GitHub repo at [readthedocs.org/dashboard/import/](https://readthedocs.org/dashboard/import/) — RTD detects MkDocs automatically |
+| **GitHub Pages** (mirror) | [.github/workflows/pages.yml](https://github.com/eddiethedean/ontosql/blob/main/.github/workflows/pages.yml) | Push to `main` |
+
+**One-time RTD setup:** create a project named `ontosql` (matches PyPI `Documentation` URL), point it at this repository, and enable builds for `main` and tags. No custom build commands are required — `.readthedocs.yaml` installs `pip install ".[docs]"` and runs MkDocs with `fail_on_warning: true`.

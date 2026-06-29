@@ -55,7 +55,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/eddiethedean/ontosql"
-Documentation = "https://eddiethedean.github.io/ontosql/"
+Documentation = "https://ontosql.readthedocs.io/"
 Repository = "https://github.com/eddiethedean/ontosql"
 Issues = "https://github.com/eddiethedean/ontosql/issues"
 Changelog = "https://github.com/eddiethedean/ontosql/blob/main/CHANGELOG.md"

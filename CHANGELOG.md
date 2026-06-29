@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Read the Docs** — `.readthedocs.yaml` for MkDocs builds; `site_url` uses `READTHEDOCS_CANONICAL_URL` with GitHub Pages fallback
 - **Observability** — `ontosql` logger with debug/warning hooks at session commit, flush, and graph sync boundaries
 - **RDF import guards** — `max_bytes` and `max_triples` on `load_graph` / `import_from_rdf`
 - **OntoRouter** — `validate_entities` and `max_body_bytes` options; `onto_async_session_lifespan` for `AsyncSessionDep`

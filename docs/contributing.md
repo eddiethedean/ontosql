@@ -42,7 +42,7 @@ Postgres integration tests require `ONTO_TEST_DATABASE_URL` (see CI postgres job
 src/ontosql/     # library code
 tests/           # pytest suite; shared fixtures in tests/models.py
 examples/        # runnable demos; shared fixtures in examples/models.py
-docs/            # documentation (MkDocs site)
+docs/            # documentation (MkDocs site; hosted on Read the Docs + GitHub Pages)
 ```
 
 - **Tests** use `tests/models.py` for Person/Organization fixtures.

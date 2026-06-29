@@ -45,6 +45,6 @@ Both work. CI runs the full test matrix on **SQLite** (Python 3.10–3.13) and a
 
 ## Where is the API reference?
 
-- **Hosted docs:** [https://eddiethedean.github.io/ontosql/](https://eddiethedean.github.io/ontosql/)
+- **Hosted docs:** [https://ontosql.readthedocs.io/](https://ontosql.readthedocs.io/) (also mirrored on [GitHub Pages](https://eddiethedean.github.io/ontosql/))
 - **Contract:** [SPECS.md](SPECS.md) — module layout and stability tiers
 - Generated API docs from docstrings are planned for 0.9
