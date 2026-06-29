@@ -1,0 +1,223 @@
+/* OntoSQL docs — modern layer on Material for MkDocs (inspired by LessonKit/Furo) */
+
+:root {
+  --os-brand: #2563eb;
+  --os-brand-content: #1e40af;
+  --os-accent: #7c3aed;
+}
+
+[data-md-color-scheme="slate"] {
+  --os-brand: #60a5fa;
+  --os-brand-content: #93c5fd;
+  --os-accent: #c4b5fd;
+}
+
+/* ── Landing hero ───────────────────────────────────────────── */
+.os-hero {
+  margin: 0 0 2.5rem;
+  padding: 2.75rem 2rem 2.5rem;
+  border-radius: 1.25rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  background:
+    radial-gradient(ellipse 120% 80% at 100% -20%, rgba(37, 99, 235, 0.14), transparent 55%),
+    radial-gradient(ellipse 80% 60% at 0% 100%, rgba(124, 58, 237, 0.1), transparent 50%),
+    var(--md-code-bg-color);
+  position: relative;
+  isolation: isolate;
+}
+
+.os-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, transparent 40%, rgba(37, 99, 235, 0.04) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.os-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hide duplicate Markdown H1 when hero carries the visible headline (home only) */
+.md-content__inner:has(.os-hero) > h1:first-child {
+  display: none;
+}
+
+.os-hero-kicker {
+  margin: 0 0 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--md-default-fg-color--light);
+}
+
+.os-hero-title {
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  margin: 0 0 0.75rem;
+  padding-block: 0.125em;
+  color: var(--md-default-fg-color);
+  text-wrap: balance;
+}
+
+.os-hero .os-lead {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--md-default-fg-color--light);
+  max-width: 42rem;
+  margin: 0 0 1.5rem;
+  text-wrap: pretty;
+}
+
+.os-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.os-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 999px;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color--light);
+}
+
+.os-badge--accent {
+  border-color: rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--os-brand-content);
+}
+
+[data-md-color-scheme="slate"] .os-badge--accent {
+  border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(96, 165, 250, 0.12);
+  color: var(--os-brand-content);
+}
+
+.os-hero-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: 0.625rem;
+  border: 1px solid rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--os-brand-content) !important;
+  text-decoration: none !important;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.os-hero-cta:hover {
+  background: rgba(37, 99, 235, 0.18);
+  border-color: rgba(37, 99, 235, 0.65);
+  transform: translateY(-1px);
+}
+
+.os-hero-cta--secondary {
+  border-color: var(--md-default-fg-color--lightest);
+  background: var(--md-default-bg-color);
+  color: var(--md-default-fg-color) !important;
+}
+
+.os-hero-cta--secondary:hover {
+  background: var(--md-code-bg-color);
+  border-color: var(--md-default-fg-color--lighter);
+}
+
+.os-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.os-logo--dark {
+  display: none;
+}
+
+[data-md-color-scheme="slate"] .os-logo--light {
+  display: none;
+}
+
+[data-md-color-scheme="slate"] .os-logo--dark {
+  display: block;
+}
+
+.os-logo {
+  height: 1.6rem;
+}
+
+/* ── Material grid cards ────────────────────────────────────── */
+.md-typeset .grid.cards > ul > li {
+  border-radius: 1rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px -12px rgba(15, 23, 42, 0.15);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .grid.cards > ul > li:hover {
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Callouts ───────────────────────────────────────────────── */
+.os-callout {
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  border-radius: 0.75rem;
+  border-left: 4px solid var(--os-brand);
+  background: rgba(37, 99, 235, 0.06);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+[data-md-color-scheme="slate"] .os-callout {
+  background: rgba(96, 165, 250, 0.08);
+}
+
+/* ── Content polish ─────────────────────────────────────────── */
+.md-typeset p {
+  line-height: 1.7;
+}
+
+.md-typeset table:not([class]) {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset table:not([class]) thead {
+  background: var(--md-code-bg-color);
+}
+
+.md-typeset pre > code {
+  border-radius: 0.75rem;
+}
+
+h2#documentation-map {
+  margin-top: 2.5rem;
+}

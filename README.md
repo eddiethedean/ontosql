@@ -31,7 +31,7 @@ pip install "ontosql[shacl]"     # SHACL shape generation + validation
 
 ## Start here
 
-1. **Try it (PyPI)** — copy the [standalone quick start](docs/getting-started/quickstart.md#tier-1-sql-crud-no-rdf-required) into `demo.py` (no clone required)
+1. **Try it (PyPI)** — copy the [standalone quick start](docs/getting-started/quickstart.md#tier-1-sql-crud-no-rdf-required) into `demo.py` (no clone required) · [Start here on Read the Docs](https://ontosql.readthedocs.io/en/latest/guides/start-here.html)
 2. [Architecture](docs/ARCHITECTURE.md) — why two model layers and explicit maps
 3. [Hybrid deployments](docs/HYBRID.md) — SQL + RDF graph sync (optional)
 4. [Technical specification](docs/SPECS.md) — full API reference · [hosted docs](https://ontosql.readthedocs.io/)
@@ -239,6 +239,7 @@ See [examples/person_org_api_production.py](examples/person_org_api_production.p
 
 ### Getting started
 
+- [Start here](docs/guides/start-here.md) — pick your path (CRUD, FastAPI, hybrid graph, production)
 - [Installation](docs/getting-started/installation.md)
 - [Quick start (standalone)](docs/getting-started/quickstart.md)
 - [Async sessions](docs/getting-started/async.md)

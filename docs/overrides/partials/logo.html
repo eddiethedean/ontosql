@@ -1,0 +1,6 @@
+{% if config.theme.logo %}
+  <img src="{{ 'assets/logo.svg' | url }}" alt="{{ config.site_name }}" class="os-logo os-logo--light" draggable="false" />
+  <img src="{{ 'assets/logo-dark.svg' | url }}" alt="{{ config.site_name }}" class="os-logo os-logo--dark" draggable="false" />
+{% else %}
+  {{ config.site_name }}
+{% endif %}
