@@ -31,7 +31,7 @@ pip install "ontosql[async,fastapi]"   # optional extras — see docs
 | Pick a path (async, FastAPI, hybrid) | [Start here](https://ontosql.readthedocs.io/en/latest/guides/start-here.html) |
 | Understand the design | [Architecture](https://ontosql.readthedocs.io/en/latest/ARCHITECTURE.html) |
 | Decide if OntoSQL fits | [When to use OntoSQL](https://ontosql.readthedocs.io/en/latest/getting-started/when-to-use.html) |
-| Evaluate for production | [Security](https://ontosql.readthedocs.io/en/latest/SECURITY.html) · [Compatibility](https://ontosql.readthedocs.io/en/latest/COMPATIBILITY.html) |
+| Evaluate for production | [Security](https://ontosql.readthedocs.io/en/latest/SECURITY.html) · [Compatibility](https://ontosql.readthedocs.io/en/latest/COMPATIBILITY.html) · [Enterprise adoption](https://ontosql.readthedocs.io/en/latest/enterprise-adoption.html) |
 
 **Full docs:** [ontosql.readthedocs.io](https://ontosql.readthedocs.io/en/latest/)
 

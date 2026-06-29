@@ -172,6 +172,7 @@ When a nested association changes, `REPLACE` deletes the **old** nested row (fro
 
 - [guides/cascade-policies.md](guides/cascade-policies.md) — nested write policies
 - [SECURITY.md](SECURITY.md) — graph/SQL consistency
+- [guides/graph-sync-operations.md](guides/graph-sync-operations.md) — production runbook
 - [SPECS.md](SPECS.md) — API contract
 - [ECOSYSTEM.md](ECOSYSTEM.md) — package boundaries
 - [examples/hybrid_person_org.py](https://github.com/eddiethedean/ontosql/blob/main/examples/hybrid_person_org.py) — runnable demo

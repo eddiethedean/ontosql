@@ -62,7 +62,7 @@ Use `from ontosql.import_ import ...` (trailing underscore).
 
 Graph sync runs at **commit**, not immediately on `save()`. Check inside the session before exit — graph may still be empty. Rolled-back transactions do not update the graph.
 
-If graph sync fails after SQL commit, you have a **split-brain** risk: SQL is durable, graph may be partial. Check `session.graph_sync_pending` and `session.graph_sync_failures`, then call `session.retry_graph_sync()` after fixing the graph target. See [HYBRID.md](HYBRID.md#graph-sync-failures-split-brain).
+If graph sync fails after SQL commit, you have a **split-brain** risk: SQL is durable, graph may be partial. Check `session.graph_sync_pending` and `session.graph_sync_failures`, then call `session.retry_graph_sync()` after fixing the graph target. See [HYBRID.md](HYBRID.md#graph-sync-failures-split-brain) and [graph sync operations runbook](guides/graph-sync-operations.md).
 
 ## `GraphSyncError` after commit
 

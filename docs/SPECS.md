@@ -13,7 +13,7 @@ API contract for **ontosql 0.5.0**. Sections marked *planned* are on the [roadma
 
 **ontosql** is a semantic data access layer for Python: Pydantic semantic models, SQLModel physical tables, declarative `OntoMapper` bindings, and `OntoSession` that compiles operations to SQL. JSON-LD, RDF, and FastAPI responses are derived from the same mapping — not from annotating table rows.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rationale.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rationale. Terms: [GLOSSARY.md](GLOSSARY.md).
 
 ## API stability (0.5.x)
 

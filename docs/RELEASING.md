@@ -70,9 +70,11 @@ PyPI `description` and `readme` come from [pyproject.toml](https://github.com/ed
 
 Docs are built with MkDocs (`mkdocs build --strict`) from [mkdocs.yml](https://github.com/eddiethedean/ontosql/blob/main/mkdocs.yml).
 
-| Host | Config | Trigger |
-|------|--------|---------|
-| **Read the Docs** (primary) | [`.readthedocs.yaml`](https://github.com/eddiethedean/ontosql/blob/main/.readthedocs.yaml) | Import the GitHub repo at [readthedocs.org/dashboard/import/](https://readthedocs.org/dashboard/import/) — RTD detects MkDocs automatically |
-| **GitHub Pages** (mirror) | [.github/workflows/pages.yml](https://github.com/eddiethedean/ontosql/blob/main/.github/workflows/pages.yml) | Push to `main` |
+| Host | Role | Trigger |
+|------|------|---------|
+| **[Read the Docs](https://ontosql.readthedocs.io/)** | **Canonical** public documentation | RTD webhook on push/tags — [`.readthedocs.yaml`](https://github.com/eddiethedean/ontosql/blob/main/.readthedocs.yaml) |
+| **GitHub Pages** | Optional mirror | Push to `main` — [pages workflow](https://github.com/eddiethedean/ontosql/blob/main/.github/workflows/pages.yml) |
 
-**One-time RTD setup:** create a project named `ontosql` (matches PyPI `Documentation` URL), point it at this repository, and enable builds for `main` and tags. No custom build commands are required — `.readthedocs.yaml` installs `pip install ".[docs]"` and runs MkDocs with `fail_on_warning: true`.
+Use **Read the Docs** URLs in README, PyPI `Documentation` field, and external links. GitHub Pages is a convenience mirror only.
+
+**One-time RTD setup:** create a project named `ontosql`, point at this repository, enable builds for `main` and tags. `.readthedocs.yaml` installs `pip install ".[docs]"` and runs MkDocs with `fail_on_warning: true`.

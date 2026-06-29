@@ -119,9 +119,9 @@ Remote endpoint and Neo4j adapters remain on the [ROADMAP](ROADMAP.md). In-proce
 | aiosqlite | Async SQLite tests |
 | greenlet | SQLAlchemy async support in tests |
 
-### mkdocs-material (future)
+| mkdocs-material + mkdocstrings | Documentation site ([Read the Docs](https://ontosql.readthedocs.io/)) |
 
-- Documentation site for 1.0 — not required for 0.2 docs-in-repo
+Install: `pip install ontosql[docs]` or `pip install -e ".[dev]"`.
 
 ## Extras in pyproject.toml
 

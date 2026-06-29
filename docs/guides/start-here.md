@@ -36,7 +36,7 @@ Requires graph sync setup; eventually consistent after SQL commit.
 
 ## Evaluate for production
 
-[Security](../SECURITY.md) · [Compatibility](../COMPATIBILITY.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md)
+[Enterprise adoption](../enterprise-adoption.md) · [Security](../SECURITY.md) · [Compatibility](../COMPATIBILITY.md) · [Compliance](../guides/compliance.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md)
 
 !!! warning "OntoRouter on public networks"
 

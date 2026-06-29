@@ -45,3 +45,4 @@ Enable RDF when you need JSON-LD/Turtle APIs, graph sync, SHACL validation, or i
 - [Architecture](../ARCHITECTURE.md) — two model layers and explicit maps
 - [Ecosystem](../ECOSYSTEM.md) — OntoSQL, TripleModel, SparqlModel boundaries
 - [Compatibility](../COMPATIBILITY.md) — Python, databases, beta status
+- [Enterprise adoption](../enterprise-adoption.md) — evaluation checklist for large organizations

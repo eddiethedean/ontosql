@@ -114,14 +114,27 @@ nav:
       - Postgres dialect: guides/postgres-dialect.md
       - Production FastAPI: guides/production-router.md
       - Hybrid SQL + graph: HYBRID.md
+      - Graph sync operations: guides/graph-sync-operations.md
+      - Alembic and migrations: guides/alembic.md
+      - Testing in your app: guides/testing.md
+      - Upgrading: guides/upgrading.md
   - Reference:
       - Session API: reference/session.md
       - Mapping API: reference/mapping.md
+      - FastAPI API: reference/fastapi.md
+      - Export API: reference/export.md
+      - Import API: reference/import.md
+      - Sync API: reference/sync.md
+      - SHACL API: reference/shacl.md
       - Technical specification: SPECS.md
       - Architecture: ARCHITECTURE.md
+      - Glossary: GLOSSARY.md
       - Ecosystem: ECOSYSTEM.md
       - Compatibility: COMPATIBILITY.md
       - Security: SECURITY.md
+      - Support policy: SUPPORT.md
+      - Enterprise adoption: enterprise-adoption.md
+      - Compliance questionnaires: guides/compliance.md
       - Dependencies: DEPS.md
       - Session lifecycle (internals): internals/session-lifecycle.md
   - Help:

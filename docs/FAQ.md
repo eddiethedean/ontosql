@@ -71,6 +71,10 @@ Not yet. **0.5.x is beta** (PyPI classifier: Development Status :: 4 - Beta). AP
 
 ## Where is the API reference?
 
-- **Generated API:** [Session](reference/session.md) · [Mapping](reference/mapping.md)
+- **Generated API:** [Session](reference/session.md) · [Mapping](reference/mapping.md) · [FastAPI](reference/fastapi.md) · [Export](reference/export.md) · [Import](reference/import.md) · [Sync](reference/sync.md) · [SHACL](reference/shacl.md)
 - **Contract:** [SPECS.md](SPECS.md) — module layout and stability tiers
 - **Hosted site:** [ontosql.readthedocs.io](https://ontosql.readthedocs.io/en/latest/)
+
+## Is there enterprise or commercial support?
+
+Not in 0.5.x. See [SUPPORT.md](SUPPORT.md) and [enterprise adoption](enterprise-adoption.md).

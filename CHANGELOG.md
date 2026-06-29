@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Documentation audit: slim README, beta banners, [when-to-use](getting-started/when-to-use.md), [semantic queries](guides/semantic-queries.md), [FastAPI quick start](guides/fastapi-quickstart.md), mkdocstrings [API reference](reference/session.md), expanded FAQ/troubleshooting, SPECS drift fixes
+- **Enterprise adoption** — [enterprise-adoption.md](enterprise-adoption.md) evaluation + checklist, [SUPPORT.md](SUPPORT.md), [compliance guide](guides/compliance.md)
+- **Operations guides** — [Alembic](guides/alembic.md), [testing](guides/testing.md), [upgrading](guides/upgrading.md), [graph sync runbook](guides/graph-sync-operations.md)
+- **API reference** — [FastAPI](reference/fastapi.md), [export](reference/export.md), [import](reference/import.md), [sync](reference/sync.md), [SHACL](reference/shacl.md); [GLOSSARY.md](GLOSSARY.md)
 
 ## [0.5.1] - 2026-06-29
 

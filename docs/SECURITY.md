@@ -54,6 +54,25 @@ If graph sync fails after commit, SQL remains committed and the queue is preserv
 
 See [guides/cascade-policies.md](guides/cascade-policies.md).
 
+## Project governance
+
+| Topic | Details |
+|-------|---------|
+| **License** | MIT |
+| **Maintainers** | OntoSQL contributors — see [GitHub repository](https://github.com/eddiethedean/ontosql/graphs/contributors) |
+| **Security contact** | [GitHub Security Advisories](https://github.com/eddiethedean/ontosql/security/advisories/new) (preferred) |
+| **Support model** | Community best-effort — [SUPPORT.md](SUPPORT.md) |
+| **Commercial support** | Not offered in 0.5.x |
+
+## Vulnerability response
+
+1. Report privately via GitHub Security Advisories or the security contact on the repository — **do not** open public issues for undisclosed vulnerabilities.
+2. Maintainers acknowledge receipt when possible; **no published SLA** for triage or fix timelines in 0.5.x.
+3. Fixes ship in patch/minor releases per severity; advisories published on GitHub when disclosed.
+4. Enterprise teams should monitor [GitHub Advisories](https://github.com/eddiethedean/ontosql/security/advisories) and pin versions — [upgrading guide](guides/upgrading.md).
+
+Pre-1.0: coordinate breaking security fixes with [CHANGELOG](changelog.md) and [SPECS](SPECS.md) stability tiers.
+
 ## Reporting vulnerabilities
 
-Please report security issues privately via GitHub Security Advisories or by emailing the maintainers listed on the repository. Do not open public issues for undisclosed vulnerabilities.
+Please report security issues privately via [GitHub Security Advisories](https://github.com/eddiethedean/ontosql/security/advisories/new). Do not open public issues for undisclosed vulnerabilities.

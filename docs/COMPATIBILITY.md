@@ -47,6 +47,33 @@ PyPI classifier: **Development Status :: 4 - Beta** (0.5.x). API may evolve unti
 
 Other SQLAlchemy-supported databases may work but are not CI-tested.
 
+## TripleModel core dependency
+
+`triplemodel` is a **required** core dependency (not optional), even when you use SQL CRUD only without RDF export.
+
+| Implication | Detail |
+|-------------|--------|
+| **Install footprint** | Pulls TripleModel and transitive RDF stack (pyoxigraph via TripleModel) |
+| **SQL-only apps** | Still used for `PrefixRegistry.expand()` and optional `to_jsonld()` / `to_rdf()` |
+| **Supply chain** | Include TripleModel in security review and version pinning |
+| **Disabling RDF** | You can omit RDF from app code; you cannot omit the dependency without forking |
+
+See [DEPS.md](DEPS.md) and [when-to-use.md](getting-started/when-to-use.md#do-i-need-rdf).
+
+## Async database drivers
+
+| Database | Sync driver (examples) | Async driver (examples) | CI |
+|----------|------------------------|---------------------------|-----|
+| SQLite | stdlib / built-in | `aiosqlite` via `ontosql[async]` | Tested |
+| PostgreSQL | `psycopg` (v3) | `asyncpg` | Postgres job (sync); async not in dedicated CI job |
+
+Connection URLs:
+
+- Sync Postgres: `postgresql+psycopg://…`
+- Async Postgres: `postgresql+asyncpg://…` — see [async sessions](getting-started/async.md)
+
+Other async drivers supported by SQLAlchemy may work but are not documented or CI-tested.
+
 ## Ecosystem alignment
 
 | Package | Notes |
