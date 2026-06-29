@@ -7,9 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+### Added
 
-- **Maintainability** — docs reconciled for 0.5.x; `docs/internals/session-lifecycle.md`; `OntoRouter` list JSON-LD uses `instances_to_jsonld`; mapper identity field validated at registration; `rollback(clear_uow=)`; unified write executors; `column`/`nested`/`computed`/`collection` map functions; expanded API contract tests; sync/async session parity tests
+- Documentation audit: slim README, beta banners, [when-to-use](getting-started/when-to-use.md), [semantic queries](guides/semantic-queries.md), [FastAPI quick start](guides/fastapi-quickstart.md), mkdocstrings [API reference](reference/session.md), expanded FAQ/troubleshooting, SPECS drift fixes
+
+## [0.5.1] - 2026-06-29
+
+Documentation and hardening release following 0.5.0.
+
+### Added
+
+- **Read the Docs** — `.readthedocs.yaml` for MkDocs builds; `site_url` uses `READTHEDOCS_CANONICAL_URL` with GitHub Pages fallback
+- **Docs site refresh** — landing hero, path cards, tabbed nav, custom theme/CSS, [Start here](guides/start-here.md)
+- **Observability** — `ontosql` logger with debug/warning hooks at session commit, flush, and graph sync boundaries
+- **RDF import guards** — `max_bytes` and `max_triples` on `load_graph` / `import_from_rdf`
+- **OntoRouter** — `validate_entities` and `max_body_bytes` options; `onto_async_session_lifespan` for `AsyncSessionDep`
+- **Docs** — [production-router.md](guides/production-router.md), graph split-brain reconciliation in [HYBRID.md](HYBRID.md), [session-lifecycle.md](internals/session-lifecycle.md)
+- **Exports** — `GraphSyncError`, `GraphSyncFailure`, `GraphSyncMode`, `OntoImportError`, `paginate_async` from root; `materialize_find_async`, `GraphSyncTarget` from `ontosql.sync`
+- **Session API** — `get(identity=)`, `save(flush_now=)`, `clear_pending()`; import helpers take `mapper` positionally; `get_global_registry()` removed
+- Shared session orchestration helpers in `ontosql.session._ops`; public API stability tiers in [SPECS.md](SPECS.md)
+- Postgres integration tests expanded in CI; onboarding templates and progressive quick start tiers
 
 ### Security
 
@@ -20,36 +37,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Simplicity audit** — removed `materialize_entity`, `patch_subject`, `replace_subject`, `execute_sql`, `OntoModel.registry`, `onto_property(graph=)`, session `registry=` kwarg; `push_instance`/`sync_instance_to_store` require explicit `mapper`; `GraphSyncFailure` demoted from root; shared RDF helpers in `semantic/rdf_util.py`; consolidated FastAPI list RDF negotiation
+- **Maintainability** — docs reconciled for 0.5.x; `OntoRouter` list JSON-LD uses `instances_to_jsonld`; mapper identity field validated at registration; `rollback(clear_uow=)`; unified write executors; `column`/`nested`/`computed`/`collection` map functions; expanded API contract tests; sync/async session parity tests
+- **Simplicity audit** — removed `materialize_entity`, `patch_subject`, `replace_subject`, `execute_sql`, `OntoModel.registry`, `onto_property(graph=)`, session `registry=` kwarg; `push_instance`/`sync_instance_to_store` require explicit `mapper`; shared RDF helpers in `semantic/rdf_util.py`; consolidated FastAPI list RDF negotiation
+- **SHACL** — `shapes_from_mapper` now sets `sh:minCount` to `1` for required scalar properties
+- **Async session** — `save()` snapshot resolution aligned with sync session via shared `session/_ops.py`
 
 ### Fixed
 
 - **Graph sync** — partial failures after SQL commit preserve the remaining queue; raises `GraphSyncError` with `retry_graph_sync()` for recovery
 - **Session flush** — mid-flush errors no longer drop unprocessed pending plans
 - **Sync session** — SQLAlchemy session opens in `__enter__`; use as context manager (warns on leak via `ResourceWarning`)
-
-### Added
-
-- **Read the Docs** — `.readthedocs.yaml` for MkDocs builds; `site_url` uses `READTHEDOCS_CANONICAL_URL` with GitHub Pages fallback
-- **Docs site refresh** — LessonKit-style landing hero, path cards, tabbed nav, custom theme/CSS, logos, and [Start here](guides/start-here.md) guide
-- **Observability** — `ontosql` logger with debug/warning hooks at session commit, flush, and graph sync boundaries
-- **RDF import guards** — `max_bytes` and `max_triples` on `load_graph` / `import_from_rdf`
-- **OntoRouter** — `validate_entities` and `max_body_bytes` options; `onto_async_session_lifespan` for `AsyncSessionDep`
-- **Docs** — [production-router.md](guides/production-router.md), graph split-brain reconciliation in [HYBRID.md](HYBRID.md)
-- **Exports** — `GraphSyncError`, `GraphSyncFailure`, `GraphSyncMode`, `OntoImportError`, `paginate_async` from root; `materialize_find_async`, `GraphSyncTarget` from `ontosql.sync`
-- **Session API** — `get(identity=)`, `save(flush_now=)`, `clear_pending()`; import helpers take `mapper` positionally; `get_global_registry()` removed
-
-### Changed
-
-- **SHACL** — `shapes_from_mapper` now sets `sh:minCount` to `1` for required scalar properties (was incorrectly `0` for all non-identity fields)
-- **Async session** — `save()` snapshot resolution aligned with sync session via shared `session/_ops.py`
-
-### Added (prior unreleased)
-
-- Shared session orchestration helpers in `ontosql.session._ops` (used by sync and async sessions)
-- Public API stability tiers documented in [SPECS.md](SPECS.md)
-- Postgres integration tests expanded in CI
-- **Onboarding** — README badges, PyPI vs clone paths, progressive quick start tiers, `ontosql[async]` extra, GitHub Pages docs deploy, contributor templates (issues, PR, CoC, SECURITY)
 
 ## Migrating from 0.4.x to 0.5.x
 
@@ -180,6 +177,8 @@ First release of **OntoSQL** — semantic data access for SQL via explicit maps.
 - Example: `examples/person_org_demo.py`
 - Documentation: [ARCHITECTURE.md](https://github.com/eddiethedean/ontosql/blob/main/docs/ARCHITECTURE.md), [SPECS.md](https://github.com/eddiethedean/ontosql/blob/main/docs/SPECS.md), [ROADMAP.md](https://github.com/eddiethedean/ontosql/blob/main/docs/ROADMAP.md)
 
+[0.5.1]: https://github.com/eddiethedean/ontosql/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/eddiethedean/ontosql/releases/tag/v0.5.0
 [0.4.0]: https://github.com/eddiethedean/ontosql/releases/tag/v0.4.0
 [0.3.1]: https://github.com/eddiethedean/ontosql/releases/tag/v0.3.1
 [0.3.0]: https://github.com/eddiethedean/ontosql/releases/tag/v0.3.0

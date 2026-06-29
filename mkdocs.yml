@@ -44,6 +44,16 @@ theme:
 
 plugins:
   - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_root_heading: true
+            show_source: false
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
 
 extra:
   social:
@@ -91,10 +101,13 @@ nav:
   - Home: index.md
   - Getting started:
       - Start here: guides/start-here.md
+      - When to use OntoSQL: getting-started/when-to-use.md
       - Installation: getting-started/installation.md
       - Quick start: getting-started/quickstart.md
       - Async sessions: getting-started/async.md
   - Guides:
+      - Semantic queries: guides/semantic-queries.md
+      - FastAPI quick start: guides/fastapi-quickstart.md
       - Cascade policies: guides/cascade-policies.md
       - Bridge tables: guides/bridge-tables.md
       - Multi-map views: guides/multi-map-views.md
@@ -102,13 +115,15 @@ nav:
       - Production FastAPI: guides/production-router.md
       - Hybrid SQL + graph: HYBRID.md
   - Reference:
-      - Architecture: ARCHITECTURE.md
+      - Session API: reference/session.md
+      - Mapping API: reference/mapping.md
       - Technical specification: SPECS.md
+      - Architecture: ARCHITECTURE.md
       - Ecosystem: ECOSYSTEM.md
-      - Session lifecycle (internals): internals/session-lifecycle.md
       - Compatibility: COMPATIBILITY.md
       - Security: SECURITY.md
       - Dependencies: DEPS.md
+      - Session lifecycle (internals): internals/session-lifecycle.md
   - Help:
       - FAQ: FAQ.md
       - Troubleshooting: TROUBLESHOOTING.md

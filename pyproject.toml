@@ -34,6 +34,7 @@ shacl = ["pyshacl>=0.29"]
 docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
 ]
 dev = [
     "pytest>=8",
@@ -51,6 +52,7 @@ dev = [
     "sparqlmodel>=0.13.1",
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
 ]
 
 [project.urls]

@@ -103,7 +103,7 @@ When defining models that may appear in both SQL and graph contexts, align these
 | Class type | `type_iri = "schema:Person"` | `rdf_type` / `Rdf.type_uri` |
 | Property | `onto_property("schema:name")` | `Field("schema:name")` / `rdf_field(...)` |
 | Instance IRI | `iri_template = "https://data.example.org/person/{id}"` | `IRI` / `Rdf.namespace` + `id_field` |
-| Prefixes | `PrefixRegistry` / `OntoModel.registry` | `__prefixes__` / `Rdf.prefixes` |
+| Prefixes | `PrefixRegistry` (pass to export/import or use `curated()`) | `__prefixes__` / `Rdf.prefixes` |
 
 OntoSQL maps are **SQL-specific** (`Map`, `Map.nested`); they are not shared with SparqlModel. Semantic field names and ontology CURIEs should match so export from SQL and graph stores produce compatible JSON-LD.
 

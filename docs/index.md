@@ -1,5 +1,9 @@
 # OntoSQL
 
+!!! warning "0.5.x beta"
+    API stability tiers are documented in [SPECS](SPECS.md). Semver guarantees begin at 1.0.
+    Pin versions in production and read [Compatibility](COMPATIBILITY.md) before upgrading.
+
 <div class="os-hero" markdown="0">
   <div class="os-hero-badges">
     <span class="os-badge os-badge--accent">0.5.x</span>
@@ -34,7 +38,7 @@ Pick the path that matches how you work:
 
     `OntoRouter`, content negotiation, async lifespan, and production security patterns.
 
-    [:octicons-arrow-right-24: Production router](guides/production-router.md)
+    [:octicons-arrow-right-24: FastAPI quick start](guides/fastapi-quickstart.md)
 
 -   :material-graph-outline:{ .lg .middle } **Hybrid SQL + graph**
 
@@ -81,42 +85,10 @@ pip install "ontosql[shacl]"      # SHACL shapes
 
 Release notes: [changelog](changelog.md) · [GitHub CHANGELOG](https://github.com/eddiethedean/ontosql/blob/main/CHANGELOG.md)
 
-## Documentation map {#documentation-map}
+## Read next
 
-### Getting started
+New to OntoSQL? Follow [Start here](guides/start-here.md) or jump to the [quick start](getting-started/quickstart.md).
 
-- [Start here](guides/start-here.md)
-- [Installation](getting-started/installation.md)
-- [Quick start](getting-started/quickstart.md)
-- [Async sessions](getting-started/async.md)
+Evaluating adoption? Read [When to use OntoSQL](getting-started/when-to-use.md) and [Security](SECURITY.md).
 
-!!! tip "Questions?"
-
-    See the [FAQ](FAQ.md) or [Troubleshooting](TROUBLESHOOTING.md).
-
-### Guides
-
-- [Cascade policies](guides/cascade-policies.md)
-- [Bridge tables](guides/bridge-tables.md)
-- [Multi-map views](guides/multi-map-views.md)
-- [Postgres dialect](guides/postgres-dialect.md)
-- [Production FastAPI](guides/production-router.md)
-- [Hybrid SQL + graph](HYBRID.md)
-
-### Reference
-
-- [Architecture](ARCHITECTURE.md)
-- [Technical specification](SPECS.md)
-- [Ecosystem](ECOSYSTEM.md) — OntoSQL, TripleModel, SparqlModel
-- [Session lifecycle (internals)](internals/session-lifecycle.md)
-- [Compatibility](COMPATIBILITY.md)
-- [Security](SECURITY.md)
-- [Dependencies](DEPS.md)
-
-### Project
-
-- [Roadmap](ROADMAP.md)
-- [Changelog](changelog.md)
-- [Contributing](contributing.md)
-- [Code of Conduct](code_of_conduct.md)
-- [Releasing](RELEASING.md) (maintainers)
+Questions? See [FAQ](FAQ.md) or [Troubleshooting](TROUBLESHOOTING.md).

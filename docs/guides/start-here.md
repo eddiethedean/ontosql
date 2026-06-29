@@ -6,17 +6,17 @@ Pick the path that matches your goal. Each link is a single next step — not th
 
 [Quick start](../getting-started/quickstart.md) — `pip install ontosql`, copy the Tier 1 script, run semantic CRUD in under 10 minutes (no repo clone).
 
-**Then go deeper:** [Architecture](../ARCHITECTURE.md) · [Technical specification](../SPECS.md)
+**Then go deeper:** [When to use OntoSQL](../getting-started/when-to-use.md) · [Semantic queries](semantic-queries.md) · [Architecture](../ARCHITECTURE.md) · [Technical specification](../SPECS.md)
 
 ## Async sessions
 
-[Async sessions](../getting-started/async.md) — `AsyncOntoSession` with the same API as sync; requires `ontosql[async]`.
+[Async sessions](../getting-started/async.md) — self-contained runnable example; requires `ontosql[async]`.
 
 ## FastAPI production API
 
-[Production FastAPI router](../guides/production-router.md) — auth, body limits, and async lifespan patterns.
+[FastAPI quick start](fastapi-quickstart.md) — copy-paste `OntoRouter` app (no clone).
 
-**Example:** [person_org_api_production.py](https://github.com/eddiethedean/ontosql/blob/main/examples/person_org_api_production.py) in the repo (clone required).
+[Production FastAPI router](production-router.md) — auth, body limits, and async lifespan patterns.
 
 ## Hybrid SQL + RDF graph
 
@@ -48,4 +48,4 @@ Requires graph sync setup; eventually consistent after SQL commit.
 
 ## Full documentation map
 
-Return to the [documentation home](../index.md#documentation-map) for the complete table of contents.
+Return to the [documentation home](../index.md) for the complete table of contents.

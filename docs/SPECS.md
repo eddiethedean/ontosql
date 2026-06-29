@@ -104,7 +104,8 @@ Class attributes:
 |-----------|-------------|
 | `type_iri` | RDF class CURIE or IRI (`@type`) |
 | `iri_template` | Instance `@id` template; `{field}` placeholders from semantic fields |
-| `registry` | Optional class-level `PrefixRegistry` override |
+
+Pass a `PrefixRegistry` to export/import helpers or use `PrefixRegistry.curated()` — there is no class-level registry on `OntoModel`.
 
 ### `onto_property`
 
@@ -116,7 +117,8 @@ Field helper attaching ontology metadata to semantic fields.
 | `datatype` | XSD or other datatype IRI |
 | `iri` | Explicit property IRI override |
 | `language` | Language tag for literals |
-| `graph` | Named graph IRI (export) |
+
+Named graph export is planned via TripleModel — see [ROADMAP.md](ROADMAP.md).
 
 ---
 

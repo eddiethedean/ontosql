@@ -1,5 +1,9 @@
 # Installation
 
+!!! warning "0.5.x beta"
+    OntoSQL is beta software until 1.0. Minor releases may add APIs; breaking changes are reserved for 2.0+.
+    See [SPECS](../SPECS.md#api-stability-05x) for stability tiers and [Compatibility](../COMPATIBILITY.md) for supported versions.
+
 ## Requirements
 
 - **Python 3.10+** (3.10, 3.11, 3.12, 3.13 tested in CI)
@@ -84,4 +88,5 @@ print('ok')
 ## Next steps
 
 - [Quick start](quickstart.md) — pip-only path (no clone)
+- [When to use OntoSQL](when-to-use.md) — decision guide
 - [Architecture](../ARCHITECTURE.md)
