@@ -25,16 +25,16 @@ class OntoModel(BaseModel, metaclass=OntoModelMeta):
     """Optional JSON-LD ``@context`` for list/export endpoints (see SPECS)."""
 
     def to_jsonld(self, registry: PrefixRegistry | None = None) -> dict[str, Any]:
-        """Export this instance as a JSON-LD document (via TripleModel)."""
-        from ontosql.export.instance import instance_to_jsonld
+        """Export this instance as a JSON-LD document (via ``ontosql.io``)."""
+        from ontosql.io import to_jsonld
 
-        return instance_to_jsonld(self, registry=registry)
+        return to_jsonld(self, registry=registry)
 
     def to_rdf(self, *, format: str = "turtle", registry: PrefixRegistry | None = None) -> str:
-        """Export this instance as an RDF serialization (via TripleModel)."""
-        from ontosql.export.instance import instance_to_rdf
+        """Export this instance as an RDF serialization (via ``ontosql.io``)."""
+        from ontosql.io import to_rdf
 
-        return instance_to_rdf(self, format=format, registry=registry)
+        return to_rdf(self, format=format, registry=registry)
 
     @classmethod
     def from_jsonld(
@@ -44,13 +44,10 @@ class OntoModel(BaseModel, metaclass=OntoModelMeta):
         mapper: type[Any],
         registry: PrefixRegistry | None = None,
     ) -> OntoModel:
-        """Hydrate an instance from a JSON-LD document using a mapper."""
-        from ontosql.import_ import import_from_jsonld
+        """Hydrate an instance from a JSON-LD document using a mapper (via ``ontosql.io``)."""
+        from ontosql.io import from_jsonld
 
-        instance = import_from_jsonld(doc, mapper, registry=registry)
-        if not isinstance(instance, cls):
-            raise TypeError(f"Expected {cls.__name__}, got {type(instance).__name__}")
-        return instance
+        return from_jsonld(cls, doc, mapper=mapper, registry=registry)
 
 
 def onto_property(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ontosql.export._formats import media_type_for_format, normalize_format
+from ontosql.rdf.formats import media_type_for_format, normalize_format
 
 
 def test_normalize_format_aliases() -> None:

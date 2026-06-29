@@ -12,6 +12,21 @@ Migration notes between versions. Full per-minor guides are planned for **0.9** 
 3. Search for removed APIs in your codebase (see tables below)
 4. Upgrade optional extras together (`async`, `fastapi`, `sparql`, `shacl`)
 
+## 0.5.x → 0.6.x
+
+**Structural SOLID refactor** — behavior preserved; imports and extension points updated.
+
+| Before | After |
+|--------|-------|
+| `person.to_jsonld()` | `ontosql.to_jsonld(person)` or `from ontosql.io import to_jsonld` |
+| `Person.from_jsonld(doc, mapper=...)` | `ontosql.from_jsonld(Person, doc, mapper=...)` |
+| `from ontosql.export._formats import ...` | `from ontosql.rdf.formats import ...` |
+| Direct `mapper.column_maps` in app code | `mapper.metadata().fields` or `mapper.metadata()` helpers |
+| `OntoRouter(maps=...)` only | Optional `mapper_registry=` for shared lookup |
+| `OntoSession(engine, maps=...)` only | Optional `mapper_registry=` on `SessionBase` subclasses |
+
+`OntoModel.to_jsonld()` / `to_rdf()` / `from_jsonld()` remain as thin wrappers delegating to `ontosql.io`.
+
 ## 0.4.x → 0.5.x
 
 **Mostly additive.** See [changelog migrating section](../changelog.md).

@@ -7,6 +7,7 @@ from typing import Any
 from triplemodel import Store
 
 from ontosql.mapping.registry import MapperRegistry
+from ontosql.ports.mapper import MapperLookup
 from ontosql.semantic.model import OntoModel
 from ontosql.session.graph_sync import flush_graph_sync
 from ontosql.session.state import SessionState
@@ -22,10 +23,23 @@ class SessionBase:
     def __init__(
         self,
         maps: list[type[Any]] | None = None,
+        *,
+        mapper_registry: MapperLookup | None = None,
     ) -> None:
-        self._registry = MapperRegistry()
-        if maps:
-            self._registry.register_many(maps)
+        if mapper_registry is not None:
+            self._registry = mapper_registry
+            if maps:
+                for mapper_cls in maps:
+                    entity = mapper_cls.entity
+                    if not self._registry.has(entity) and isinstance(
+                        self._registry, MapperRegistry
+                    ):
+                        self._registry.register(mapper_cls)
+        else:
+            reg = MapperRegistry()
+            if maps:
+                reg.register_many(maps)
+            self._registry = reg
         self._state = SessionState()
         self._graph_sync: GraphSyncTargetLike | None = None
         self._graph_sync_mode: GraphSyncMode = "patch"

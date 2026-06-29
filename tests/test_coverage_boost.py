@@ -187,7 +187,7 @@ def test_execute_insert_collection_without_parent_identity(m2m_engine) -> None:
     )
     with (
         Session(m2m_engine) as session,
-        patch("ontosql.compile.execute._inserted_identity", return_value=None),
+        patch("ontosql.compile.execute_runner.inserted_identity", return_value=None),
         pytest.raises(ExecuteError, match="parent identity"),
     ):
         execute_write_plan(session, plan)

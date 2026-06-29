@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi.responses import Response
 
-from ontosql.export._formats import media_type_for_format, normalize_format
+from ontosql.rdf.formats import media_type_for_format, normalize_format
 
 
 def _dumps_json(data: Any) -> str:

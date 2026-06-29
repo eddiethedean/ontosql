@@ -26,10 +26,10 @@ async def _get(session, entity_type, *, identity):
     return session.get(entity_type, identity=identity)
 
 
-async def _save(session, instance):
+async def _save(session, instance, *, flush_now: bool = True):
     if isinstance(session, AsyncOntoSession):
-        return await session.save(instance)
-    return session.save(instance)
+        return await session.save(instance, flush_now=flush_now)
+    return session.save(instance, flush_now=flush_now)
 
 
 async def _delete(session, instance):
@@ -52,6 +52,35 @@ async def test_parity_get_and_save_roundtrip(parity_session) -> None:
     reloaded = await _get(session, Person, identity=1)
     assert reloaded is not None
     assert reloaded.name == "Ada L."
+
+
+async def _flush(session):
+    if isinstance(session, AsyncOntoSession):
+        return await session.flush()
+    return session.flush()
+
+
+@pytest.mark.asyncio
+async def test_parity_deferred_flush(parity_session) -> None:
+    session = parity_session
+    created = await _save(
+        session,
+        Person.model_construct(id=None, name="Deferred", employer=None),
+        flush_now=False,
+    )
+    assert created.id is None
+    await _flush(session)
+    assert created.id is not None
+    reloaded = await _get(session, Person, identity=created.id)
+    assert reloaded is not None
+    assert reloaded.name == "Deferred"
+
+
+@pytest.mark.asyncio
+async def test_parity_mapper_metadata(session_factory: str) -> None:
+    meta = PersonMap.metadata()
+    assert meta.entity is Person
+    assert "name" in meta.column_field_names()
 
 
 @pytest.mark.asyncio

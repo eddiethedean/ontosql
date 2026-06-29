@@ -7,17 +7,21 @@ from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel
 
+from ontosql.fastapi.body_limits import (
+    DEFAULT_MAX_BODY_BYTES,
+    DEFAULT_MAX_JSON_DEPTH,
+    json_nesting_depth,
+)
 from ontosql.fastapi.deps import AsyncSessionDep
 from ontosql.fastapi.negotiate import negotiate_onto_response, parse_accept_mime
 from ontosql.fastapi.openapi import install_onto_openapi
+from ontosql.fastapi.schemas import create_body_model, patch_body_model
 from ontosql.mapping.registry import MapperRegistry
+from ontosql.ports.mapper import MapperLookup
 from ontosql.semantic.model import OntoModel
 from ontosql.session.pagination import paginate_async
-
-DEFAULT_MAX_BODY_BYTES = 64 * 1024
-DEFAULT_MAX_JSON_DEPTH = 64
 
 _HTTP_413 = getattr(status, "HTTP_413_CONTENT_TOO_LARGE", 413)
 
@@ -26,58 +30,29 @@ def _entity_route_name(entity_type: type[OntoModel]) -> str:
     return entity_type.__name__.lower()
 
 
-def _mapper_for(maps: list[type[Any]], entity_type: type[OntoModel]) -> type[Any]:
-    registry = MapperRegistry()
-    registry.register_many(maps)
-    return registry.get(entity_type)
+def _mapper_for(
+    maps: list[type[Any]],
+    entity_type: type[OntoModel],
+    *,
+    registry: MapperLookup | None = None,
+) -> type[Any]:
+    if registry is not None:
+        return registry.get(entity_type)
+    reg = MapperRegistry()
+    reg.register_many(maps)
+    return reg.get(entity_type)
 
 
 def _create_body_model(entity_type: type[OntoModel], *, identity_field: str) -> type[BaseModel]:
-    fields: dict[str, Any] = {}
-    for name, field_info in entity_type.model_fields.items():
-        annotation = field_info.annotation
-        if name == identity_field:
-            annotation = annotation | None  # type: ignore[operator]
-        fields[name] = (annotation, None)
-    return create_model(f"{entity_type.__name__}Create", **fields)  # type: ignore[call-overload]
+    return create_body_model(entity_type, identity_field=identity_field)
 
 
 def _patch_body_model(entity_type: type[OntoModel], *, identity_field: str) -> type[BaseModel]:
-    fields: dict[str, Any] = {}
-    for name, field_info in entity_type.model_fields.items():
-        if name == identity_field:
-            continue
-        fields[name] = (field_info.annotation | None, None)  # type: ignore[operator]
-    return create_model(f"{entity_type.__name__}Patch", **fields)  # type: ignore[call-overload]
+    return patch_body_model(entity_type, identity_field=identity_field)
 
 
 def _json_nesting_depth(raw: bytes, *, limit: int = DEFAULT_MAX_JSON_DEPTH) -> int:
-    """Estimate max nesting depth of JSON brackets in raw bytes."""
-    depth = 0
-    max_depth = 0
-    in_string = False
-    escape = False
-    for byte in raw:
-        ch = chr(byte)
-        if in_string:
-            if escape:
-                escape = False
-            elif ch == "\\":
-                escape = True
-            elif ch == '"':
-                in_string = False
-            continue
-        if ch == '"':
-            in_string = True
-            continue
-        if ch in "{[":
-            depth += 1
-            max_depth = max(max_depth, depth)
-            if max_depth > limit:
-                return max_depth
-        elif ch in "}]":
-            depth = max(depth - 1, 0)
-    return max_depth
+    return json_nesting_depth(raw, limit=limit)
 
 
 async def _read_json_body(request: Request, max_body_bytes: int) -> Any:
@@ -162,11 +137,13 @@ class OntoRouter:
         validate_entities: bool = True,
         max_body_bytes: int = DEFAULT_MAX_BODY_BYTES,
         dependencies: Sequence[Any] | None = None,
+        mapper_registry: MapperLookup | None = None,
     ) -> None:
         self.maps = maps
         self.prefix = prefix.rstrip("/")
         self.validate_entities = validate_entities
         self.max_body_bytes = max_body_bytes
+        self.mapper_registry = mapper_registry
         self.router = APIRouter(dependencies=list(dependencies or []))
         self._entities: list[type[OntoModel]] = []
 
@@ -176,7 +153,7 @@ class OntoRouter:
             return
         self._entities.append(entity_type)
         name = _entity_route_name(entity_type)
-        mapper_cls = _mapper_for(self.maps, entity_type)
+        mapper_cls = _mapper_for(self.maps, entity_type, registry=self.mapper_registry)
         create_body_model = _create_body_model(
             entity_type, identity_field=mapper_cls.identity_field
         )
@@ -203,8 +180,8 @@ class OntoRouter:
             accept = request.headers.get("accept")
             chosen = parse_accept_mime(accept)
             if chosen is not None and chosen not in ("application/ld+json", "application/json"):
-                from ontosql.export._formats import format_for_mime
                 from ontosql.fastapi.negotiate import negotiate_graph_response
+                from ontosql.rdf.formats import format_for_mime
                 from ontosql.sync import materialize_find_async
 
                 if format_for_mime(chosen) is not None:

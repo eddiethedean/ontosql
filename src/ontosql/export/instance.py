@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from pyoxigraph import Literal, NamedNode
+from pyoxigraph import NamedNode
 from triplemodel import RDF_TYPE, Store, bind_namespaces
 
-from ontosql.export._formats import normalize_format
+from ontosql.rdf.formats import normalize_format
+from ontosql.rdf.literals import literal_object
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import (
     OntoModel,
@@ -32,27 +33,6 @@ def _predicate_iri(
     registry: PrefixRegistry,
 ) -> str | None:
     return predicate_iri(model_cls, field_name, registry)
-
-
-def _literal_object(
-    value: Any,
-    *,
-    registry: PrefixRegistry,
-    meta: dict[str, Any] | None = None,
-) -> Literal | NamedNode:
-    if isinstance(value, str) and ("://" in value or value.startswith("urn:")):
-        return NamedNode(value)
-    if isinstance(value, bool):
-        return Literal(value)
-    datatype = meta.get("datatype") if meta else None
-    language = meta.get("language") if meta else None
-    if datatype is not None:
-        is_curie = ":" in datatype and "://" not in datatype
-        dt_iri = registry.expand(datatype) if is_curie else datatype
-        return Literal(str(value), datatype=NamedNode(dt_iri))
-    if language is not None:
-        return Literal(str(value), language=language)
-    return Literal(str(value))
 
 
 def write_instance_to_graph(
@@ -196,11 +176,11 @@ def _write_instance(
                     )
                     graph.add((subject, pred_node, NamedNode(nested_iri)))
                 elif item is not None:
-                    lit = _literal_object(item, registry=registry, meta=field_meta)
+                    lit = literal_object(item, registry=registry, meta=field_meta)
                     graph.add((subject, pred_node, lit))
         else:
             graph.add(
-                (subject, pred_node, _literal_object(value, registry=registry, meta=field_meta))
+                (subject, pred_node, literal_object(value, registry=registry, meta=field_meta))
             )
 
     return subject_iri

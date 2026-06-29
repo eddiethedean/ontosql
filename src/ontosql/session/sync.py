@@ -15,11 +15,11 @@ from ontosql.compile.select import compile_count_statement, compile_select_plan
 from ontosql.compile.write import compile_delete_plan, count_scalar
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel
+from ontosql.session._flush import flush_pending
 from ontosql.session._ops import (
     _merge_snapshots_for_save,
     compile_save_plan_for_instance,
     identity_from_write_plan,
-    merge_identity_into_instance,
     resolve_save_is_new_and_snapshot,
     validate_get_identity,
 )
@@ -340,52 +340,13 @@ class OntoSession(SessionBase):
 
     def flush(self) -> None:
         """Apply pending save/delete plans; stops on first error (unprocessed queue preserved)."""
-        if not self._state.pending:
-            return
-        queue = list(self._state.pending)
-        processed = 0
-        pushes_before = len(self._state.graph_sync_pushes)
-        removes_before = len(self._state.graph_sync_removes)
-        try:
-            for item in queue:
-                if isinstance(item, WritePlan):
-                    plan = item
-                    source_instance = self._state.peek_pending_instance(plan)
-                    prior_nested = self._state.prior_nested_for_plan(plan) or frozenset()
-                    inserted_id = self._execute_write(plan)
-                    self._state.pop_pending_instance(plan)
-                    self._state.pending_prior_nested.pop(id(plan), None)
-                    if source_instance is not None:
-                        merge_identity_into_instance(
-                            source_instance,
-                            plan.mapper_cls,
-                            identity_from_write_plan(plan, inserted_id),
-                        )
-                    entity_type = plan.mapper_cls.entity
-                    identity = identity_from_write_plan(plan, inserted_id)
-                    if identity is not None and self._graph_sync is not None:
-                        reloaded = self.get(entity_type, identity=identity)
-                        if reloaded is not None:
-                            queue_graph_push(
-                                self._state,
-                                reloaded,
-                                prior_nested_iris=prior_nested,
-                            )
-                elif isinstance(item, PendingDelete):
-                    self._apply_pending_delete(item)
-                processed += 1
-        except Exception:
-            self._state.pending = queue[processed:]
-            self._state.restore_graph_sync(
-                pushes_from=pushes_before,
-                removes_from=removes_before,
-            )
-            raise
-        self._state.pending.clear()
-        self._state.pending_instances.clear()
-        self._state.pending_insert_objects.clear()
-        self._state.pending_prior_nested.clear()
-        logger.debug("session flush sync complete")
+        flush_pending(
+            self._state,
+            execute_write=self._execute_write,
+            apply_pending_delete=self._apply_pending_delete,
+            reload_for_graph=lambda et, ident: self.get(et, identity=ident),
+            graph_sync_enabled=self._graph_sync is not None,
+        )
 
     def _execute_write(self, plan: WritePlan) -> Any:
         returned = execute_write_plan(

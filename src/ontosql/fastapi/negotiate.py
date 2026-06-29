@@ -8,8 +8,8 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, Response
 from triplemodel import Store
 
-from ontosql.export._formats import format_for_mime, media_type_for_format
 from ontosql.fastapi.responses import JSONLDResponse, RDFResponse
+from ontosql.rdf.formats import format_for_mime, media_type_for_format
 
 # MIME type -> RDF format key
 _ACCEPT_FORMATS: list[tuple[str, str]] = [

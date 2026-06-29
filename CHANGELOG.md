@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-06-29
+
+### Added
+
+- **`ontosql.io`** — `to_jsonld`, `to_rdf`, `from_jsonld` module-level I/O API (preferred over instance methods)
+- **`ontosql.ports`** — `SessionBackend`, `PlanExecutor`, `MapperLookup`, `MapperMetadata`, `GraphSyncPort` protocols
+- **`ontosql.rdf`** — shared RDF kernel (`literals`, `formats`, `predicates`)
+- **`OntoMapper.metadata()`** — neutral field metadata view for RDF/import/sync layers
+- **`OntoSession` / `AsyncOntoSession`** — optional `mapper_registry=` for shared `MapperLookup` injection
+- **`OntoRouter`** — optional `mapper_registry=` for shared mapper lookup
+- **Compile layer split** — `columns`, `nested_write`, `collection_write`, `save_plan`, `execute_runner`
+- **Session internals split** — `IdentityMap`, `PendingWorkQueue`, `GraphSyncQueue`, `FlushCoordinator`
+
+### Changed
+
+- **SOLID refactor** — protocol-driven boundaries; unified sync/async flush coordinator and execute runner
+- **`OntoModel.to_jsonld` / `to_rdf` / `from_jsonld`** — delegate to `ontosql.io` (instance methods retained as thin wrappers)
+- **RDF format helpers** — moved from `ontosql.export._formats` to `ontosql.rdf.formats` (shim retained)
+
+### Migration
+
+See [guides/upgrading.md](docs/guides/upgrading.md#05x--06x).
+
 ## [0.5.0] - 2026-06-29
 
 ### Added

@@ -2,13 +2,19 @@
 
 from __future__ import annotations
 
-import types
-from typing import Any, Union, get_args, get_origin
+from typing import Any, get_args, get_origin
 
 from pydantic import ValidationError
 from pyoxigraph import Literal, NamedNode
 from triplemodel import RDF_TYPE, Store
 
+from ontosql.rdf.literals import (
+    coerce_literal,
+    expand_datatype,
+    literal_matches_meta,
+    pick_literal,
+    scalar_type,
+)
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel, parse_iri_id
 from ontosql.semantic.rdf_util import predicate_iri, resolve_prefix_registry
@@ -45,13 +51,7 @@ def _objects_for_predicate(
 
 
 def _scalar_type(py_type: Any) -> Any:
-    """Unwrap Optional[T] / Union[T, None] to T for coercion."""
-    origin = get_origin(py_type)
-    if origin is Union or origin is types.UnionType:
-        args = [a for a in get_args(py_type) if a is not type(None)]
-        if len(args) == 1:
-            return args[0]
-    return py_type
+    return scalar_type(py_type)
 
 
 def _is_collection_type(py_type: Any) -> bool:
@@ -68,40 +68,7 @@ def _collection_item_type(py_type: Any) -> Any:
     return str
 
 
-def _expand_datatype(meta: dict[str, Any], registry: PrefixRegistry) -> str | None:
-    datatype = meta.get("datatype")
-    if datatype is None:
-        return None
-    if ":" in datatype and "://" not in datatype:
-        return registry.expand(datatype)
-    return datatype
-
-
-def _literal_matches_meta(term: Literal, meta: dict[str, Any], registry: PrefixRegistry) -> bool:
-    language = meta.get("language")
-    if language is not None:
-        return term.language == language
-    datatype = _expand_datatype(meta, registry)
-    if datatype is not None:
-        return term.datatype is not None and str(term.datatype) == datatype
-    return True
-
-
-def _pick_literal(objects: list[Any], meta: dict[str, Any], registry: PrefixRegistry) -> Any:
-    literals = [o for o in objects if isinstance(o, Literal)]
-    if not literals:
-        return objects[0]
-    if meta.get("language") or meta.get("datatype"):
-        for lit in literals:
-            if _literal_matches_meta(lit, meta, registry):
-                return lit
-        raise OntoImportError(
-            f"No literal matches expected metadata language={meta.get('language')!r} "
-            f"datatype={meta.get('datatype')!r}"
-        )
-    return literals[0]
-
-
+# Backward-compatible aliases for tests
 def _coerce_literal(
     term: Any,
     *,
@@ -109,35 +76,17 @@ def _coerce_literal(
     registry: PrefixRegistry,
     meta: dict[str, Any],
 ) -> Any:
-    if isinstance(term, NamedNode):
-        return str(term)
-    if not isinstance(term, Literal):
-        return str(term)
-    raw = str(term.value)
-    scalar = _scalar_type(py_type)
-    if scalar is bool:
-        lowered = raw.lower()
-        if lowered in ("true", "1"):
-            return True
-        if lowered in ("false", "0"):
-            return False
-        raise OntoImportError(f"Cannot coerce literal {raw!r} to bool")
-    if scalar is int:
-        try:
-            return int(raw)
-        except ValueError as exc:
-            raise OntoImportError(f"Cannot coerce literal {raw!r} to int") from exc
-    if scalar is float:
-        try:
-            return float(raw)
-        except ValueError as exc:
-            raise OntoImportError(f"Cannot coerce literal {raw!r} to float") from exc
-    expected_dt = _expand_datatype(meta, registry)
-    if expected_dt is not None and term.datatype is not None and str(term.datatype) != expected_dt:
-        raise OntoImportError(
-            f"Literal datatype {term.datatype!s} does not match expected {expected_dt!r}"
-        )
-    return raw
+    return coerce_literal(
+        term, py_type=py_type, registry=registry, meta=meta, error_type=OntoImportError
+    )
+
+
+def _pick_literal(objects: list[Any], meta: dict[str, Any], registry: PrefixRegistry) -> Any:
+    return pick_literal(objects, meta, registry, error_type=OntoImportError)
+
+
+_expand_datatype = expand_datatype
+_literal_matches_meta = literal_matches_meta
 
 
 def _coerce_identity(
@@ -158,7 +107,9 @@ def _coerce_identity(
         identity_field = model_cls.identity_field
         field_info = model_cls.model_fields.get(identity_field)
         py_type = field_info.annotation if field_info else str
-        return _coerce_literal(term, py_type=py_type, registry=registry, meta={})
+        return coerce_literal(
+            term, py_type=py_type, registry=registry, meta={}, error_type=OntoImportError
+        )
     return term
 
 
@@ -236,8 +187,12 @@ def graph_to_instance(
             values: list[Any] = []
             seen: set[Any] = set()
             for obj in objects:
-                term = _pick_literal(objects=[obj], meta=meta, registry=reg)
-                value = _coerce_literal(term, py_type=item_type, registry=reg, meta=meta)
+                term = pick_literal(
+                    objects=[obj], meta=meta, registry=reg, error_type=OntoImportError
+                )
+                value = coerce_literal(
+                    term, py_type=item_type, registry=reg, meta=meta, error_type=OntoImportError
+                )
                 if value not in seen:
                     seen.add(value)
                     values.append(value)
@@ -247,8 +202,10 @@ def graph_to_instance(
                 raise OntoImportError(
                     f"Scalar field {field_name!r} has {len(objects)} values; expected one"
                 )
-            term = _pick_literal(objects, meta, reg)
-            fields[field_name] = _coerce_literal(term, py_type=py_type, registry=reg, meta=meta)
+            term = pick_literal(objects, meta, reg, error_type=OntoImportError)
+            fields[field_name] = coerce_literal(
+                term, py_type=py_type, registry=reg, meta=meta, error_type=OntoImportError
+            )
 
     for field_name, nmap in mapper.nested_maps.items():
         predicate = _predicate_iri(entity_type, field_name, reg)

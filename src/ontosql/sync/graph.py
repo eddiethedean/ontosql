@@ -10,6 +10,7 @@ from triplemodel.io.sync.predicate_ops import remove_triples_for_predicates
 from triplemodel.store.terms import term_str
 
 from ontosql.export.instance import instance_to_graph
+from ontosql.rdf.predicates import owned_predicates
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel, build_instance_iri
 from ontosql.semantic.rdf_util import predicate_iri, resolve_prefix_registry
@@ -19,30 +20,6 @@ GraphSyncMode = Literal["add", "replace", "patch"]
 
 def _resolve_registry(instance: OntoModel, registry: PrefixRegistry | None) -> PrefixRegistry:
     return resolve_prefix_registry(registry)
-
-
-def owned_predicates(mapper_cls: type[Any], registry: PrefixRegistry) -> frozenset[str]:
-    """Predicates owned by a mapper for patch/replace sync."""
-    entity_type: type[OntoModel] = mapper_cls.entity
-    preds: set[str] = set()
-    type_iri = entity_type.type_iri
-    if type_iri:
-        preds.add(registry.expand(type_iri))
-    for field_name in mapper_cls.column_maps:
-        if field_name in mapper_cls.nested_maps:
-            continue
-        pred = predicate_iri(entity_type, field_name, registry)
-        if pred:
-            preds.add(pred)
-    for field_name in mapper_cls.nested_maps:
-        pred = predicate_iri(entity_type, field_name, registry)
-        if pred:
-            preds.add(pred)
-    for field_name in mapper_cls.collection_maps:
-        pred = predicate_iri(entity_type, field_name, registry)
-        if pred:
-            preds.add(pred)
-    return frozenset(preds)
 
 
 def _subjects_in_graph(graph: Store) -> set[str]:
