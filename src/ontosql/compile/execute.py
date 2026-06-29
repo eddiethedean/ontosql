@@ -13,8 +13,9 @@ from ontosql.compile._sql_runner import (
     ExecuteError,
     _apply_where,
     assert_replace_nested_exclusive,
+    check_replace_nested_exclusive,
+    inbound_fk_count_stmts,
     nested_delete_fk_nulling,
-    nested_delete_identity,
     run_null_fks_for_nested_deletes,
 )
 from ontosql.compile.plan import CollectionWritePlan, DeletePlan, WritePlan
@@ -87,9 +88,19 @@ def _collection_target_ids(
     return target_ids
 
 
+def _update_rowcount(result: Any) -> int:
+    """Return affected row count from a SQLAlchemy execute result."""
+    rowcount = getattr(result, "rowcount", None)
+    if rowcount is None:
+        return 0
+    return int(rowcount)
+
+
 @dataclass
 class _SyncWriteExecutor:
     session: Any
+    mapper_registry: Any | None = None
+    strict_updates: bool = True
 
     def null_fks(self, plan: WritePlan) -> None:
         run_null_fks_for_nested_deletes(plan, run=self.session.exec)
@@ -100,6 +111,7 @@ class _SyncWriteExecutor:
             field_name,
             delete_plan,
             run_count=lambda stmt: self.session.exec(stmt).one(),
+            mapper_registry=self.mapper_registry,
         )
 
     def run_stmt(self, stmt: Any) -> Any:
@@ -112,6 +124,10 @@ class _SyncWriteExecutor:
         execute_delete_plan(self.session, plan)
 
     def _run_collection_writes(self, plan: WritePlan, parent_id: Any) -> None:
+        if plan.collections and parent_id is None:
+            raise ExecuteError(
+                "Cannot write collection fields: parent identity could not be resolved after insert"
+            )
         if parent_id is None:
             return
         for cwp in plan.collections:
@@ -151,7 +167,9 @@ class _SyncWriteExecutor:
             stmt = update(table).values(**values)
             if plan.root.where is not None:
                 stmt = _apply_where(stmt, table, plan.root.where)
-            self.run_stmt(stmt)
+            result = self.run_stmt(stmt)
+            if self.strict_updates and _update_rowcount(result) == 0:
+                raise ExecuteError("Update affected 0 rows")
 
         parent_id = _update_identity(plan)
         self._run_collection_writes(plan, parent_id)
@@ -161,6 +179,8 @@ class _SyncWriteExecutor:
 @dataclass
 class _AsyncWriteExecutor:
     session: AsyncSession
+    mapper_registry: Any | None = None
+    strict_updates: bool = True
 
     async def null_fks(self, plan: WritePlan) -> None:
         fk_nulling = nested_delete_fk_nulling(plan)
@@ -174,15 +194,28 @@ class _AsyncWriteExecutor:
     async def assert_replace(
         self, plan: WritePlan, field_name: str, delete_plan: DeletePlan
     ) -> None:
-        from ontosql.compile._sql_runner import (
-            check_replace_nested_exclusive,
-            replace_nested_exclusive_count_stmt,
-        )
+        from ontosql.compile._sql_runner import nested_delete_identity
+
+        nested_id = nested_delete_identity(delete_plan)
+        if self.mapper_registry is not None:
+            stmts = inbound_fk_count_stmts(
+                self.mapper_registry,
+                delete_plan,
+                exclude_table=plan.root.table,
+                exclude_where=plan.root.where,
+            )
+            total = 0
+            for _, stmt in stmts:
+                result = await self.session.execute(stmt)
+                total += count_scalar(result.one())
+            check_replace_nested_exclusive(total, field_name, nested_id)
+            return
+
+        from ontosql.compile._sql_runner import replace_nested_exclusive_count_stmt
 
         stmt = replace_nested_exclusive_count_stmt(plan, field_name, delete_plan)
         if stmt is None:
             return
-        nested_id = nested_delete_identity(delete_plan)
         result = await self.session.execute(stmt)
         count = count_scalar(result.one())
         check_replace_nested_exclusive(count, field_name, nested_id)
@@ -197,6 +230,10 @@ class _AsyncWriteExecutor:
         await async_execute_delete_plan(self.session, plan)
 
     async def _run_collection_writes(self, plan: WritePlan, parent_id: Any) -> None:
+        if plan.collections and parent_id is None:
+            raise ExecuteError(
+                "Cannot write collection fields: parent identity could not be resolved after insert"
+            )
         if parent_id is None:
             return
         for cwp in plan.collections:
@@ -256,16 +293,28 @@ class _AsyncWriteExecutor:
             stmt = update(table).values(**values)
             if plan.root.where is not None:
                 stmt = _apply_where(stmt, table, plan.root.where)
-            await self.run_stmt(stmt)
+            result = await self.run_stmt(stmt)
+            if self.strict_updates and _update_rowcount(result) == 0:
+                raise ExecuteError("Update affected 0 rows")
 
         parent_id = _update_identity(plan)
         await self._run_collection_writes(plan, parent_id)
         return parent_id
 
 
-def execute_write_plan(session: Any, plan: WritePlan) -> Any:
+def execute_write_plan(
+    session: Any,
+    plan: WritePlan,
+    *,
+    mapper_registry: Any | None = None,
+    strict_updates: bool = True,
+) -> Any:
     """Execute a WritePlan synchronously; returns root identity value after insert."""
-    return _SyncWriteExecutor(session)._run_write_plan(plan)
+    return _SyncWriteExecutor(
+        session,
+        mapper_registry=mapper_registry,
+        strict_updates=strict_updates,
+    )._run_write_plan(plan)
 
 
 def execute_delete_plan(session: Any, plan: DeletePlan) -> None:
@@ -278,9 +327,19 @@ def execute_delete_plan(session: Any, plan: DeletePlan) -> None:
     session.exec(stmt)
 
 
-async def async_execute_write_plan(session: AsyncSession, plan: WritePlan) -> Any:
+async def async_execute_write_plan(
+    session: AsyncSession,
+    plan: WritePlan,
+    *,
+    mapper_registry: Any | None = None,
+    strict_updates: bool = True,
+) -> Any:
     """Execute a WritePlan on an AsyncSession."""
-    return await _AsyncWriteExecutor(session)._run_write_plan(plan)
+    return await _AsyncWriteExecutor(
+        session,
+        mapper_registry=mapper_registry,
+        strict_updates=strict_updates,
+    )._run_write_plan(plan)
 
 
 async def async_execute_delete_plan(session: AsyncSession, plan: DeletePlan) -> None:

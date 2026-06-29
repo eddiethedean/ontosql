@@ -27,6 +27,13 @@ def test_frame_jsonld() -> None:
     assert out is not None
 
 
+def test_safe_document_loader_blocks_remote() -> None:
+    from ontosql.export.jsonld import UnsafeJsonLdContextError, safe_document_loader
+
+    with pytest.raises(UnsafeJsonLdContextError):
+        safe_document_loader("https://example.org/context.jsonld", {})
+
+
 def test_jsonld_import_error() -> None:
     import sys
     from unittest.mock import patch

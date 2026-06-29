@@ -74,6 +74,8 @@ def _parse_accept(accept: str | None) -> str | None:
 
 def parse_accept_mime(accept: str | None) -> str | None:
     """Public helper: best matching semantic MIME type from an Accept header."""
+    if _wants_json(accept):
+        return "application/json"
     return _parse_accept(accept)
 
 
@@ -86,13 +88,36 @@ def negotiate_graph_response(chosen_mime: str, graph: Store) -> Response:
     return Response(content=body, media_type=media_type_for_format(fmt))
 
 
+def _wants_json(accept: str | None) -> bool:
+    if not accept:
+        return False
+    for part in accept.split(","):
+        media_type, q = _parse_accept_params(part)
+        if media_type == "application/json" and q > 0:
+            return True
+    return False
+
+
+def _json_response_for(data: Any) -> JSONResponse:
+    if hasattr(data, "model_dump"):
+        return JSONResponse(content=data.model_dump())
+    if isinstance(data, list):
+        body = [item.model_dump() if hasattr(item, "model_dump") else item for item in data]
+        return JSONResponse(content=body)
+    return JSONResponse(content=data)
+
+
 def negotiate_onto_response(request: Request, data: Any) -> Response:
     """
     Return a FastAPI Response based on the request Accept header.
 
     Falls back to JSON-LD if data supports ``to_jsonld()``, otherwise JSON.
     """
-    chosen = _parse_accept(request.headers.get("accept"))
+    accept = request.headers.get("accept")
+    if _wants_json(accept):
+        return _json_response_for(data)
+
+    chosen = _parse_accept(accept)
     if chosen is None:
         if hasattr(data, "to_jsonld"):
             return JSONLDResponse(data)

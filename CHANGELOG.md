@@ -9,10 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Session `registry=`** — optional `PrefixRegistry` on `OntoSession` / `AsyncOntoSession` for post-commit graph sync
+- **`AsyncOntoSession.__del__`** — `ResourceWarning` when session opened but not closed (parity with sync)
+- **PyLD safety** — `safe_document_loader` blocks remote `@context` fetches by default; `allow_remote_contexts` opt-in
 - Documentation audit: slim README, beta banners, [when-to-use](getting-started/when-to-use.md), [semantic queries](guides/semantic-queries.md), [FastAPI quick start](guides/fastapi-quickstart.md), mkdocstrings [API reference](reference/session.md), expanded FAQ/troubleshooting, SPECS drift fixes
 - **Enterprise adoption** — [enterprise-adoption.md](enterprise-adoption.md) evaluation + checklist, [SUPPORT.md](SUPPORT.md), [compliance guide](guides/compliance.md)
 - **Operations guides** — [Alembic](guides/alembic.md), [testing](guides/testing.md), [upgrading](guides/upgrading.md), [graph sync runbook](guides/graph-sync-operations.md)
 - **API reference** — [FastAPI](reference/fastapi.md), [export](reference/export.md), [import](reference/import.md), [sync](reference/sync.md), [SHACL](reference/shacl.md); [GLOSSARY.md](GLOSSARY.md)
+
+### Fixed
+
+- **UPSERT cascade** — clearing a nested association (`employer=None`) now nulls the FK on update
+- **REPLACE exclusivity** — inbound FK checks span all registered mappers (cross-table references block delete)
+- **Session snapshots** — DB nested FK values merged into session snapshot for REPLACE compile
+- **Graph sync** — stale nested RDF subjects retracted on patch/replace; exclusive nested removed on root delete
+- **`OntoSession.flush()`** — partial failure preserves unprocessed queue; deferred insert merges PK into caller instance
+- **Identity map** — pending deletes hidden from `get()`; `get(iri=)` respects cached instance; duplicate deferred saves deduplicated
+- **`execute_write_plan`** — raises on zero-row UPDATE; raises when collection writes lack parent identity
+- **`OntoRouter`** — `limit` ge=1; unified Accept negotiation for list JSON-LD; malformed/deep JSON → 400; `application/json` plain JSON
+- **`load_graph`** — invalid UTF-8 raises `OntoImportError`
+
+### Changed
+
+- **`rollback()`** — default `clear_uow=True` (was `False`); warns when `clear_uow=False` leaves pending work
+- **`execute_write_plan` / `async_execute_write_plan`** — accept optional `mapper_registry=` and `strict_updates=` (default strict)
 
 ## [0.5.1] - 2026-06-29
 

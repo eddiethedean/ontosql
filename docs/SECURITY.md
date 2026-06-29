@@ -40,7 +40,7 @@ Before mounting `OntoRouter` on a reachable host:
 - **`max_triples` is checked after `graph.parse()`** — a small payload can still expand during parsing. Always set `max_bytes`, rate-limit import endpoints, and never expose import without authentication.
 - **`max_nesting_depth`** (default 32) on `graph_to_instance` limits deep nested RDF chains during hydration.
 
-Never run **PyLD** `compact_jsonld` / `frame_jsonld` on untrusted documents without a restricted document loader — PyLD may fetch remote `@context` URLs (SSRF risk). RDF import via pyoxigraph does not use PyLD.
+**PyLD JSON-LD compaction** (`compact_jsonld`, `frame_jsonld`) uses a **safe document loader by default** that blocks remote `@context` URL fetches (SSRF mitigation). Pass `allow_remote_contexts=True` and a custom `document_loader=` only when you trust the input and need remote contexts. RDF import via pyoxigraph does not use PyLD.
 
 ## Graph sync consistency
 

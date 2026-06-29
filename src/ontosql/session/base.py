@@ -77,4 +77,5 @@ class SessionBase:
             self._graph_sync,
             mode=self._graph_sync_mode,
             mapper_for=self._mapper_for,
+            registry=getattr(self, "_registry_prefix", None),
         )

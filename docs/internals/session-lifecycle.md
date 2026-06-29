@@ -64,13 +64,13 @@ sequenceDiagram
 
 `session.rollback()`:
 
-- Rolls back the **SQLAlchemy** transaction only.
-- Does **not** clear `pending`, `identity_map`, or `snapshots` by default.
-- Does **not** clear graph sync queues.
+- Rolls back the **SQLAlchemy** transaction.
+- **Clears** `pending`, graph sync queues, and pending-delete tombstones by default (`clear_uow=True` since 0.5.2).
+- Does **not** clear `identity_map` or `snapshots` unless instances are expired separately.
 
-After `rollback()`, call `clear_pending()` if you must prevent queued writes from flushing on context exit. Expire cached instances with `session._state.expire(...)` or start a fresh session if identity map state is stale.
+Pass `clear_uow=False` only when you intentionally want queued writes to flush on context exit after rollback. A `UserWarning` is emitted if pending or graph queues remain non-empty.
 
-Pass `clear_uow=True` on sync/async `rollback()` (0.5+) to also clear pending and graph sync queues.
+After `rollback(clear_uow=False)`, call `clear_pending()` if you must prevent queued writes from flushing on context exit. Expire cached instances with `session.expire(...)` or start a fresh session if identity map state is stale.
 
 ## Graph sync timing
 
@@ -91,9 +91,9 @@ If graph sync fails after commit, SQL remains committed. `GraphSyncError` is rai
 
 | Call | SQL transaction | `pending` queue | Graph queue |
 |------|-----------------|-----------------|-------------|
-| `rollback()` | Rolled back | Unchanged | Unchanged |
-| `rollback(clear_uow=True)` | Rolled back | Cleared | Cleared |
-| `clear_pending()` | Unchanged | Cleared | Graph queue unchanged |
+| `rollback()` (default) | Rolled back | Cleared | Cleared |
+| `rollback(clear_uow=False)` | Rolled back | Unchanged | Unchanged |
+| `clear_pending()` | Unchanged | Cleared | Cleared |
 
 ## Identity map
 

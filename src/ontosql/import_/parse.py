@@ -49,7 +49,10 @@ def load_graph(
         raw = data.encode("utf-8")
     else:
         raw = data
-        text = data.decode("utf-8")
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise OntoImportError("Invalid UTF-8 in RDF payload") from exc
     if max_bytes is not None and len(raw) > max_bytes:
         raise OntoImportError(f"RDF payload exceeds max_bytes={max_bytes} (got {len(raw)} bytes)")
     graph = Store()

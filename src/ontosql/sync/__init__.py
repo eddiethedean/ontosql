@@ -49,6 +49,7 @@ def push_instance(
     mapper: type[Any],
     mode: GraphSyncMode = "patch",
     registry: Any | None = None,
+    prior_nested_iris: set[str] | None = None,
 ) -> None:
     """Push a semantic instance into a graph sync target."""
     from ontosql.sync.graph import sync_instance_to_store
@@ -59,6 +60,7 @@ def push_instance(
         mode=mode,
         mapper_cls=mapper,
         registry=registry,
+        prior_nested_iris=prior_nested_iris,
     )
 
 

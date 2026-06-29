@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
@@ -11,10 +12,12 @@ from ontosql.compile.execute import async_execute_delete_plan, async_execute_wri
 from ontosql.compile.plan import DeletePlan, WritePlan
 from ontosql.compile.select import compile_count_statement, compile_select_plan
 from ontosql.compile.write import compile_delete_plan, count_scalar
+from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session._ops import (
     compile_save_plan_for_instance,
     identity_from_write_plan,
+    merge_identity_into_instance,
     resolve_save_is_new_and_snapshot,
     validate_get_identity,
 )
@@ -37,16 +40,22 @@ class AsyncOntoSession(SessionBase):
         *,
         graph_sync: GraphSyncTargetLike | None = None,
         graph_sync_mode: GraphSyncMode = "patch",
+        registry: PrefixRegistry | None = None,
+        strict_updates: bool = True,
     ) -> None:
         super().__init__(maps)
         self._engine = engine
         self._maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         self._session: AsyncSession | None = None
+        self._closed = False
         self._graph_sync = graph_sync
         self._graph_sync_mode = graph_sync_mode
+        self._registry_prefix = registry
+        self._strict_updates = strict_updates
 
     async def __aenter__(self) -> AsyncOntoSession:
         self._session = self._maker()
+        self._closed = False
         logger.debug("session open async")
         return self
 
@@ -63,6 +72,7 @@ class AsyncOntoSession(SessionBase):
                     self._graph_sync,
                     mode=self._graph_sync_mode,
                     mapper_for=self._mapper_for,
+                    registry=self._registry_prefix,
                 )
             else:
                 self._state.clear_graph_sync()
@@ -71,18 +81,34 @@ class AsyncOntoSession(SessionBase):
         finally:
             await self._session.close()
             self._session = None
+            self._closed = True
             logger.debug("session close async")
 
-    async def rollback(self, *, clear_uow: bool = False) -> None:
+    def __del__(self) -> None:
+        if self._session is not None and not self._closed:
+            warnings.warn(
+                "AsyncOntoSession was not closed; "
+                "use 'async with AsyncOntoSession(...) as session:'",
+                ResourceWarning,
+                stacklevel=2,
+            )
+
+    async def rollback(self, *, clear_uow: bool = True) -> None:
         """Roll back the current SQLAlchemy transaction.
 
-        Does not clear the unit-of-work queue unless ``clear_uow=True``.
+        Clears the unit-of-work queue by default (``clear_uow=True``).
         See ``docs/internals/session-lifecycle.md``.
         """
         await self._require_session().rollback()
         if clear_uow:
             self._state.clear_pending()
             self._state.clear_graph_sync()
+        elif self._state.pending or self._state.has_graph_sync_pending:
+            warnings.warn(
+                "rollback(clear_uow=False) left pending save/delete or graph sync queues; "
+                "they may flush on session exit",
+                stacklevel=2,
+            )
         logger.debug("session rollback async explicit clear_uow=%s", clear_uow)
 
     def _require_session(self) -> AsyncSession:
@@ -103,6 +129,8 @@ class AsyncOntoSession(SessionBase):
     ) -> OntoModel | None:
         resolved_id = validate_get_identity(identity=identity, iri=iri)
         if resolved_id is not None:
+            if self._state.is_pending_delete(entity_type, resolved_id):
+                return None
             cached = self._state.get_cached(entity_type, resolved_id)
             if cached is not None:
                 return cached
@@ -117,6 +145,14 @@ class AsyncOntoSession(SessionBase):
         instance = hydrate_first(plan, result)
         if instance is None:
             return None
+        if iri is not None:
+            loaded_id = getattr(instance, mapper_cls.identity_field, None)
+            if loaded_id is not None and self._state.is_pending_delete(entity_type, loaded_id):
+                return None
+            if loaded_id is not None:
+                cached = self._state.get_cached(entity_type, loaded_id)
+                if cached is not None:
+                    return cached
         await attach_collections_async(self._require_session(), mapper_cls, [instance])
         return self._register(instance)
 
@@ -206,17 +242,20 @@ class AsyncOntoSession(SessionBase):
         if flush_now:
             inserted_id = await self._execute_write(plan)
             return await self._queue_graph_sync_after_save(instance, mapper_cls, plan, inserted_id)
-        self._state.pending.append(plan)
+        self._state.queue_pending_write(plan, instance)
         return instance
 
     async def delete(self, instance: OntoModel, *, flush_now: bool = True) -> None:
         mapper_cls = self._mapper_for(type(instance))
         plan = compile_delete_plan(mapper_cls, instance)
+        identity = getattr(instance, mapper_cls.identity_field, None)
         if flush_now:
             await self._execute_delete(plan)
             if self._graph_sync is not None:
                 queue_graph_remove(self._state, instance)
         else:
+            if identity is not None:
+                self._state.mark_pending_delete(type(instance), identity)
             self._state.pending.append(PendingDelete(plan=plan, instance=instance))
 
     async def _apply_pending_delete(self, pending: PendingDelete) -> None:
@@ -229,26 +268,48 @@ class AsyncOntoSession(SessionBase):
             queue_graph_remove(self._state, pending.instance)
 
     async def flush(self) -> None:
-        """Apply all pending save/delete plans (stops on first error; queue preserved)."""
-        while self._state.pending:
-            item = self._state.pending[0]
-            if isinstance(item, WritePlan):
-                plan = item
-                inserted_id = await self._execute_write(plan)
-                entity_type = plan.mapper_cls.entity
-                identity = identity_from_write_plan(plan, inserted_id)
-                if identity is not None and self._graph_sync is not None:
-                    reloaded = await self.get(entity_type, identity=identity)
-                    if reloaded is not None:
-                        queue_graph_push(self._state, reloaded)
-            elif isinstance(item, PendingDelete):
-                await self._apply_pending_delete(item)
-            self._state.pending.pop(0)
+        """Apply pending save/delete plans; stops on first error (unprocessed queue preserved)."""
+        if not self._state.pending:
+            return
+        queue = list(self._state.pending)
+        processed = 0
+        try:
+            for item in queue:
+                if isinstance(item, WritePlan):
+                    plan = item
+                    source_instance = self._state.pop_pending_instance(plan)
+                    inserted_id = await self._execute_write(plan)
+                    if source_instance is not None:
+                        merge_identity_into_instance(
+                            source_instance,
+                            plan.mapper_cls,
+                            identity_from_write_plan(plan, inserted_id),
+                        )
+                    entity_type = plan.mapper_cls.entity
+                    identity = identity_from_write_plan(plan, inserted_id)
+                    if identity is not None and self._graph_sync is not None:
+                        reloaded = await self.get(entity_type, identity=identity)
+                        if reloaded is not None:
+                            queue_graph_push(self._state, reloaded)
+                elif isinstance(item, PendingDelete):
+                    await self._apply_pending_delete(item)
+                processed += 1
+        except Exception:
+            self._state.pending = queue[processed:]
+            raise
+        self._state.pending.clear()
+        self._state.pending_instances.clear()
+        self._state.pending_insert_objects.clear()
         logger.debug("session flush async complete")
 
     async def _execute_write(self, plan: WritePlan) -> Any:
         session = self._require_session()
-        returned = await async_execute_write_plan(session, plan)
+        returned = await async_execute_write_plan(
+            session,
+            plan,
+            mapper_registry=self._registry,
+            strict_updates=self._strict_updates,
+        )
         identity = identity_from_write_plan(plan, returned)
         if identity is not None:
             self._state.expire(plan.mapper_cls.entity, identity)

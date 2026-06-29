@@ -39,3 +39,7 @@ class MapperRegistry:
 
     def has(self, entity_type: type[Any]) -> bool:
         return entity_type in self._by_entity
+
+    def all_mappers(self) -> list[type[Any]]:
+        """Return all registered mapper classes."""
+        return list(self._by_entity.values())

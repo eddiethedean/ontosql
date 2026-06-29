@@ -69,6 +69,99 @@ def _nested_mapper_for_iri(
     return None
 
 
+def nested_iris_from_snapshot(
+    instance: OntoModel,
+    mapper_cls: type[Any],
+    snapshot: dict[str, Any] | None,
+    registry: PrefixRegistry,
+) -> set[str]:
+    """Extract nested entity IRIs from a session/DB snapshot dict."""
+    if snapshot is None:
+        return set()
+    iris: set[str] = set()
+    for field_name, nmap in mapper_cls.nested_maps.items():
+        nested_raw = snapshot.get(field_name)
+        if not isinstance(nested_raw, dict):
+            continue
+        nested_mapper = nmap.nested_mapper
+        nested_entity = nested_mapper.entity
+        identity_field = nested_mapper.identity_field
+        nested_id = nested_raw.get(identity_field)
+        if nested_id is None:
+            continue
+        nested_data = {identity_field: nested_id}
+        for key in nested_mapper.column_maps:
+            if key in nested_raw:
+                nested_data[key] = nested_raw[key]
+        try:
+            nested_instance = nested_entity.model_construct(**nested_data)
+            iris.add(build_instance_iri(nested_instance, registry))
+        except Exception:  # pragma: no cover
+            continue
+    return iris
+
+
+def nested_iris_from_instance(
+    instance: OntoModel,
+    mapper_cls: type[Any],
+    registry: PrefixRegistry,
+) -> set[str]:
+    """Extract nested entity IRIs from a live instance."""
+    iris: set[str] = set()
+    for field_name in mapper_cls.nested_maps:
+        nested_value = getattr(instance, field_name, None)
+        if nested_value is not None:
+            iris.add(build_instance_iri(nested_value, registry))
+    return iris
+
+
+def _nested_iri_referenced_elsewhere(
+    target: Store,
+    nested_iri: str,
+    *,
+    root_iri: str,
+    mapper_cls: type[Any],
+    registry: PrefixRegistry,
+) -> bool:
+    """True when another subject in the graph still links to nested_iri."""
+    nested_node = NamedNode(nested_iri)
+    for field_name in mapper_cls.nested_maps:
+        pred = predicate_iri(mapper_cls.entity, field_name, registry)
+        if pred is None:
+            continue
+        pred_node = NamedNode(pred)
+        for triple in target:
+            if (
+                triple[1] == pred_node
+                and triple[2] == nested_node
+                and term_str(triple[0]) != root_iri
+            ):
+                return True
+    return False
+
+
+def _remove_stale_nested_subjects(
+    target: Store,
+    *,
+    root_iri: str,
+    prior_nested_iris: set[str],
+    current_nested_iris: set[str],
+    mapper_cls: type[Any],
+    registry: PrefixRegistry,
+) -> None:
+    stale = prior_nested_iris - current_nested_iris
+    for nested_iri in stale:
+        if _nested_iri_referenced_elsewhere(
+            target,
+            nested_iri,
+            root_iri=root_iri,
+            mapper_cls=mapper_cls,
+            registry=registry,
+        ):
+            continue
+        _remove_all_subject_triples(target, nested_iri)
+
+
 def _patch_subject_in_store(
     target: Store,
     new_graph: Store,
@@ -109,6 +202,7 @@ def sync_instance_to_store(
     mode: GraphSyncMode = "patch",
     registry: PrefixRegistry | None = None,
     mapper_cls: type[Any] | None = None,
+    prior_nested_iris: set[str] | None = None,
 ) -> Store:
     """Write a semantic instance subgraph into target using sync semantics."""
     reg = _resolve_registry(instance, registry)
@@ -119,10 +213,22 @@ def sync_instance_to_store(
     subjects = _subjects_in_graph(new_graph)
     root_iri = build_instance_iri(instance, reg)
     nested_subjects = subjects - {root_iri}
+    current_nested_iris = nested_iris_from_instance(instance, mapper_cls, reg)
+    prior = prior_nested_iris if prior_nested_iris is not None else set()
 
     if mode == "add":
         _add_graph_triples(target, new_graph)
         return target
+
+    if mode in ("replace", "patch"):
+        _remove_stale_nested_subjects(
+            target,
+            root_iri=root_iri,
+            prior_nested_iris=prior,
+            current_nested_iris=current_nested_iris,
+            mapper_cls=mapper_cls,
+            registry=reg,
+        )
 
     if mode == "replace":
         if root_iri in subjects:
@@ -150,8 +256,22 @@ def remove_instance_from_store(
     registry: PrefixRegistry | None = None,
     mapper_cls: type[Any] | None = None,
 ) -> Store:
-    """Remove all triples for the root instance subject only (not shared nested nodes)."""
+    """Remove root subject triples and exclusive nested subjects."""
     reg = _resolve_registry(instance, registry)
+    if mapper_cls is None:
+        raise ValueError("remove_instance_from_store() requires mapper_cls=")
+
     root_iri = build_instance_iri(instance, reg)
+    nested_iris = nested_iris_from_instance(instance, mapper_cls, reg)
     _remove_all_subject_triples(target, root_iri)
+    for nested_iri in nested_iris:
+        if _nested_iri_referenced_elsewhere(
+            target,
+            nested_iri,
+            root_iri=root_iri,
+            mapper_cls=mapper_cls,
+            registry=reg,
+        ):
+            continue
+        _remove_all_subject_triples(target, nested_iri)
     return target

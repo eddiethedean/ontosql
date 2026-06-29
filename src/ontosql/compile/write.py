@@ -136,6 +136,8 @@ def _compile_nested(
             if policy is CascadePolicy.LINK:
                 fk_key = _fk_column_key(nmap)
                 fk_updates[fk_key] = None
+            elif policy is CascadePolicy.UPSERT and not is_new:
+                fk_updates[_fk_column_key(nmap)] = None
             elif policy is CascadePolicy.REPLACE and not is_new and old_nested_id is not None:
                 nested_deletes.append(
                     (field_name, _delete_plan_for_identity(nmap.nested_mapper, old_nested_id))

@@ -17,6 +17,7 @@ from ontosql.semantic.model import OntoModel
 from ontosql.session.pagination import paginate_async
 
 DEFAULT_MAX_BODY_BYTES = 64 * 1024
+DEFAULT_MAX_JSON_DEPTH = 64
 
 _HTTP_413 = getattr(status, "HTTP_413_CONTENT_TOO_LARGE", 413)
 
@@ -50,6 +51,35 @@ def _patch_body_model(entity_type: type[OntoModel], *, identity_field: str) -> t
     return create_model(f"{entity_type.__name__}Patch", **fields)  # type: ignore[call-overload]
 
 
+def _json_nesting_depth(raw: bytes, *, limit: int = DEFAULT_MAX_JSON_DEPTH) -> int:
+    """Estimate max nesting depth of JSON brackets in raw bytes."""
+    depth = 0
+    max_depth = 0
+    in_string = False
+    escape = False
+    for byte in raw:
+        ch = chr(byte)
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+            continue
+        if ch in "{[":
+            depth += 1
+            max_depth = max(max_depth, depth)
+            if max_depth > limit:
+                return max_depth
+        elif ch in "}]":
+            depth = max(depth - 1, 0)
+    return max_depth
+
+
 async def _read_json_body(request: Request, max_body_bytes: int) -> Any:
     content_length = request.headers.get("content-length")
     if content_length is not None:
@@ -71,7 +101,23 @@ async def _read_json_body(request: Request, max_body_bytes: int) -> Any:
             status_code=_HTTP_413,
             detail=f"Request body exceeds max_body_bytes={max_body_bytes}",
         )
-    return json.loads(raw)
+    if _json_nesting_depth(raw) > DEFAULT_MAX_JSON_DEPTH:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"JSON nesting exceeds max depth of {DEFAULT_MAX_JSON_DEPTH}",
+        )
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON body",
+        ) from exc
+    except RecursionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="JSON nesting too deep",
+        ) from exc
 
 
 def _instance_from_create(
@@ -141,12 +187,12 @@ class OntoRouter:
         async def list_entities(
             request: Request,
             session: AsyncSessionDep,
-            limit: int = Query(20, le=100),
+            limit: int = Query(20, ge=1, le=100),
             offset: int = Query(0, ge=0),
         ) -> Any:
             accept = request.headers.get("accept")
             chosen = parse_accept_mime(accept)
-            if chosen is not None and chosen != "application/ld+json":
+            if chosen is not None and chosen not in ("application/ld+json", "application/json"):
                 from ontosql.export._formats import format_for_mime
                 from ontosql.fastapi.negotiate import negotiate_graph_response
                 from ontosql.sync import materialize_find_async
@@ -158,7 +204,7 @@ class OntoRouter:
                     return negotiate_graph_response(chosen, graph)
 
             page = await paginate_async(session, entity_type, limit=limit, offset=offset)
-            if accept and accept.startswith("application/ld+json"):
+            if chosen == "application/ld+json":
                 from ontosql.export.instance import instances_to_jsonld
 
                 payload = instances_to_jsonld(page.items)

@@ -103,7 +103,7 @@ def test_compile_upsert_nested_partial_fields() -> None:
     assert plan.nested
 
 
-def test_compile_upsert_skips_null_employer() -> None:
+def test_compile_upsert_nulls_fk_on_clear_employer() -> None:
     class UpsertPersonMap(OntoMapper[Person]):
         entity = Person
         id = Map(PersonRow.id)
@@ -119,6 +119,7 @@ def test_compile_upsert_skips_null_employer() -> None:
     person = Person(id=1, name="Ada", employer=None)
     plan = compile_save_plan(UpsertPersonMap, person, partial_fields={"employer"})
     assert plan.nested == []
+    assert plan.fk_updates.get("org_id") is None
 
 
 def test_compile_delete_requires_identity() -> None:

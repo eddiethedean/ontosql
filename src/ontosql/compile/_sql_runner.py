@@ -83,16 +83,79 @@ def check_replace_nested_exclusive(count: int, field_name: str, nested_id: Any) 
         )
 
 
+def inbound_fk_count_stmts(
+    mapper_registry: Any,
+    delete_plan: DeletePlan,
+    *,
+    exclude_table: Any | None = None,
+    exclude_where: dict[str, Any] | None = None,
+) -> list[tuple[str, Any]]:
+    """Build COUNT statements for inbound FK references to a nested row across all mappers."""
+    nested_mapper = delete_plan.mapper_cls
+    nested_entity = nested_mapper.entity
+    nested_id = nested_delete_identity(delete_plan)
+    stmts: list[tuple[str, Any]] = []
+    for mapper_cls in mapper_registry.all_mappers():
+        for nmap in mapper_cls.nested_maps.values():
+            if nmap.nested_mapper.entity != nested_entity or nmap.fk_column is None:
+                continue
+            fk_key = _column_key(nmap.fk_column)
+            parent_table = mapper_cls.primary_table
+            if parent_table is None:
+                continue
+            stmt = (
+                select(func.count())
+                .select_from(parent_table)
+                .where(parent_table.c[fk_key] == nested_id)
+            )
+            if (
+                exclude_where is not None
+                and exclude_table is not None
+                and parent_table == exclude_table
+            ):
+                identity_col = mapper_cls.column_maps[mapper_cls.identity_field]
+                parent_id_key = _column_key(identity_col.column)
+                parent_id = exclude_where.get(parent_id_key)
+                if parent_id is not None:
+                    stmt = stmt.where(parent_table.c[parent_id_key] != parent_id)
+            label = f"{mapper_cls.__name__}.{nmap.semantic_field}"
+            stmts.append((label, stmt))
+        for cmap in mapper_cls.collection_maps.values():
+            if cmap.nested_mapper.entity != nested_entity:
+                continue
+            through_table = cmap.through_table
+            target_key = _column_key(cmap.target_fk)
+            stmt = (
+                select(func.count())
+                .select_from(through_table)
+                .where(through_table.c[target_key] == nested_id)
+            )
+            label = f"{mapper_cls.__name__}.{cmap.semantic_field}"
+            stmts.append((label, stmt))
+    return stmts
+
+
 def assert_replace_nested_exclusive(
     plan: WritePlan,
     field_name: str,
     delete_plan: DeletePlan,
     *,
     run_count: Callable[[Any], Any],
+    mapper_registry: Any | None = None,
 ) -> None:
+    nested_id = nested_delete_identity(delete_plan)
+    if mapper_registry is not None:
+        stmts = inbound_fk_count_stmts(
+            mapper_registry,
+            delete_plan,
+            exclude_table=plan.root.table,
+            exclude_where=plan.root.where,
+        )
+        total = sum(count_scalar(run_count(stmt)) for _, stmt in stmts)
+        check_replace_nested_exclusive(total, field_name, nested_id)
+        return
     stmt = replace_nested_exclusive_count_stmt(plan, field_name, delete_plan)
     if stmt is None:
         return
-    nested_id = nested_delete_identity(delete_plan)
     count = count_scalar(run_count(stmt))
     check_replace_nested_exclusive(count, field_name, nested_id)

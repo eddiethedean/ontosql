@@ -6,9 +6,10 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from ontosql._log import logger
+from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session.state import SessionState
-from ontosql.sync.graph import GraphSyncMode
+from ontosql.sync.graph import GraphSyncMode, nested_iris_from_snapshot
 
 GraphSyncOperation = Literal["remove", "push"]
 
@@ -55,6 +56,7 @@ def flush_graph_sync(
     *,
     mode: GraphSyncMode,
     mapper_for: Any,
+    registry: PrefixRegistry | None = None,
 ) -> None:
     """Apply queued graph sync operations (call only after successful SQL commit).
 
@@ -69,11 +71,13 @@ def flush_graph_sync(
 
     while state.graph_sync_removes:
         instance = state.graph_sync_removes[0]
+        mapper_cls = mapper_for(type(instance))
         try:
             remove_instance(
                 instance,
                 graph_sync,
-                mapper=mapper_for(type(instance)),
+                mapper=mapper_cls,
+                registry=registry,
             )
         except Exception as exc:
             failure = GraphSyncFailure(instance=instance, operation="remove", error=exc)
@@ -97,12 +101,20 @@ def flush_graph_sync(
 
     while state.graph_sync_pushes:
         instance = state.graph_sync_pushes[0]
+        mapper_cls = mapper_for(type(instance))
+        snapshot = state.get_snapshot(instance)
+        from ontosql.registry import PrefixRegistry
+
+        reg = registry if registry is not None else PrefixRegistry()
+        prior_nested = nested_iris_from_snapshot(instance, mapper_cls, snapshot, reg)
         try:
             push_instance(
                 instance,
                 graph_sync,
                 mode=mode,
-                mapper=mapper_for(type(instance)),
+                mapper=mapper_cls,
+                registry=registry,
+                prior_nested_iris=prior_nested,
             )
         except Exception as exc:
             failure = GraphSyncFailure(instance=instance, operation="push", error=exc)
