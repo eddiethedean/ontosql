@@ -46,12 +46,13 @@ def compact_jsonld(
 ) -> dict[str, Any]:
     """Compact a JSON-LD document with the given context."""
     jsonld = _require_pyld()
-    loader = document_loader
-    if loader is None and not allow_remote_contexts:
-        loader = safe_document_loader
-    options: dict[str, Any] = {}
-    if loader is not None:
-        options["documentLoader"] = loader
+    if allow_remote_contexts and document_loader is None:
+        raise ValueError(
+            "allow_remote_contexts=True requires an explicit document_loader= "
+            "(PyLD default loader fetches remote URLs)"
+        )
+    loader = document_loader if document_loader is not None else safe_document_loader
+    options: dict[str, Any] = {"documentLoader": loader}
     return jsonld.compact(document, context, options=options)
 
 
@@ -64,10 +65,11 @@ def frame_jsonld(
 ) -> dict[str, Any]:
     """Frame a JSON-LD document."""
     jsonld = _require_pyld()
-    loader = document_loader
-    if loader is None and not allow_remote_contexts:
-        loader = safe_document_loader
-    options: dict[str, Any] = {}
-    if loader is not None:
-        options["documentLoader"] = loader
+    if allow_remote_contexts and document_loader is None:
+        raise ValueError(
+            "allow_remote_contexts=True requires an explicit document_loader= "
+            "(PyLD default loader fetches remote URLs)"
+        )
+    loader = document_loader if document_loader is not None else safe_document_loader
+    options: dict[str, Any] = {"documentLoader": loader}
     return jsonld.frame(document, frame, options=options)

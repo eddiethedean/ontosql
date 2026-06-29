@@ -144,18 +144,15 @@ def assert_replace_nested_exclusive(
     mapper_registry: Any | None = None,
 ) -> None:
     nested_id = nested_delete_identity(delete_plan)
-    if mapper_registry is not None:
-        stmts = inbound_fk_count_stmts(
-            mapper_registry,
-            delete_plan,
-            exclude_table=plan.root.table,
-            exclude_where=plan.root.where,
+    if mapper_registry is None:
+        raise ExecuteError(
+            "REPLACE nested delete requires mapper_registry= for cross-table FK safety"
         )
-        total = sum(count_scalar(run_count(stmt)) for _, stmt in stmts)
-        check_replace_nested_exclusive(total, field_name, nested_id)
-        return
-    stmt = replace_nested_exclusive_count_stmt(plan, field_name, delete_plan)
-    if stmt is None:
-        return
-    count = count_scalar(run_count(stmt))
-    check_replace_nested_exclusive(count, field_name, nested_id)
+    stmts = inbound_fk_count_stmts(
+        mapper_registry,
+        delete_plan,
+        exclude_table=plan.root.table,
+        exclude_where=plan.root.where,
+    )
+    total = sum(count_scalar(run_count(stmt)) for _, stmt in stmts)
+    check_replace_nested_exclusive(total, field_name, nested_id)

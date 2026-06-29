@@ -270,6 +270,15 @@ def compile_save_plan(
         identity_col = mapper_cls.column_maps[identity]
         where = {_column_key(identity_col.column): getattr(instance, identity)}
 
+    if not new and snapshot is None:
+        for field_name, nmap in mapper_cls.nested_maps.items():
+            if nmap.cascade is not CascadePolicy.REPLACE:
+                continue
+            if partial_fields is None or field_name in partial_fields:
+                raise WriteCompileError(
+                    f"REPLACE cascade on {field_name!r} requires snapshot= on update"
+                )
+
     nested_plans, nested_deletes, fk_updates = _compile_nested(
         mapper_cls,
         instance,

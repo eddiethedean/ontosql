@@ -38,6 +38,10 @@ def owned_predicates(mapper_cls: type[Any], registry: PrefixRegistry) -> frozens
         pred = predicate_iri(entity_type, field_name, registry)
         if pred:
             preds.add(pred)
+    for field_name in mapper_cls.collection_maps:
+        pred = predicate_iri(entity_type, field_name, registry)
+        if pred:
+            preds.add(pred)
     return frozenset(preds)
 
 
@@ -66,7 +70,33 @@ def _nested_mapper_for_iri(
         nested_value = getattr(instance, field_name, None)
         if nested_value is not None and build_instance_iri(nested_value, registry) == nested_iri:
             return nmap.nested_mapper
+    for field_name, cmap in mapper_cls.collection_maps.items():
+        items = getattr(instance, field_name, None) or []
+        for item in items:
+            if build_instance_iri(item, registry) == nested_iri:
+                return cmap.nested_mapper
     return None
+
+
+def _nested_iri_from_snapshot_item(
+    nested_raw: dict[str, Any],
+    nested_mapper: type[Any],
+    registry: PrefixRegistry,
+) -> str | None:
+    nested_entity = nested_mapper.entity
+    identity_field = nested_mapper.identity_field
+    nested_id = nested_raw.get(identity_field)
+    if nested_id is None:
+        return None
+    nested_data = {identity_field: nested_id}
+    for key in nested_mapper.column_maps:
+        if key in nested_raw:
+            nested_data[key] = nested_raw[key]
+    try:
+        nested_instance = nested_entity.model_construct(**nested_data)
+        return build_instance_iri(nested_instance, registry)
+    except Exception:  # pragma: no cover
+        return None
 
 
 def nested_iris_from_snapshot(
@@ -83,21 +113,18 @@ def nested_iris_from_snapshot(
         nested_raw = snapshot.get(field_name)
         if not isinstance(nested_raw, dict):
             continue
-        nested_mapper = nmap.nested_mapper
-        nested_entity = nested_mapper.entity
-        identity_field = nested_mapper.identity_field
-        nested_id = nested_raw.get(identity_field)
-        if nested_id is None:
+        iri = _nested_iri_from_snapshot_item(nested_raw, nmap.nested_mapper, registry)
+        if iri is not None:
+            iris.add(iri)
+    for field_name, cmap in mapper_cls.collection_maps.items():
+        raw_items = snapshot.get(field_name)
+        if not isinstance(raw_items, list):
             continue
-        nested_data = {identity_field: nested_id}
-        for key in nested_mapper.column_maps:
-            if key in nested_raw:
-                nested_data[key] = nested_raw[key]
-        try:
-            nested_instance = nested_entity.model_construct(**nested_data)
-            iris.add(build_instance_iri(nested_instance, registry))
-        except Exception:  # pragma: no cover
-            continue
+        for item_raw in raw_items:
+            if isinstance(item_raw, dict):
+                iri = _nested_iri_from_snapshot_item(item_raw, cmap.nested_mapper, registry)
+                if iri is not None:
+                    iris.add(iri)
     return iris
 
 
@@ -112,6 +139,9 @@ def nested_iris_from_instance(
         nested_value = getattr(instance, field_name, None)
         if nested_value is not None:
             iris.add(build_instance_iri(nested_value, registry))
+    for field_name in mapper_cls.collection_maps:
+        for item in getattr(instance, field_name, None) or []:
+            iris.add(build_instance_iri(item, registry))
     return iris
 
 
@@ -125,8 +155,10 @@ def _nested_iri_referenced_elsewhere(
 ) -> bool:
     """True when another subject in the graph still links to nested_iri."""
     nested_node = NamedNode(nested_iri)
-    for field_name in mapper_cls.nested_maps:
-        pred = predicate_iri(mapper_cls.entity, field_name, registry)
+    entity_type = mapper_cls.entity
+    link_fields = list(mapper_cls.nested_maps.keys()) + list(mapper_cls.collection_maps.keys())
+    for field_name in link_fields:
+        pred = predicate_iri(entity_type, field_name, registry)
         if pred is None:
             continue
         pred_node = NamedNode(pred)

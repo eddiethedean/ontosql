@@ -20,6 +20,7 @@ _ACCEPT_FORMATS: list[tuple[str, str]] = [
 ]
 
 _KNOWN_MIMES = frozenset(mime for mime, _ in _ACCEPT_FORMATS)
+_JSON_MIME = "application/json"
 
 
 def _parse_accept_params(part: str) -> tuple[str, float]:
@@ -63,6 +64,9 @@ def _parse_accept(accept: str | None) -> str | None:
             continue
         if media_type in ("*/*", "*"):
             continue
+        if media_type == _JSON_MIME:
+            candidates.append((q, _JSON_MIME))
+            continue
         matched = _matches_known_mime(media_type)
         if matched is not None:
             candidates.append((q, matched))
@@ -74,8 +78,6 @@ def _parse_accept(accept: str | None) -> str | None:
 
 def parse_accept_mime(accept: str | None) -> str | None:
     """Public helper: best matching semantic MIME type from an Accept header."""
-    if _wants_json(accept):
-        return "application/json"
     return _parse_accept(accept)
 
 
@@ -86,16 +88,6 @@ def negotiate_graph_response(chosen_mime: str, graph: Store) -> Response:
         raise ValueError(f"Unsupported RDF MIME type: {chosen_mime!r}")
     body = graph.serialize(format=fmt)
     return Response(content=body, media_type=media_type_for_format(fmt))
-
-
-def _wants_json(accept: str | None) -> bool:
-    if not accept:
-        return False
-    for part in accept.split(","):
-        media_type, q = _parse_accept_params(part)
-        if media_type == "application/json" and q > 0:
-            return True
-    return False
 
 
 def _json_response_for(data: Any) -> JSONResponse:
@@ -114,10 +106,10 @@ def negotiate_onto_response(request: Request, data: Any) -> Response:
     Falls back to JSON-LD if data supports ``to_jsonld()``, otherwise JSON.
     """
     accept = request.headers.get("accept")
-    if _wants_json(accept):
+    chosen = _parse_accept(accept)
+    if chosen == _JSON_MIME:
         return _json_response_for(data)
 
-    chosen = _parse_accept(accept)
     if chosen is None:
         if hasattr(data, "to_jsonld"):
             return JSONLDResponse(data)

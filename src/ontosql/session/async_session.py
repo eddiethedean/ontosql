@@ -24,7 +24,12 @@ from ontosql.session._ops import (
 from ontosql.session._sql import async_load_snapshot_from_db, async_reload_after_save
 from ontosql.session.base import GraphSyncTargetLike, SessionBase
 from ontosql.session.collections import attach_collections_async
-from ontosql.session.graph_sync import flush_graph_sync, queue_graph_push, queue_graph_remove
+from ontosql.session.graph_sync import (
+    flush_graph_sync,
+    prior_nested_iris_for_save,
+    queue_graph_push,
+    queue_graph_remove,
+)
 from ontosql.session.hydrate import hydrate_first, hydrate_row
 from ontosql.session.state import PendingDelete
 from ontosql.sync.graph import GraphSyncMode
@@ -75,6 +80,7 @@ class AsyncOntoSession(SessionBase):
                     registry=self._registry_prefix,
                 )
             else:
+                self._state.clear_pending()
                 self._state.clear_graph_sync()
                 await self._session.rollback()
                 logger.debug("session rollback async exc_type=%s", exc_type.__name__)
@@ -176,7 +182,13 @@ class AsyncOntoSession(SessionBase):
         result = await self._require_session().execute(plan.select)
         instances = [hydrate_row(plan, row) for row in result.all()]
         await attach_collections_async(self._require_session(), mapper_cls, instances)
-        return [self._register(inst) for inst in instances]
+        result_list: list[OntoModel] = []
+        for inst in instances:
+            identity = getattr(inst, mapper_cls.identity_field, None)
+            if identity is not None and self._state.is_pending_delete(entity_type, identity):
+                continue
+            result_list.append(self._register(inst))
+        return result_list
 
     async def count(
         self,
@@ -211,10 +223,12 @@ class AsyncOntoSession(SessionBase):
         mapper_cls: type[Any],
         plan: WritePlan,
         inserted_id: Any,
+        *,
+        prior_nested_iris: frozenset[str],
     ) -> OntoModel:
         reloaded = await self._reload_after_save(instance, mapper_cls, plan, inserted_id)
         if self._graph_sync is not None:
-            queue_graph_push(self._state, reloaded)
+            queue_graph_push(self._state, reloaded, prior_nested_iris=prior_nested_iris)
         return reloaded
 
     async def _load_snapshot_from_db(
@@ -239,9 +253,22 @@ class AsyncOntoSession(SessionBase):
         plan = compile_save_plan_for_instance(
             mapper_cls, instance, is_new=is_new, snapshot=snapshot
         )
+        prior_nested = prior_nested_iris_for_save(
+            self._state,
+            instance,
+            mapper_cls,
+            snapshot,
+            self._registry_prefix,
+        )
         if flush_now:
             inserted_id = await self._execute_write(plan)
-            return await self._queue_graph_sync_after_save(instance, mapper_cls, plan, inserted_id)
+            return await self._queue_graph_sync_after_save(
+                instance,
+                mapper_cls,
+                plan,
+                inserted_id,
+                prior_nested_iris=prior_nested,
+            )
         self._state.queue_pending_write(plan, instance)
         return instance
 
@@ -277,8 +304,18 @@ class AsyncOntoSession(SessionBase):
             for item in queue:
                 if isinstance(item, WritePlan):
                     plan = item
-                    source_instance = self._state.pop_pending_instance(plan)
+                    source_instance = self._state.peek_pending_instance(plan)
+                    prior_nested = frozenset()
+                    if self._graph_sync is not None and source_instance is not None:
+                        prior_nested = prior_nested_iris_for_save(
+                            self._state,
+                            source_instance,
+                            plan.mapper_cls,
+                            self._state.get_snapshot(source_instance),
+                            self._registry_prefix,
+                        )
                     inserted_id = await self._execute_write(plan)
+                    self._state.pop_pending_instance(plan)
                     if source_instance is not None:
                         merge_identity_into_instance(
                             source_instance,
@@ -290,7 +327,11 @@ class AsyncOntoSession(SessionBase):
                     if identity is not None and self._graph_sync is not None:
                         reloaded = await self.get(entity_type, identity=identity)
                         if reloaded is not None:
-                            queue_graph_push(self._state, reloaded)
+                            queue_graph_push(
+                                self._state,
+                                reloaded,
+                                prior_nested_iris=prior_nested,
+                            )
                 elif isinstance(item, PendingDelete):
                     await self._apply_pending_delete(item)
                 processed += 1

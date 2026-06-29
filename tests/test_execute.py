@@ -19,6 +19,7 @@ from ontosql.compile.execute import (
 from ontosql.compile.plan import DeletePlan, TableWrite, WritePlan
 from ontosql.compile.write import WriteCompileError, compile_delete_plan, compile_save_plan
 from ontosql.mapping.cascade import CascadePolicy
+from ontosql.mapping.registry import MapperRegistry
 from tests.models import Organization, OrganizationMap, OrgRow, Person, PersonMap, PersonRow
 from tests.models_m2m import (
     M2MPersonRow,
@@ -134,7 +135,10 @@ def test_execute_replace_deletes_old_nested(sync_engine) -> None:
         snapshot=snapshot,
     )
     with Session(sync_engine) as session:
-        execute_write_plan(session, plan)
+        registry = MapperRegistry()
+        registry.register(mapper)
+        registry.register(OrganizationMap)
+        execute_write_plan(session, plan, mapper_registry=registry)
         session.commit()
     with Session(sync_engine) as session:
         assert session.get(OrgRow, 10) is None
@@ -162,7 +166,10 @@ def test_execute_replace_shared_nested_raises(sync_engine) -> None:
         snapshot=snapshot,
     )
     with Session(sync_engine) as session, pytest.raises(ExecuteError, match="still referenced"):
-        execute_write_plan(session, plan)
+        registry = MapperRegistry()
+        registry.register(mapper)
+        registry.register(OrganizationMap)
+        execute_write_plan(session, plan, mapper_registry=registry)
 
 
 @pytest.fixture

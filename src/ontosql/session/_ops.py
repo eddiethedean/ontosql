@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from ontosql.compile.plan import WritePlan
-from ontosql.compile.write import compile_save_plan
+from ontosql.compile.write import _column_key, compile_save_plan
 from ontosql.semantic.model import OntoModel
 from ontosql.session.state import SessionState
 
@@ -42,6 +42,8 @@ def _merge_snapshots_for_save(
             nested_merged = dict(session_value)
             nested_merged.update(db_value)
             merged[key] = nested_merged
+        elif db_value is None and isinstance(session_value, dict):
+            merged[key] = None
         elif db_value is not None:
             merged[key] = db_value
     return merged
@@ -85,8 +87,13 @@ def identity_from_write_plan(plan: WritePlan, returned: Any) -> Any:
     identity = returned
     if identity is None and plan.root.where:
         identity = next(iter(plan.root.where.values()))
-    elif identity is None and plan.mapper_cls.identity_field in plan.root.values:
-        identity = plan.root.values[plan.mapper_cls.identity_field]
+    elif identity is None:
+        identity_field = plan.mapper_cls.identity_field
+        if identity_field in plan.root.values:
+            identity = plan.root.values[identity_field]
+        elif identity_field in plan.mapper_cls.column_maps:
+            col_key = _column_key(plan.mapper_cls.column_maps[identity_field].column)
+            identity = plan.root.values.get(col_key)
     return identity
 
 

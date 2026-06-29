@@ -28,11 +28,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`execute_write_plan`** — raises on zero-row UPDATE; raises when collection writes lack parent identity
 - **`OntoRouter`** — `limit` ge=1; unified Accept negotiation for list JSON-LD; malformed/deep JSON → 400; `application/json` plain JSON
 - **`load_graph`** — invalid UTF-8 raises `OntoImportError`
+- **Session graph sync** — pre-save nested IRIs captured at queue time (stale nested retraction works via session path)
+- **Graph sync collections** — `Map.collection` predicates owned in patch mode; collection member IRIs tracked for stale removal
+- **`find()`** — excludes pending-delete tombstones (consistent with `get()`)
+- **Session lifecycle** — exception exit clears pending queue; flush failure preserves deferred-insert identity mapping
+- **Snapshot merge** — DB-null nested FK overrides stale session nested dict
+- **Accept negotiation** — `application/json` participates in q-value sorting with RDF types
+- **Import** — non-URI collection members raise `OntoImportError`; duplicate collection IRIs deduplicated
+- **Write execute** — collection bridge sync runs before REPLACE nested deletes on update
 
 ### Changed
 
 - **`rollback()`** — default `clear_uow=True` (was `False`); warns when `clear_uow=False` leaves pending work
 - **`execute_write_plan` / `async_execute_write_plan`** — accept optional `mapper_registry=` and `strict_updates=` (default strict)
+- **`execute_write_plan`** — REPLACE nested deletes require `mapper_registry=` (cross-table FK safety)
+- **`compile_save_plan`** — REPLACE cascade on update requires `snapshot=`
+- **`compact_jsonld` / `frame_jsonld`** — `allow_remote_contexts=True` requires explicit `document_loader=`
 
 ## [0.5.1] - 2026-06-29
 

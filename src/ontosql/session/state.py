@@ -21,6 +21,14 @@ class PendingDelete:
 
 
 @dataclass
+class GraphPushEntry:
+    """Queued graph push with pre-save nested IRIs for stale retraction."""
+
+    instance: OntoModel
+    prior_nested_iris: frozenset[str] = field(default_factory=frozenset)
+
+
+@dataclass
 class SessionState:
     """Unit-of-work state for OntoSession."""
 
@@ -30,7 +38,7 @@ class SessionState:
     pending_instances: dict[int, OntoModel] = field(default_factory=dict)
     pending_deletes: set[PendingDeleteKey] = field(default_factory=set)
     pending_insert_objects: set[int] = field(default_factory=set)
-    graph_sync_pushes: list[OntoModel] = field(default_factory=list)
+    graph_sync_pushes: list[GraphPushEntry] = field(default_factory=list)
     graph_sync_removes: list[OntoModel] = field(default_factory=list)
     graph_sync_failures: list[Any] = field(default_factory=list)
 
@@ -80,6 +88,8 @@ class SessionState:
     def queue_pending_write(self, plan: WritePlan, instance: OntoModel) -> None:
         """Queue a deferred save; replaces an existing queued save for the same object."""
         obj_id = id(instance)
+        entity_type = type(instance)
+        identity = getattr(instance, entity_type.identity_field, None)
         if obj_id in self.pending_insert_objects:
             for idx, item in enumerate(self.pending):
                 if isinstance(item, WritePlan) and self.pending_instances.get(id(item)) is instance:
@@ -87,9 +97,27 @@ class SessionState:
                     self.pending_instances.pop(id(item), None)
                     self.pending_instances[id(plan)] = instance
                     return
+        if identity is not None:
+            for idx, item in enumerate(self.pending):
+                if not isinstance(item, WritePlan):
+                    continue
+                other = self.pending_instances.get(id(item))
+                if other is None:
+                    continue
+                other_id = getattr(other, other.identity_field, None)
+                if other_id == identity and type(other) is entity_type:
+                    self.pending[idx] = plan
+                    self.pending_instances.pop(id(item), None)
+                    self.pending_instances[id(plan)] = instance
+                    self.pending_insert_objects.discard(id(other))
+                    self.pending_insert_objects.add(obj_id)
+                    return
         self.pending_insert_objects.add(obj_id)
         self.pending.append(plan)
         self.pending_instances[id(plan)] = instance
+
+    def peek_pending_instance(self, plan: WritePlan) -> OntoModel | None:
+        return self.pending_instances.get(id(plan))
 
     def pop_pending_instance(self, plan: WritePlan) -> OntoModel | None:
         instance = self.pending_instances.pop(id(plan), None)

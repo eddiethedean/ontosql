@@ -17,6 +17,13 @@ TURTLE_SAMPLE = (
 )
 
 
+def test_parse_accept_json_vs_ldjson_q_values() -> None:
+    assert (
+        _parse_accept("application/json;q=0.1, application/ld+json;q=0.9") == "application/ld+json"
+    )
+    assert _parse_accept("application/json;q=0.9, application/ld+json;q=0.1") == "application/json"
+
+
 def test_parse_accept_empty() -> None:
     assert _parse_accept(None) is None
     assert _parse_accept("") is None

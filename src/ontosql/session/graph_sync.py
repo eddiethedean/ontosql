@@ -8,7 +8,7 @@ from typing import Any, Literal
 from ontosql._log import logger
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel
-from ontosql.session.state import SessionState
+from ontosql.session.state import GraphPushEntry, SessionState
 from ontosql.sync.graph import GraphSyncMode, nested_iris_from_snapshot
 
 GraphSyncOperation = Literal["remove", "push"]
@@ -40,9 +40,32 @@ class GraphSyncError(Exception):
         self.pending_pushes = pending_pushes
 
 
-def queue_graph_push(state: SessionState, instance: OntoModel) -> None:
+def prior_nested_iris_for_save(
+    state: SessionState,
+    instance: OntoModel,
+    mapper_cls: type[Any],
+    snapshot: dict[str, Any] | None,
+    registry: PrefixRegistry | None,
+) -> frozenset[str]:
+    """Capture nested IRIs from pre-save snapshot for stale graph retraction."""
+    reg = registry if registry is not None else PrefixRegistry()
+    snap = snapshot if snapshot is not None else state.get_snapshot(instance)
+    return frozenset(nested_iris_from_snapshot(instance, mapper_cls, snap, reg))
+
+
+def queue_graph_push(
+    state: SessionState,
+    instance: OntoModel,
+    *,
+    prior_nested_iris: frozenset[str] | None = None,
+) -> None:
     """Queue an instance for graph push after SQL commit."""
-    state.graph_sync_pushes.append(instance)
+    state.graph_sync_pushes.append(
+        GraphPushEntry(
+            instance=instance,
+            prior_nested_iris=prior_nested_iris or frozenset(),
+        )
+    )
 
 
 def queue_graph_remove(state: SessionState, instance: OntoModel) -> None:
@@ -100,13 +123,9 @@ def flush_graph_sync(
         logger.debug("graph sync remove ok entity=%s", type(instance).__name__)
 
     while state.graph_sync_pushes:
-        instance = state.graph_sync_pushes[0]
+        entry = state.graph_sync_pushes[0]
+        instance = entry.instance
         mapper_cls = mapper_for(type(instance))
-        snapshot = state.get_snapshot(instance)
-        from ontosql.registry import PrefixRegistry
-
-        reg = registry if registry is not None else PrefixRegistry()
-        prior_nested = nested_iris_from_snapshot(instance, mapper_cls, snapshot, reg)
         try:
             push_instance(
                 instance,
@@ -114,7 +133,7 @@ def flush_graph_sync(
                 mode=mode,
                 mapper=mapper_cls,
                 registry=registry,
-                prior_nested_iris=prior_nested,
+                prior_nested_iris=set(entry.prior_nested_iris),
             )
         except Exception as exc:
             failure = GraphSyncFailure(instance=instance, operation="push", error=exc)

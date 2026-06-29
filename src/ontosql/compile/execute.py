@@ -144,24 +144,37 @@ class _SyncWriteExecutor:
 
     def _run_write_plan(self, plan: WritePlan) -> Any:
         self.null_fks(plan)
-        for field_name, delete_plan in plan.nested_deletes:
-            self.assert_replace(plan, field_name, delete_plan)
-            self.execute_delete(delete_plan)
-
-        fk_updates = dict(plan.fk_updates)
-        for field_name, nested in plan.nested:
-            nested_id = self.execute_write(nested)
-            _apply_nested_fk_updates(plan, fk_updates, field_name, nested_id)
 
         table = plan.root.table
         values = dict(plan.root.values)
-        values.update(fk_updates)
+        fk_updates = dict(plan.fk_updates)
 
         if plan.operation == "insert":
+            for field_name, delete_plan in plan.nested_deletes:
+                self.assert_replace(plan, field_name, delete_plan)
+                self.execute_delete(delete_plan)
+            for field_name, nested in plan.nested:
+                nested_id = self.execute_write(nested)
+                _apply_nested_fk_updates(plan, fk_updates, field_name, nested_id)
+            values.update(fk_updates)
             result = self.run_stmt(insert(table).values(**values))
             parent_id = _inserted_identity(result, plan, values)
             self._run_collection_writes(plan, parent_id)
             return parent_id
+
+        parent_id = _update_identity(plan)
+        if plan.collections:
+            self._run_collection_writes(plan, parent_id)
+
+        for field_name, delete_plan in plan.nested_deletes:
+            self.assert_replace(plan, field_name, delete_plan)
+            self.execute_delete(delete_plan)
+
+        for field_name, nested in plan.nested:
+            nested_id = self.execute_write(nested)
+            _apply_nested_fk_updates(plan, fk_updates, field_name, nested_id)
+
+        values.update(fk_updates)
 
         if values:
             stmt = update(table).values(**values)
@@ -171,8 +184,6 @@ class _SyncWriteExecutor:
             if self.strict_updates and _update_rowcount(result) == 0:
                 raise ExecuteError("Update affected 0 rows")
 
-        parent_id = _update_identity(plan)
-        self._run_collection_writes(plan, parent_id)
         return parent_id
 
 
@@ -194,31 +205,24 @@ class _AsyncWriteExecutor:
     async def assert_replace(
         self, plan: WritePlan, field_name: str, delete_plan: DeletePlan
     ) -> None:
+        if self.mapper_registry is None:
+            raise ExecuteError(
+                "REPLACE nested delete requires mapper_registry= for cross-table FK safety"
+            )
         from ontosql.compile._sql_runner import nested_delete_identity
 
         nested_id = nested_delete_identity(delete_plan)
-        if self.mapper_registry is not None:
-            stmts = inbound_fk_count_stmts(
-                self.mapper_registry,
-                delete_plan,
-                exclude_table=plan.root.table,
-                exclude_where=plan.root.where,
-            )
-            total = 0
-            for _, stmt in stmts:
-                result = await self.session.execute(stmt)
-                total += count_scalar(result.one())
-            check_replace_nested_exclusive(total, field_name, nested_id)
-            return
-
-        from ontosql.compile._sql_runner import replace_nested_exclusive_count_stmt
-
-        stmt = replace_nested_exclusive_count_stmt(plan, field_name, delete_plan)
-        if stmt is None:
-            return
-        result = await self.session.execute(stmt)
-        count = count_scalar(result.one())
-        check_replace_nested_exclusive(count, field_name, nested_id)
+        stmts = inbound_fk_count_stmts(
+            self.mapper_registry,
+            delete_plan,
+            exclude_table=plan.root.table,
+            exclude_where=plan.root.where,
+        )
+        total = 0
+        for _, stmt in stmts:
+            result = await self.session.execute(stmt)
+            total += count_scalar(result.one())
+        check_replace_nested_exclusive(total, field_name, nested_id)
 
     async def run_stmt(self, stmt: Any) -> Any:
         return await self.session.execute(stmt)
@@ -270,24 +274,37 @@ class _AsyncWriteExecutor:
 
     async def _run_write_plan(self, plan: WritePlan) -> Any:
         await self.null_fks(plan)
-        for field_name, delete_plan in plan.nested_deletes:
-            await self.assert_replace(plan, field_name, delete_plan)
-            await self.execute_delete(delete_plan)
-
-        fk_updates = dict(plan.fk_updates)
-        for field_name, nested in plan.nested:
-            nested_id = await self.execute_write(nested)
-            _apply_nested_fk_updates(plan, fk_updates, field_name, nested_id)
 
         table = plan.root.table
         values = dict(plan.root.values)
-        values.update(fk_updates)
+        fk_updates = dict(plan.fk_updates)
 
         if plan.operation == "insert":
+            for field_name, delete_plan in plan.nested_deletes:
+                await self.assert_replace(plan, field_name, delete_plan)
+                await self.execute_delete(delete_plan)
+            for field_name, nested in plan.nested:
+                nested_id = await self.execute_write(nested)
+                _apply_nested_fk_updates(plan, fk_updates, field_name, nested_id)
+            values.update(fk_updates)
             result = await self.run_stmt(insert(table).values(**values))
             parent_id = _inserted_identity(result, plan, values)
             await self._run_collection_writes(plan, parent_id)
             return parent_id
+
+        parent_id = _update_identity(plan)
+        if plan.collections:
+            await self._run_collection_writes(plan, parent_id)
+
+        for field_name, delete_plan in plan.nested_deletes:
+            await self.assert_replace(plan, field_name, delete_plan)
+            await self.execute_delete(delete_plan)
+
+        for field_name, nested in plan.nested:
+            nested_id = await self.execute_write(nested)
+            _apply_nested_fk_updates(plan, fk_updates, field_name, nested_id)
+
+        values.update(fk_updates)
 
         if values:
             stmt = update(table).values(**values)
@@ -297,8 +314,6 @@ class _AsyncWriteExecutor:
             if self.strict_updates and _update_rowcount(result) == 0:
                 raise ExecuteError("Update affected 0 rows")
 
-        parent_id = _update_identity(plan)
-        await self._run_collection_writes(plan, parent_id)
         return parent_id
 
 

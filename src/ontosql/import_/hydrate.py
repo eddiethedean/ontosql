@@ -213,11 +213,15 @@ def graph_to_instance(
             fields[field_name] = []
             continue
         items: list[Any] = []
+        seen_iris: set[str] = set()
         for obj in objects:
             if isinstance(obj, NamedNode):
                 from triplemodel.store.terms import term_str
 
                 nested_iri = term_str(obj)
+                if nested_iri in seen_iris:
+                    continue
+                seen_iris.add(nested_iri)
                 items.append(
                     graph_to_instance(
                         graph,
@@ -228,6 +232,10 @@ def graph_to_instance(
                         _depth=_depth + 1,
                         _visited=visited,
                     )
+                )
+            else:
+                raise OntoImportError(
+                    f"Collection {field_name!r} expects URI objects, got {type(obj).__name__}"
                 )
         fields[field_name] = items
 
