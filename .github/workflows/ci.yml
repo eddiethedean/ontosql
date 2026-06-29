@@ -37,6 +37,39 @@ jobs:
       - name: Pytest with coverage
         run: pytest --cov=ontosql --cov-report=term-missing --cov-fail-under=90
 
+  postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ontosql_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package and Postgres driver
+        run: pip install -e ".[dev]" "psycopg[binary]"
+
+      - name: Postgres integration tests
+        env:
+          ONTO_TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/ontosql_test
+        run: pytest tests/test_postgres.py -v
+
   docs:
     runs-on: ubuntu-latest
     steps:

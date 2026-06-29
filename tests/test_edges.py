@@ -93,6 +93,8 @@ def test_session_base_expire_and_is_new() -> None:
 def test_state_register_without_identity() -> None:
     state = SessionState()
     state.register(Person.model_construct(id=None, name="anon"))
+    assert state.identity_map == {}
+    assert state.snapshots == {}
 
 
 @pytest.mark.asyncio
@@ -110,6 +112,8 @@ async def test_async_session_deps(async_engine) -> None:
 
 @pytest.mark.asyncio
 async def test_async_execute_update_path() -> None:
+    from sqlalchemy import select
+
     engine = create_async_engine("sqlite+aiosqlite://")
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
@@ -117,13 +121,22 @@ async def test_async_execute_update_path() -> None:
         person = Person(id=81, name="AsyncUp", employer=None)
         insert_plan = compile_save_plan(PersonMap, person, is_new=True)
         await async_execute_write_plan(session, insert_plan)
+        await session.commit()
+    async with AsyncSession(engine) as session:
+        row = (await session.execute(select(PersonRow).where(PersonRow.id == 81))).scalar_one()
+        assert row.name == "AsyncUp"
         person.name = "AsyncUp2"
         update_plan = compile_save_plan(PersonMap, person, partial_fields={"name"})
         assert await async_execute_write_plan(session, update_plan) == 81
+        await session.commit()
+    async with AsyncSession(engine) as session:
+        row = (await session.execute(select(PersonRow).where(PersonRow.id == 81))).scalar_one()
+        assert row.name == "AsyncUp2"
     await engine.dispose()
 
 
 def test_execute_update_without_where_updates_all_matching(sync_engine) -> None:
+    from sqlalchemy import select
     from sqlmodel import Session
 
     with Session(sync_engine) as session:
@@ -139,6 +152,11 @@ def test_execute_update_without_where_updates_all_matching(sync_engine) -> None:
             fk_updates={},
         )
         execute_write_plan(session, plan)
+        session.commit()
+    with Session(sync_engine) as session:
+        rows = session.exec(select(PersonRow)).scalars().all()
+        names = {row.name for row in rows}
+        assert names == {"BulkRename"}
 
 
 def test_map_column_infer_and_nested_errors() -> None:
@@ -177,8 +195,12 @@ def test_onto_property_callable_extra() -> None:
 
 
 def test_sync_create_tables(sync_engine) -> None:
+    from sqlalchemy import inspect
+
     with OntoSession(sync_engine, maps=[PersonMap]) as session:
         session.create_tables(PersonRow)
+        inspector = inspect(session._engine)
+        assert inspector.has_table("people")
 
 
 def test_inserted_identity_from_values() -> None:

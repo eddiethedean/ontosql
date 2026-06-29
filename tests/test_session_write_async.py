@@ -25,6 +25,7 @@ async def test_async_save_insert(async_engine) -> None:
 async def test_async_graph_sync_on_save(async_engine) -> None:
     from ontosql import AsyncOntoSession
     from ontosql.sync import StoreSyncTarget
+    from tests.conftest import graph_literal_values
     from tests.models import OrganizationMap, PersonMap
 
     target = StoreSyncTarget()
@@ -36,8 +37,12 @@ async def test_async_graph_sync_on_save(async_engine) -> None:
     ) as session:
         person = Person(id=55, name="Async Sync", employer=None)
         await session.save(person)
-    assert len(target.graph) > 0
+    names = graph_literal_values(target.graph, "https://data.example.org/person/55", "schema:name")
+    assert names == ["Async Sync"]
 
+
+@pytest.mark.asyncio
+async def test_async_delete_person(async_engine) -> None:
     from ontosql import AsyncOntoSession
     from tests.models import OrganizationMap, PersonMap
 

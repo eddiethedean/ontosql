@@ -9,11 +9,18 @@ from ontosql.query.expr import AndExpr, CompileError, OrExpr, compile_expr
 from tests.models import Person
 
 
+def _compile_sql(clause: object) -> str:
+    return str(clause.compile(compile_kwargs={"literal_binds": True}))  # type: ignore[union-attr]
+
+
 def test_compile_comparison() -> None:
     col = column("name")
     expr = Person.name == "Ada"
     clause = compile_expr(expr, lambda ref: col)
-    assert clause is not None
+    compiled = _compile_sql(clause)
+    assert "name" in compiled
+    assert "Ada" in compiled
+    assert "=" in compiled
 
 
 def test_compile_startswith() -> None:
@@ -27,7 +34,10 @@ def test_compile_and() -> None:
     col = column("name")
     expr = (Person.name.startswith("A")) & (Person.name == "Ada")
     clause = compile_expr(expr, lambda ref: col)
-    assert clause is not None
+    compiled = _compile_sql(clause).upper()
+    assert "AND" in compiled
+    assert "LIKE" in compiled
+    assert "ADA" in compiled
 
 
 def test_compile_bare_field_raises() -> None:
@@ -44,7 +54,10 @@ def test_compile_or() -> None:
     col = column("name")
     expr = OrExpr((Person.name.startswith("A"), Person.name == "B"))
     clause = compile_expr(expr, lambda ref: col)
-    assert clause is not None
+    compiled = _compile_sql(clause).upper()
+    assert "OR" in compiled
+    assert "LIKE" in compiled
+    assert "B" in compiled
 
 
 def test_compile_empty_and_raises() -> None:

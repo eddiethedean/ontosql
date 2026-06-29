@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
 from pyoxigraph import Literal, NamedNode
 from triplemodel import Store
 
+from ontosql import Map, OntoMapper
 from ontosql.import_.hydrate import (
     OntoImportError,
     _coerce_identity,
@@ -14,15 +16,20 @@ from ontosql.import_.hydrate import (
     subject_iri_from_jsonld,
 )
 from ontosql.registry import PrefixRegistry
-from tests.models import Person, PersonMap
+from tests.models import Person, PersonRow
 
 
 def test_resolve_registry_from_entity() -> None:
     class Regged(Person):
         registry = PrefixRegistry({"ex": "https://example.org/"})
 
-    reg = _resolve_registry(PersonMap, None)
-    assert isinstance(reg, PrefixRegistry)
+    class ReggedPersonMap(OntoMapper[Regged]):
+        entity = Regged
+        id = Map(PersonRow.id)
+        name = Map(PersonRow.name, property="schema:name")
+
+    reg = _resolve_registry(ReggedPersonMap, None)
+    assert reg.expand("ex:foo") == "https://example.org/foo"
 
 
 def test_coerce_identity_from_iri() -> None:
@@ -44,12 +51,8 @@ def test_coerce_literal_int_float() -> None:
 def test_validate_type_missing_raises() -> None:
     graph = Store()
     subject = NamedNode("https://data.example.org/person/1")
-    try:
+    with pytest.raises(OntoImportError, match="rdf:type"):
         _validate_type(graph, subject, Person, PrefixRegistry())
-    except OntoImportError as exc:
-        assert "rdf:type" in str(exc)
-    else:
-        raise AssertionError("expected OntoImportError")
 
 
 def test_subject_iri_from_jsonld() -> None:
@@ -57,9 +60,5 @@ def test_subject_iri_from_jsonld() -> None:
 
 
 def test_subject_iri_from_jsonld_missing() -> None:
-    try:
+    with pytest.raises(OntoImportError):
         subject_iri_from_jsonld({})
-    except OntoImportError:
-        pass
-    else:
-        raise AssertionError("expected error")

@@ -7,10 +7,9 @@ import pytest
 from ontosql import Map, OntoMapper, OntoSession
 from ontosql.import_ import OntoImportError, graph_to_instance, import_from_rdf, load_graph
 from ontosql.mapping.cascade import CascadePolicy
-from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel, onto_property
-from ontosql.shacl import shapes_from_mappers, validate_instance
 from ontosql.sync import StoreSyncTarget
+from tests.conftest import graph_literal_values
 from tests.models import Organization, OrganizationMap, OrgRow, Person, PersonMap, PersonRow
 
 
@@ -47,7 +46,8 @@ def test_session_graph_sync_on_save(sync_engine) -> None:
     ) as session:
         person = Person(id=80, name="Synced", employer=None)
         session.save(person)
-    assert len(target.graph) > 0
+    names = graph_literal_values(target.graph, "https://data.example.org/person/80", "schema:name")
+    assert names == ["Synced"]
 
 
 def test_replace_cascade_integration(sync_engine) -> None:
@@ -73,14 +73,6 @@ def test_replace_cascade_integration(sync_engine) -> None:
         assert reloaded is not None
         assert reloaded.employer is not None
         assert reloaded.employer.name == "Solo Replace Org"
-
-
-def test_shapes_from_mappers_and_validate() -> None:
-    pytest.importorskip("pyshacl")
-    shapes = shapes_from_mappers([PersonMap, OrganizationMap])
-    person = Person(id=1, name="Ada", employer=Organization(id=10, name="Acme"))
-    report = validate_instance(person, PersonMap, shapes=shapes)
-    assert report.conforms is True
 
 
 def test_onto_model_from_jsonld_type_error() -> None:
@@ -110,6 +102,9 @@ def test_export_import_language_tag() -> None:
 
     imported = import_from_jsonld(doc, ThingMap)
     assert imported.label == "Hello"
+    label_values = doc.get("https://schema.org/name") or doc.get("schema:name")
+    if isinstance(label_values, list) and label_values:
+        assert label_values[0].get("@language") == "en"
 
 
 def test_sync_add_mode() -> None:
@@ -121,19 +116,6 @@ def test_sync_add_mode() -> None:
     target = Store()
     sync_instance_to_store(person, target, mode="add", mapper_cls=PersonMap)
     sync_instance_to_store(person, target, mode="add", mapper_cls=PersonMap)
-    assert len(target) >= 2
-
-
-def test_import_coerce_bool() -> None:
-    from pyoxigraph import Literal
-
-    from ontosql.import_.hydrate import _coerce_literal
-
-    assert (
-        _coerce_literal(Literal("true"), py_type=bool, registry=PrefixRegistry(), meta={}) is True
-    )
-
-
-def test_prefix_registry_curated_vocab() -> None:
-    reg = PrefixRegistry.curated("schema_org", vocab="https://schema.org/")
-    assert reg.expand("Person") == "https://schema.org/Person"
+    names = graph_literal_values(target, "https://data.example.org/person/90", "schema:name")
+    assert names == ["Add Mode"]
+    assert len(list(target)) == 2

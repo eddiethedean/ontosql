@@ -3,11 +3,42 @@
 from __future__ import annotations
 
 import pytest
+from pyoxigraph import NamedNode
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import Session, SQLModel, create_engine
+from triplemodel import Store
 
 from ontosql import AsyncOntoSession, OntoSession
+from ontosql.registry import PrefixRegistry
 from tests.models import Organization, OrganizationMap, OrgRow, Person, PersonMap, PersonRow
+
+
+def graph_literal_values(
+    graph: Store,
+    subject_iri: str,
+    predicate_curie: str,
+    *,
+    registry: PrefixRegistry | None = None,
+) -> list[str]:
+    """Return literal values for a subject/predicate in a TripleModel Store."""
+    reg = registry or PrefixRegistry()
+    subject = NamedNode(subject_iri)
+    predicate = NamedNode(reg.expand(predicate_curie))
+    return [str(getattr(obj, "value", obj)) for obj in graph.objects(subject, predicate)]
+
+
+def graph_object_iris(
+    graph: Store,
+    subject_iri: str,
+    predicate_curie: str,
+    *,
+    registry: PrefixRegistry | None = None,
+) -> list[str]:
+    """Return object IRIs (NamedNode.value) for a subject/predicate."""
+    reg = registry or PrefixRegistry()
+    subject = NamedNode(subject_iri)
+    predicate = NamedNode(reg.expand(predicate_curie))
+    return [str(obj.value) for obj in graph.objects(subject, predicate)]
 
 
 @pytest.fixture
