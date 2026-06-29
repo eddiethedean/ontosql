@@ -6,10 +6,10 @@ from ontosql import OntoModel, PrefixRegistry, onto_property
 from ontosql.export import instance_to_graph, instance_to_jsonld, instance_to_rdf
 from tests.models import Organization, Person
 
+EX_REGISTRY = PrefixRegistry(prefixes={"ex": "http://example.org/"})
+
 
 class TaggedPerson(OntoModel):
-    registry = PrefixRegistry(prefixes={"ex": "http://example.org/"})
-
     id: int
     tags: set[str] = onto_property("ex:tag")
     homepage: str = onto_property("ex:homepage")
@@ -47,7 +47,7 @@ def test_instance_to_rdf_via_module() -> None:
     assert "Ada Lovelace" in body
 
 
-def test_export_uses_model_registry_and_field_variants() -> None:
+def test_export_custom_registry_and_field_variants() -> None:
     tagged = TaggedPerson(
         id=1,
         tags={"sql", "rdf"},
@@ -55,10 +55,10 @@ def test_export_uses_model_registry_and_field_variants() -> None:
         active=True,
         note="note",
     )
-    turtle = tagged.to_rdf()
+    turtle = tagged.to_rdf(registry=EX_REGISTRY)
     assert "https://example.org/ada" in turtle
     assert "note" in turtle
-    doc = tagged.to_jsonld()
+    doc = tagged.to_jsonld(registry=EX_REGISTRY)
     assert doc["@context"]["ex"] == "http://example.org/"
 
 

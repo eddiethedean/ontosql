@@ -9,6 +9,7 @@ from triplemodel import Store
 
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel, get_onto_property_meta
+from ontosql.semantic.rdf_util import predicate_iri
 
 SH = "http://www.w3.org/ns/shacl#"
 RDF = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
@@ -35,14 +36,7 @@ def _predicate_iri(
     field_name: str,
     registry: PrefixRegistry,
 ) -> str | None:
-    meta = get_onto_property_meta(model_cls, field_name)
-    explicit = meta.get("iri")
-    if isinstance(explicit, str):
-        return explicit
-    curie = meta.get("ontology")
-    if isinstance(curie, str):
-        return registry.expand(curie)
-    return None
+    return predicate_iri(model_cls, field_name, registry)
 
 
 def _python_type_to_xsd(annotation: Any) -> str | None:

@@ -11,8 +11,6 @@ from ontosql.semantic.model import OntoModel
 
 E = TypeVar("E", bound=OntoModel)
 
-_global_registry = MapperRegistry()
-
 
 class OntoMapper(Generic[E]):
     """Declares how a semantic entity maps to SQL tables."""
@@ -104,11 +102,8 @@ class OntoMapper(Generic[E]):
             raise ValueError(f"OntoMapper {cls.__name__}: requires at least one column map")
 
     @classmethod
-    def for_entity(
-        cls, entity_type: type[E], registry: MapperRegistry | None = None
-    ) -> type[OntoMapper[E]]:
-        reg = registry or _global_registry
-        return reg.get(entity_type)  # type: ignore[return-value]
+    def for_entity(cls, entity_type: type[E], *, registry: MapperRegistry) -> type[OntoMapper[E]]:
+        return registry.get(entity_type)  # type: ignore[return-value]
 
     @classmethod
     def identity_column(cls) -> Any:

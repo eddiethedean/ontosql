@@ -8,7 +8,6 @@ from sqlmodel import create_engine
 from models import OrganizationMap, Person, PersonMap, seed_demo_data
 from ontosql import OntoSession
 from ontosql.import_ import import_from_jsonld
-from ontosql.shacl import shapes_from_mapper, validate_instance
 from ontosql.sync import StoreSyncTarget, materialize_find
 
 
@@ -43,13 +42,6 @@ def main() -> None:
         doc = ada.to_jsonld()
         imported = import_from_jsonld(doc, PersonMap)
         print(f"Import round-trip: {imported.name}")
-
-        shapes = shapes_from_mapper(PersonMap)
-        try:
-            report = validate_instance(ada, PersonMap, shapes=shapes)
-            print(f"SHACL validation: conforms={report.conforms}")
-        except ImportError:
-            print("SHACL validation skipped (install ontosql[shacl])")
 
 
 if __name__ == "__main__":

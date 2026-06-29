@@ -11,33 +11,14 @@ from triplemodel.store.terms import term_str
 
 from ontosql.export.instance import instance_to_graph
 from ontosql.registry import PrefixRegistry
-from ontosql.semantic.model import OntoModel, build_instance_iri, get_onto_property_meta
+from ontosql.semantic.model import OntoModel, build_instance_iri
+from ontosql.semantic.rdf_util import predicate_iri, resolve_prefix_registry
 
 GraphSyncMode = Literal["add", "replace", "patch"]
 
 
 def _resolve_registry(instance: OntoModel, registry: PrefixRegistry | None) -> PrefixRegistry:
-    if registry is not None:
-        return registry
-    model_registry = type(instance).registry
-    if model_registry is not None:
-        return model_registry
-    return PrefixRegistry()
-
-
-def _predicate_iri_for_field(
-    model_cls: type[OntoModel],
-    field_name: str,
-    registry: PrefixRegistry,
-) -> str | None:
-    meta = get_onto_property_meta(model_cls, field_name)
-    explicit = meta.get("iri")
-    if isinstance(explicit, str):
-        return explicit
-    curie = meta.get("ontology")
-    if isinstance(curie, str):
-        return registry.expand(curie)
-    return None
+    return resolve_prefix_registry(registry)
 
 
 def owned_predicates(mapper_cls: type[Any], registry: PrefixRegistry) -> frozenset[str]:
@@ -50,11 +31,11 @@ def owned_predicates(mapper_cls: type[Any], registry: PrefixRegistry) -> frozens
     for field_name in mapper_cls.column_maps:
         if field_name in mapper_cls.nested_maps:
             continue
-        pred = _predicate_iri_for_field(entity_type, field_name, registry)
+        pred = predicate_iri(entity_type, field_name, registry)
         if pred:
             preds.add(pred)
     for field_name in mapper_cls.nested_maps:
-        pred = _predicate_iri_for_field(entity_type, field_name, registry)
+        pred = predicate_iri(entity_type, field_name, registry)
         if pred:
             preds.add(pred)
     return frozenset(preds)
@@ -130,11 +111,9 @@ def sync_instance_to_store(
     mapper_cls: type[Any] | None = None,
 ) -> Store:
     """Write a semantic instance subgraph into target using sync semantics."""
-    from ontosql.mapping.registry import MapperRegistry
-
     reg = _resolve_registry(instance, registry)
     if mapper_cls is None:
-        mapper_cls = MapperRegistry().get(type(instance))
+        raise ValueError("sync_instance_to_store() requires mapper_cls=")
 
     new_graph = instance_to_graph(instance, registry=reg)
     subjects = _subjects_in_graph(new_graph)

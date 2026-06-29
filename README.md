@@ -49,15 +49,13 @@ cd ontosql && pip install -e ".[dev]"
 |--------|--------|-----------------|
 | [person_org_demo.py](examples/person_org_demo.py) | core | Sync CRUD round-trip |
 | [person_org_async.py](examples/person_org_async.py) | `ontosql[async]` | Async session |
-| [hybrid_person_org.py](examples/hybrid_person_org.py) | core (`shacl` optional) | Graph sync, import, SHACL |
-| [multi_map_person.py](examples/multi_map_person.py) | core | One table, multiple semantic views |
-| [person_org_api.py](examples/person_org_api.py) | `ontosql[fastapi]` + `uvicorn` | FastAPI OntoRouter demo |
+| [hybrid_person_org.py](examples/hybrid_person_org.py) | core | Graph sync, import, materialize |
 | [person_org_api_production.py](examples/person_org_api_production.py) | `ontosql[fastapi,async]` + `uvicorn` | Production async session pattern |
 
 ```bash
 python examples/person_org_demo.py
 pip install "ontosql[async]" && python examples/person_org_async.py
-pip install "ontosql[fastapi]" uvicorn && python examples/person_org_api.py
+pip install "ontosql[fastapi,async]" uvicorn && python examples/person_org_api_production.py
 ```
 
 ## Quick start
@@ -208,7 +206,7 @@ router.register(Person)
 router.include_in(app)
 ```
 
-See [examples/person_org_api.py](examples/person_org_api.py) for a runnable API.
+See [examples/person_org_api_production.py](examples/person_org_api_production.py) for a production-oriented API pattern.
 
 > **Production warning:** `OntoRouter` is for **development and demos only**. POST/PATCH bodies are validated with generated Pydantic models, but there is **no authentication, authorization, or rate limiting**. Use `AsyncOntoSession` for async apps. See [Security](docs/SECURITY.md) and [SPECS.md](docs/SPECS.md#fastapi-ontosqlfastapi).
 

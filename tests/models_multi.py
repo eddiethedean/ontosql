@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from sqlmodel import Field, SQLModel
 
-from ontosql import Map, OntoMapper, OntoModel, PrefixRegistry, onto_property
+from ontosql import Map, OntoMapper, OntoModel, onto_property
 
 
 class SharedPersonRow(SQLModel, table=True):
@@ -24,13 +24,11 @@ class SchemaPerson(OntoModel):
 
 
 class FoafPerson(OntoModel):
-    registry = PrefixRegistry(prefixes={"foaf": "http://xmlns.com/foaf/0.1/"})
-
-    type_iri = "foaf:Person"
+    type_iri = "http://xmlns.com/foaf/0.1/Person"
     iri_template = "https://data.example.org/foaf/{id}"
 
     id: int
-    label: str = onto_property("foaf:name")
+    label: str = onto_property("foaf:name", iri="http://xmlns.com/foaf/0.1/name")
 
 
 class SchemaPersonMap(OntoMapper[SchemaPerson]):

@@ -135,24 +135,14 @@ class OntoRouter:
         ) -> Any:
             accept = request.headers.get("accept")
             chosen = parse_accept_mime(accept)
-            rdf_formats = {
-                "text/turtle": "turtle",
-                "application/n-triples": "nt",
-                "application/rdf+xml": "xml",
-            }
-            if chosen in rdf_formats:
-                from ontosql.export._formats import media_type_for_format
+            if chosen is not None and chosen != "application/ld+json":
+                from ontosql.export._formats import format_for_mime
+                from ontosql.fastapi.negotiate import negotiate_graph_response
                 from ontosql.sync import materialize_find
 
-                fmt = rdf_formats[chosen]
-                graph = materialize_find(session, entity_type, limit=limit, offset=offset)
-                body = graph.serialize(format=fmt)
-                from fastapi.responses import Response
-
-                return Response(
-                    content=body,
-                    media_type=media_type_for_format(fmt),
-                )
+                if format_for_mime(chosen) is not None:
+                    graph = materialize_find(session, entity_type, limit=limit, offset=offset)
+                    return negotiate_graph_response(chosen, graph)
 
             page = paginate(session, entity_type, limit=limit, offset=offset)
             payload: list[Any] | dict[str, Any]

@@ -4,17 +4,7 @@
 
 OntoSQL compiles semantic queries to SQLAlchemy statements with **bound parameters** for values in `where`, `save`, and `delete` plans. User-supplied filter values are passed as parameters, not interpolated into SQL strings.
 
-### `execute_sql()`
-
-`OntoSession.execute_sql(statement, params=...)` runs raw SQL via SQLAlchemy `text()`. **Always use named parameters** — never concatenate user input into `statement`:
-
-```python
-# Safe
-session.execute_sql("SELECT * FROM people WHERE id = :id", params={"id": user_id})
-
-# Unsafe — do not do this
-session.execute_sql(f"SELECT * FROM people WHERE id = {user_id}")
-```
+For ad hoc SQL, use the underlying SQLAlchemy session from your application layer with bound parameters — OntoSQL does not expose a raw SQL escape hatch on `OntoSession`.
 
 ## OntoRouter (FastAPI)
 

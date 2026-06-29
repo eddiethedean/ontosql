@@ -107,10 +107,11 @@ OntoSQL never converts `OntoModel` to `SPARQLModel`; it writes triples via `stor
 Build a read-only RDF graph from session query results — useful for SPARQL CONSTRUCT endpoints or seeding a graph mirror:
 
 ```python
-from ontosql.sync import materialize_find, materialize_entity
+from ontosql.export import instances_to_graph
+from ontosql.sync import materialize_find
 
 graph = materialize_find(session, Person, where=Person.name.startswith("A"), limit=100)
-single = materialize_entity(person)
+single = instances_to_graph([person])
 ```
 
 ## RDF import (round-trip)

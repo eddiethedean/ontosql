@@ -49,7 +49,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 |---------|------------------|
 | `ontosql.export` | `instance_to_graph`, `instance_to_jsonld`, `instance_to_rdf`, `instances_to_graph`, `instances_to_jsonld`, `instances_to_rdf` |
 | `ontosql.import_` | `import_from_jsonld`, `import_from_rdf`, `graph_to_instance`, `OntoImportError` |
-| `ontosql.sync` | `push_instance`, `remove_instance`, `StoreSyncTarget`, `GraphSyncTarget`, `GraphSyncMode`, `materialize_find`, `materialize_find_async`, `materialize_entity` |
+| `ontosql.sync` | `push_instance`, `remove_instance`, `StoreSyncTarget`, `GraphSyncTarget`, `GraphSyncMode`, `materialize_find`, `materialize_find_async` |
 | `ontosql.query` | `FieldRef`, `FieldPath`, expression operators on semantic fields |
 | `ontosql.fastapi` | `OntoRouter`, `onto_session_lifespan`, `onto_async_session_lifespan`, `SessionDep`, `AsyncSessionDep`, `get_onto_session`, `get_async_onto_session` (requires `ontosql[fastapi]`) |
 | `ontosql.shacl` | `shapes_from_mapper`, `validate_instance` (requires `ontosql[shacl]`) |
@@ -225,7 +225,6 @@ async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as sessio
 | `rollback()` (sync) | 0.5.x | Roll back open SQLAlchemy transaction |
 | `count(entity, *, where=...)` | 0.3.0 | Count rows matching a filter |
 | `paginate(...)` / `paginate_async(...)` | 0.3.0 | `Page` with optional total count |
-| `execute_sql(...)` | 0.2.0 | Escape hatch for raw SQL |
 | `retry_graph_sync()` | 0.5.x | Retry queued graph ops after partial post-commit failure |
 | `graph_sync_pending` / `graph_sync_failures` | 0.5.x | Graph split-brain diagnostics |
 
@@ -312,20 +311,19 @@ Hydration uses **mapper metadata** (`Map.property`, `Map.nested`, `type_iri`, `i
 Module: `ontosql.sync`
 
 ```python
-from ontosql.sync import push_instance, remove_instance, StoreSyncTarget, replace_subject, patch_subject
+from ontosql.sync import push_instance, remove_instance, StoreSyncTarget
 from ontosql.sync.graph import sync_instance_to_store
-from ontosql.sync.materialize import materialize_find, materialize_entity
+from ontosql.sync.materialize import materialize_find
 ```
 
 | API | Description |
 |-----|-------------|
-| `push_instance(instance, target, *, mode="patch")` | Push instance subgraph to a `Store` or `GraphSyncTarget` |
-| `remove_instance(instance, target)` | Remove instance subgraph from a graph target |
-| `sync_instance_to_store(instance, store, *, mode, mapper_cls)` | Lower-level; mutates a `Store` in place |
+| `push_instance(instance, target, *, mapper, mode="patch")` | Push instance subgraph to a `Store` or `GraphSyncTarget` |
+| `remove_instance(instance, target, *, mapper)` | Remove instance subgraph from a graph target |
+| `sync_instance_to_store(instance, store, *, mode, mapper_cls)` | Lower-level; mutates a `Store` in place (requires `mapper_cls`) |
 | `StoreSyncTarget` | In-memory target wrapping a `Store` |
 | `materialize_find(session, entity_type, ...)` | Merge sync `find()` results into one `Store` |
 | `materialize_find_async(session, entity_type, ...)` | Merge async `find()` results into one `Store` |
-| `materialize_entity(instance)` | Single-instance graph |
 
 Modes: `add` (append), `replace` (remove subject triples then add), `patch` (owned-predicate diff).
 

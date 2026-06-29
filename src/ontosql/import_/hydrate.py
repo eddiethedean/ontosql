@@ -10,6 +10,7 @@ from triplemodel import RDF_TYPE, Store
 
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel, parse_iri_id
+from ontosql.semantic.rdf_util import predicate_iri, resolve_prefix_registry
 
 
 class OntoImportError(Exception):
@@ -20,12 +21,7 @@ def _resolve_registry(
     mapper_cls: type[Any],
     registry: PrefixRegistry | None,
 ) -> PrefixRegistry:
-    if registry is not None:
-        return registry
-    entity_registry = mapper_cls.entity.registry
-    if entity_registry is not None:
-        return entity_registry
-    return PrefixRegistry()
+    return resolve_prefix_registry(registry)
 
 
 def _predicate_iri(
@@ -33,16 +29,7 @@ def _predicate_iri(
     field_name: str,
     registry: PrefixRegistry,
 ) -> str | None:
-    from ontosql.semantic.model import get_onto_property_meta
-
-    meta = get_onto_property_meta(model_cls, field_name)
-    explicit = meta.get("iri")
-    if isinstance(explicit, str):
-        return explicit
-    curie = meta.get("ontology")
-    if isinstance(curie, str):
-        return registry.expand(curie)
-    return None
+    return predicate_iri(model_cls, field_name, registry)
 
 
 def _objects_for_predicate(

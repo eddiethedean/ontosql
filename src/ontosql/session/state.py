@@ -70,12 +70,6 @@ class SessionState:
     def clear_pending(self) -> None:
         self.pending.clear()
 
-    def queue_graph_push(self, instance: OntoModel) -> None:
-        self.graph_sync_pushes.append(instance)
-
-    def queue_graph_remove(self, instance: OntoModel) -> None:
-        self.graph_sync_removes.append(instance)
-
     def clear_graph_sync(self) -> None:
         self.graph_sync_pushes.clear()
         self.graph_sync_removes.clear()

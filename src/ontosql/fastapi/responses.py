@@ -44,7 +44,7 @@ def _serialize_data(data: Any, fmt: str) -> tuple[str, str]:
 
 
 class RDFResponse(Response):
-    """Base response for RDF serializations."""
+    """RDF serialization response (turtle, n-triples, rdf+xml, json-ld)."""
 
     def __init__(
         self,
@@ -66,21 +66,15 @@ class JSONLDResponse(RDFResponse):
 
 
 class TurtleResponse(RDFResponse):
-    """Turtle response (text/turtle)."""
-
     def __init__(self, content: Any, status_code: int = 200, **kwargs: Any) -> None:
         super().__init__(content, format="turtle", status_code=status_code, **kwargs)
 
 
 class NTriplesResponse(RDFResponse):
-    """N-Triples response (application/n-triples)."""
-
     def __init__(self, content: Any, status_code: int = 200, **kwargs: Any) -> None:
         super().__init__(content, format="nt", status_code=status_code, **kwargs)
 
 
 class RDFXMLResponse(RDFResponse):
-    """RDF/XML response (application/rdf+xml)."""
-
     def __init__(self, content: Any, status_code: int = 200, **kwargs: Any) -> None:
         super().__init__(content, format="xml", status_code=status_code, **kwargs)

@@ -6,23 +6,20 @@ from typing import Any
 
 from fastapi import Request
 from fastapi.responses import JSONResponse, Response
+from triplemodel import Store
 
-from ontosql.fastapi.responses import (
-    JSONLDResponse,
-    NTriplesResponse,
-    RDFXMLResponse,
-    TurtleResponse,
-)
+from ontosql.export._formats import format_for_mime, media_type_for_format
+from ontosql.fastapi.responses import JSONLDResponse, RDFResponse
 
-# MIME type -> response factory
-_ACCEPT_MAP: list[tuple[str, type[Response]]] = [
-    ("application/ld+json", JSONLDResponse),
-    ("text/turtle", TurtleResponse),
-    ("application/n-triples", NTriplesResponse),
-    ("application/rdf+xml", RDFXMLResponse),
+# MIME type -> RDF format key
+_ACCEPT_FORMATS: list[tuple[str, str]] = [
+    ("application/ld+json", "json-ld"),
+    ("text/turtle", "turtle"),
+    ("application/n-triples", "nt"),
+    ("application/rdf+xml", "xml"),
 ]
 
-_KNOWN_MIMES = frozenset(mime for mime, _ in _ACCEPT_MAP)
+_KNOWN_MIMES = frozenset(mime for mime, _ in _ACCEPT_FORMATS)
 
 
 def _parse_accept_params(part: str) -> tuple[str, float]:
@@ -80,6 +77,15 @@ def parse_accept_mime(accept: str | None) -> str | None:
     return _parse_accept(accept)
 
 
+def negotiate_graph_response(chosen_mime: str, graph: Store) -> Response:
+    """Serialize a TripleModel Store for a negotiated RDF MIME type."""
+    fmt = format_for_mime(chosen_mime)
+    if fmt is None:
+        raise ValueError(f"Unsupported RDF MIME type: {chosen_mime!r}")
+    body = graph.serialize(format=fmt)
+    return Response(content=body, media_type=media_type_for_format(fmt))
+
+
 def negotiate_onto_response(request: Request, data: Any) -> Response:
     """
     Return a FastAPI Response based on the request Accept header.
@@ -94,8 +100,8 @@ def negotiate_onto_response(request: Request, data: Any) -> Response:
             return JSONLDResponse(data)
         return JSONResponse(content=data)
 
-    for mime, response_cls in _ACCEPT_MAP:
-        if mime == chosen:
-            return response_cls(data)
+    fmt = format_for_mime(chosen)
+    if fmt is not None:
+        return RDFResponse(data, format=fmt)
 
     return JSONLDResponse(data)

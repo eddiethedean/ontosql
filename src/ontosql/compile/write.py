@@ -14,6 +14,14 @@ class WriteCompileError(Exception):
     """Raised when a semantic instance cannot be compiled for write."""
 
 
+def count_scalar(row: Any) -> int:
+    if hasattr(row, "_mapping"):
+        return int(next(iter(row._mapping.values())))
+    if isinstance(row, tuple):
+        return int(row[0])
+    return int(row)
+
+
 def _column_key(column: Any) -> str:
     key = getattr(column, "key", None)
     if key:
@@ -38,7 +46,7 @@ def _identity_value(mapper_cls: type[Any], instance: OntoModel) -> Any:
     return getattr(instance, identity, None)
 
 
-def _is_new_instance(mapper_cls: type[Any], instance: OntoModel) -> bool:
+def _identity_unset(mapper_cls: type[Any], instance: OntoModel) -> bool:
     identity = mapper_cls.identity_field
     if identity not in mapper_cls.column_maps:
         raise WriteCompileError(f"Mapper {mapper_cls.__name__} has no identity column map")
@@ -226,7 +234,7 @@ def compile_save_plan(
     snapshot: dict[str, Any] | None = None,
 ) -> WritePlan:
     """Build a WritePlan for save()."""
-    new = _is_new_instance(mapper_cls, instance) if is_new is None else is_new
+    new = _identity_unset(mapper_cls, instance) if is_new is None else is_new
     operation: str = "insert" if new else "update"
 
     if partial_fields is not None:

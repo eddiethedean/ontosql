@@ -16,18 +16,14 @@ from ontosql.semantic.model import (
     get_onto_property_meta,
     iter_onto_fields,
 )
+from ontosql.semantic.rdf_util import predicate_iri, resolve_prefix_registry
 
 
 def _resolve_registry(
     instance: OntoModel,
     registry: PrefixRegistry | None,
 ) -> PrefixRegistry:
-    if registry is not None:
-        return registry
-    model_registry = type(instance).registry
-    if model_registry is not None:
-        return model_registry
-    return PrefixRegistry()
+    return resolve_prefix_registry(registry)
 
 
 def _predicate_iri(
@@ -35,14 +31,7 @@ def _predicate_iri(
     field_name: str,
     registry: PrefixRegistry,
 ) -> str | None:
-    meta = get_onto_property_meta(model_cls, field_name)
-    explicit = meta.get("iri")
-    if isinstance(explicit, str):
-        return explicit
-    curie = meta.get("ontology")
-    if isinstance(curie, str):
-        return registry.expand(curie)
-    return None
+    return predicate_iri(model_cls, field_name, registry)
 
 
 def _literal_object(
@@ -95,13 +84,7 @@ def _resolve_batch_registry(
     instances: list[OntoModel],
     registry: PrefixRegistry | None,
 ) -> PrefixRegistry:
-    if registry is not None:
-        return registry
-    for instance in instances:
-        model_registry = type(instance).registry
-        if model_registry is not None:
-            return model_registry
-    return PrefixRegistry()
+    return resolve_prefix_registry(registry)
 
 
 def instances_to_graph(

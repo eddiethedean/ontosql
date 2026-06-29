@@ -10,7 +10,6 @@ def test_root_package_exports() -> None:
         "AsyncOntoSession",
         "CascadePolicy",
         "GraphSyncError",
-        "GraphSyncFailure",
         "GraphSyncMode",
         "Map",
         "OntoImportError",
@@ -72,7 +71,6 @@ def test_sync_subpackage() -> None:
         GraphSyncMode,
         GraphSyncTarget,
         StoreSyncTarget,
-        materialize_entity,
         materialize_find,
         materialize_find_async,
         push_instance,
@@ -86,7 +84,6 @@ def test_sync_subpackage() -> None:
             remove_instance,
             materialize_find,
             materialize_find_async,
-            materialize_entity,
         )
     )
     assert StoreSyncTarget is not None

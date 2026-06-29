@@ -10,7 +10,7 @@ from triplemodel import RDF_TYPE, Store, bind_namespaces
 
 from ontosql.import_.hydrate import OntoImportError
 from ontosql.registry import PrefixRegistry
-from ontosql.semantic.model import OntoModel
+from ontosql.semantic.rdf_util import resolve_prefix_registry
 
 
 def load_graph(
@@ -84,9 +84,4 @@ def resolve_mapper_registry(
     mapper_cls: type[Any],
     registry: PrefixRegistry | None,
 ) -> PrefixRegistry:
-    if registry is not None:
-        return registry
-    entity: type[OntoModel] = mapper_cls.entity
-    if entity.registry is not None:
-        return entity.registry
-    return PrefixRegistry()
+    return resolve_prefix_registry(registry)

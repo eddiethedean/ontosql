@@ -6,7 +6,6 @@ import pytest
 from pyoxigraph import Literal, NamedNode
 from triplemodel import Store
 
-from ontosql import Map, OntoMapper
 from ontosql.import_.hydrate import (
     OntoImportError,
     _coerce_identity,
@@ -16,20 +15,18 @@ from ontosql.import_.hydrate import (
     subject_iri_from_jsonld,
 )
 from ontosql.registry import PrefixRegistry
-from tests.models import Person, PersonRow
+from tests.models import Person, PersonMap
 
 
-def test_resolve_registry_from_entity() -> None:
-    class Regged(Person):
-        registry = PrefixRegistry({"ex": "https://example.org/"})
+def test_resolve_registry_explicit() -> None:
+    custom = PrefixRegistry({"ex": "https://example.org/"})
+    reg = _resolve_registry(PersonMap, custom)
+    assert reg is custom
 
-    class ReggedPersonMap(OntoMapper[Regged]):
-        entity = Regged
-        id = Map(PersonRow.id)
-        name = Map(PersonRow.name, property="schema:name")
 
-    reg = _resolve_registry(ReggedPersonMap, None)
-    assert reg.expand("ex:foo") == "https://example.org/foo"
+def test_resolve_registry_default() -> None:
+    reg = _resolve_registry(PersonMap, None)
+    assert reg.expand("schema:name") == "https://schema.org/name"
 
 
 def test_coerce_identity_from_iri() -> None:

@@ -1,6 +1,6 @@
 """Production-oriented FastAPI wiring: async session, validation, body limits.
 
-Contrast with ``person_org_api.py`` (demo ``OntoRouter`` + sync session).
+Contrast with the demo ``OntoRouter`` pattern (see tests and ``docs/guides/production-router.md``).
 """
 
 from __future__ import annotations

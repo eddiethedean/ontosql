@@ -20,6 +20,16 @@ class Page(Generic[T]):
     offset: int
 
 
+def _build_page(
+    items: list[T],
+    *,
+    total: int | None,
+    limit: int,
+    offset: int,
+) -> Page[T]:
+    return Page(items=items, total=total, limit=limit, offset=offset)
+
+
 def paginate(
     session: Any,
     entity_type: type[T],
@@ -39,7 +49,7 @@ def paginate(
         offset=offset,
     )
     total = session.count(entity_type, where=where) if include_total else None
-    return Page(items=items, total=total, limit=limit, offset=offset)
+    return _build_page(items, total=total, limit=limit, offset=offset)
 
 
 async def paginate_async(
@@ -61,4 +71,4 @@ async def paginate_async(
         offset=offset,
     )
     total = await session.count(entity_type, where=where) if include_total else None
-    return Page(items=items, total=total, limit=limit, offset=offset)
+    return _build_page(items, total=total, limit=limit, offset=offset)

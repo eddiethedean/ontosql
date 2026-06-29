@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Simplicity audit** — removed `materialize_entity`, `patch_subject`, `replace_subject`, `execute_sql`, `OntoModel.registry`, `onto_property(graph=)`, session `registry=` kwarg; `push_instance`/`sync_instance_to_store` require explicit `mapper`; `GraphSyncFailure` demoted from root; shared RDF helpers in `semantic/rdf_util.py`; consolidated FastAPI list RDF negotiation
+
 ### Fixed
 
 - **Graph sync** — partial failures after SQL commit preserve the remaining queue; raises `GraphSyncError` with `retry_graph_sync()` for recovery

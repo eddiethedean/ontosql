@@ -22,10 +22,8 @@ class SessionBase:
     def __init__(
         self,
         maps: list[type[Any]] | None = None,
-        *,
-        registry: MapperRegistry | None = None,
     ) -> None:
-        self._registry = registry or MapperRegistry()
+        self._registry = MapperRegistry()
         if maps:
             self._registry.register_many(maps)
         self._state = SessionState()

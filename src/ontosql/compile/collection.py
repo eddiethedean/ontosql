@@ -8,17 +8,8 @@ from sqlalchemy import select
 
 from ontosql.compile.cache import _label
 from ontosql.compile.plan import ColumnProjection
+from ontosql.compile.write import _column_key
 from ontosql.semantic.model import OntoModel
-
-
-def _column_key(column: Any) -> str:
-    key = getattr(column, "key", None)
-    if key:
-        return str(key)
-    name = getattr(column, "name", None)
-    if name:
-        return str(name)
-    raise ValueError(f"Cannot resolve column key for {column!r}")
 
 
 def compile_collection_load(

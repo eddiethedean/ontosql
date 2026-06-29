@@ -20,7 +20,6 @@ class OntoModel(BaseModel, metaclass=OntoModelMeta):
 
     type_iri: ClassVar[str | None] = None
     iri_template: ClassVar[str | None] = None
-    registry: ClassVar[PrefixRegistry | None] = None
     identity_field: ClassVar[str] = "id"
 
     def to_jsonld(self, registry: PrefixRegistry | None = None) -> dict[str, Any]:
@@ -58,7 +57,6 @@ def onto_property(
     datatype: str | None = None,
     iri: str | None = None,
     language: str | None = None,
-    graph: str | None = None,
     **field_kwargs: Any,
 ) -> Any:
     """Attach ontology metadata to a semantic model field."""
@@ -69,8 +67,6 @@ def onto_property(
         meta["iri"] = iri
     if language is not None:
         meta["language"] = language
-    if graph is not None:
-        meta["graph"] = graph
 
     extra = field_kwargs.pop("json_schema_extra", None)
     js_extra: dict[str, Any] = dict(extra) if isinstance(extra, dict) else {}

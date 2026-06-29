@@ -22,6 +22,13 @@ MEDIA_TYPES: dict[str, str] = {
     "xml": "application/rdf+xml",
 }
 
+MIME_TO_FORMAT: dict[str, str] = {
+    "text/turtle": "turtle",
+    "application/n-triples": "nt",
+    "application/rdf+xml": "xml",
+    "application/ld+json": "json-ld",
+}
+
 
 def normalize_format(fmt: str) -> str:
     key = fmt.lower().replace("_", "-")
@@ -35,3 +42,8 @@ def normalize_format(fmt: str) -> str:
 
 def media_type_for_format(fmt: str) -> str:
     return MEDIA_TYPES[normalize_format(fmt)]
+
+
+def format_for_mime(mime: str) -> str | None:
+    """Map a negotiated MIME type to an RDF serialization format key."""
+    return MIME_TO_FORMAT.get(mime)

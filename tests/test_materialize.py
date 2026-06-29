@@ -5,8 +5,9 @@ from __future__ import annotations
 import pytest
 
 from ontosql import OntoSession
+from ontosql.export import instances_to_graph
 from ontosql.registry import PrefixRegistry
-from ontosql.sync.materialize import materialize_entity, materialize_find
+from ontosql.sync.materialize import materialize_find
 from tests.conftest import graph_literal_values, graph_object_iris
 from tests.models import Organization, OrganizationMap, Person, PersonMap
 
@@ -17,13 +18,13 @@ def session(sync_engine):
         yield s
 
 
-def test_materialize_entity() -> None:
+def test_materialize_single_instance() -> None:
     person = Person(
         id=1,
         name="Ada",
         employer=Organization(id=10, name="Acme"),
     )
-    graph = materialize_entity(person)
+    graph = instances_to_graph([person])
     reg = PrefixRegistry()
     subject = "https://data.example.org/person/1"
     names = graph_literal_values(graph, subject, "schema:name", registry=reg)

@@ -11,7 +11,6 @@ from ontosql.semantic import OntoModel, onto_property
 from ontosql.session import (
     AsyncOntoSession,
     GraphSyncError,
-    GraphSyncFailure,
     OntoSession,
     Page,
     paginate,
@@ -28,7 +27,6 @@ __all__ = [
     "AsyncOntoSession",
     "CascadePolicy",
     "GraphSyncError",
-    "GraphSyncFailure",
     "GraphSyncMode",
     "Map",
     "OntoImportError",

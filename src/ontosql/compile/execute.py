@@ -4,22 +4,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import delete, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ontosql.compile._sql_runner import (
+    ExecuteError,
+    _apply_where,
+    assert_replace_nested_exclusive,
+    nested_delete_fk_nulling,
+    nested_delete_identity,
+    run_null_fks_for_nested_deletes,
+)
 from ontosql.compile.plan import DeletePlan, WritePlan
-from ontosql.compile.write import _column_key
+from ontosql.compile.write import _column_key, count_scalar
 from ontosql.mapping.cascade import CascadePolicy
-
-
-class ExecuteError(Exception):
-    """Raised when a write/delete plan cannot be executed safely."""
-
-
-def _apply_where(stmt: Any, table: Any, where: dict[str, Any]) -> Any:
-    for col_name, value in where.items():
-        stmt = stmt.where(table.c[col_name] == value)
-    return stmt
 
 
 def _inserted_identity(result: Any, plan: WritePlan, values: dict[str, Any]) -> Any:
@@ -60,53 +58,18 @@ def _update_identity(plan: WritePlan) -> Any:
     return plan.root.where.get(str(identity_key))
 
 
-def _nested_delete_identity(delete_plan: DeletePlan) -> Any:
-    if delete_plan.root.where is None:
-        raise ExecuteError("nested delete plan requires where clause")
-    return next(iter(delete_plan.root.where.values()))
-
-
 def _null_fks_for_nested_deletes(session: Any, plan: WritePlan) -> None:
-    """Clear parent FK columns before deleting nested rows (FK-safe ordering)."""
-    if not plan.nested_deletes or plan.root.where is None:
-        return
-    fk_nulling: dict[str, Any] = {}
-    for field_name, _ in plan.nested_deletes:
-        nmap = plan.mapper_cls.nested_maps.get(field_name)
-        if nmap is None or nmap.fk_column is None:
-            continue
-        fk_nulling[_column_key(nmap.fk_column)] = None
-    if not fk_nulling:
-        return
-    table = plan.root.table
-    stmt = update(table).values(**fk_nulling)
-    stmt = _apply_where(stmt, table, plan.root.where)
-    session.exec(stmt)
+    run_null_fks_for_nested_deletes(plan, run=session.exec)
 
 
 async def _async_null_fks_for_nested_deletes(session: AsyncSession, plan: WritePlan) -> None:
-    if not plan.nested_deletes or plan.root.where is None:
-        return
-    fk_nulling: dict[str, Any] = {}
-    for field_name, _ in plan.nested_deletes:
-        nmap = plan.mapper_cls.nested_maps.get(field_name)
-        if nmap is None or nmap.fk_column is None:
-            continue
-        fk_nulling[_column_key(nmap.fk_column)] = None
-    if not fk_nulling:
+    fk_nulling = nested_delete_fk_nulling(plan)
+    if not fk_nulling or plan.root.where is None:
         return
     table = plan.root.table
     stmt = update(table).values(**fk_nulling)
     stmt = _apply_where(stmt, table, plan.root.where)
     await session.execute(stmt)
-
-
-def _count_scalar(row: Any) -> int:
-    if hasattr(row, "_mapping"):
-        return int(next(iter(row._mapping.values())))
-    if isinstance(row, tuple):
-        return int(row[0])
-    return int(row)
 
 
 def _assert_replace_nested_exclusive(
@@ -115,25 +78,12 @@ def _assert_replace_nested_exclusive(
     field_name: str,
     delete_plan: DeletePlan,
 ) -> None:
-    """Reject REPLACE deletes when other parent rows still reference the nested row."""
-    nmap = plan.mapper_cls.nested_maps.get(field_name)
-    if nmap is None or nmap.fk_column is None or plan.root.where is None:
-        return
-    nested_id = _nested_delete_identity(delete_plan)
-    fk_key = _column_key(nmap.fk_column)
-    parent_table = plan.root.table
-    identity_col = plan.mapper_cls.column_maps[plan.mapper_cls.identity_field]
-    parent_id_key = _column_key(identity_col.column)
-    parent_id = plan.root.where.get(parent_id_key)
-    stmt = select(func.count()).select_from(parent_table).where(parent_table.c[fk_key] == nested_id)
-    if parent_id is not None:
-        stmt = stmt.where(parent_table.c[parent_id_key] != parent_id)
-    count = _count_scalar(session.exec(stmt).one())
-    if count > 0:
-        raise ExecuteError(
-            f"Cannot REPLACE nested {field_name!r}: nested identity {nested_id!r} "
-            f"is still referenced by {count} other row(s)"
-        )
+    assert_replace_nested_exclusive(
+        plan,
+        field_name,
+        delete_plan,
+        run_count=lambda stmt: session.exec(stmt).one(),
+    )
 
 
 async def _async_assert_replace_nested_exclusive(
@@ -142,25 +92,18 @@ async def _async_assert_replace_nested_exclusive(
     field_name: str,
     delete_plan: DeletePlan,
 ) -> None:
-    nmap = plan.mapper_cls.nested_maps.get(field_name)
-    if nmap is None or nmap.fk_column is None or plan.root.where is None:
+    from ontosql.compile._sql_runner import (
+        check_replace_nested_exclusive,
+        replace_nested_exclusive_count_stmt,
+    )
+
+    stmt = replace_nested_exclusive_count_stmt(plan, field_name, delete_plan)
+    if stmt is None:
         return
-    nested_id = _nested_delete_identity(delete_plan)
-    fk_key = _column_key(nmap.fk_column)
-    parent_table = plan.root.table
-    identity_col = plan.mapper_cls.column_maps[plan.mapper_cls.identity_field]
-    parent_id_key = _column_key(identity_col.column)
-    parent_id = plan.root.where.get(parent_id_key)
-    stmt = select(func.count()).select_from(parent_table).where(parent_table.c[fk_key] == nested_id)
-    if parent_id is not None:
-        stmt = stmt.where(parent_table.c[parent_id_key] != parent_id)
+    nested_id = nested_delete_identity(delete_plan)
     result = await session.execute(stmt)
-    count = _count_scalar(result.one())
-    if count > 0:
-        raise ExecuteError(
-            f"Cannot REPLACE nested {field_name!r}: nested identity {nested_id!r} "
-            f"is still referenced by {count} other row(s)"
-        )
+    count = count_scalar(result.one())
+    check_replace_nested_exclusive(count, field_name, nested_id)
 
 
 def _execute_collection_writes(

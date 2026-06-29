@@ -11,13 +11,12 @@ from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel
 
 
-def materialize_entity(
-    instance: OntoModel,
+def _materialize_instances(
+    instances: list[OntoModel],
     *,
     registry: PrefixRegistry | None = None,
 ) -> Store:
-    """Build a Store containing one semantic instance subgraph."""
-    return instances_to_graph([instance], registry=registry)
+    return instances_to_graph(instances, registry=registry)
 
 
 def materialize_find(
@@ -38,7 +37,7 @@ def materialize_find(
         limit=limit,
         offset=offset,
     )
-    return instances_to_graph(instances, registry=registry)
+    return _materialize_instances(instances, registry=registry)
 
 
 async def materialize_find_async(
@@ -59,4 +58,4 @@ async def materialize_find_async(
         limit=limit,
         offset=offset,
     )
-    return instances_to_graph(instances, registry=registry)
+    return _materialize_instances(instances, registry=registry)

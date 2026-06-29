@@ -157,3 +157,11 @@ def test_count_with_filter(writable_session) -> None:
     assert total == 3
     filtered = writable_session.count(Person, where=Person.name.startswith("A"))
     assert filtered == 1
+
+
+def test_rollback_discards_uncommitted_sql(sync_engine) -> None:
+    with OntoSession(sync_engine, maps=[PersonMap]) as session:
+        session.save(Person(id=95, name="Rollback", employer=None), flush_now=True)
+        session.rollback()
+        session.expire(Person, identity=95)
+        assert session.get(Person, identity=95) is None

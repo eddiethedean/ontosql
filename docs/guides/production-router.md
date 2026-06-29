@@ -58,4 +58,4 @@ You still need **your** middleware for auth, rate limits, and structured logging
 
 - [SECURITY.md](../SECURITY.md) — threat model
 - [TROUBLESHOOTING.md](../TROUBLESHOOTING.md) — `clear_pending` vs SQL rollback
-- [examples/person_org_api.py](https://github.com/eddiethedean/ontosql/blob/main/examples/person_org_api.py) — minimal demo router
+- [examples/person_org_api_production.py](https://github.com/eddiethedean/ontosql/blob/main/examples/person_org_api_production.py) — production async pattern

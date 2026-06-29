@@ -10,14 +10,6 @@ from ontosql.semantic.model import OntoModel
 from ontosql.session.state import SessionState
 
 
-def count_scalar(row: Any) -> int:
-    if hasattr(row, "_mapping"):
-        return int(next(iter(row._mapping.values())))
-    if isinstance(row, tuple):
-        return int(row[0])
-    return int(row)
-
-
 def validate_get_identity(
     *,
     identity: Any | None = None,
