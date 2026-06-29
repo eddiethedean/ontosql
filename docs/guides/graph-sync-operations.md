@@ -15,6 +15,8 @@ OntoSession(..., graph_sync=target, graph_sync_mode="replace")
 
 Graph updates queue on `save()` / `delete()` and flush **after SQL commit** when the session context exits.
 
+By default (`strict_graph_sync=True`), a failed post-commit sync raises **`GraphSyncError`** from `with session:` exit so callers cannot miss split-brain. Set `strict_graph_sync=False` to log a warning and leave `graph_sync_pending` for `retry_graph_sync()` instead (SQL still commits first).
+
 ## Failure modes
 
 | Symptom | Cause | SQL state | Graph state |

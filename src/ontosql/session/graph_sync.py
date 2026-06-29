@@ -40,6 +40,36 @@ class GraphSyncError(Exception):
         self.pending_pushes = pending_pushes
 
 
+def flush_graph_sync_on_exit(
+    state: SessionState,
+    graph_sync: Any,
+    *,
+    mode: GraphSyncMode,
+    mapper_for: Any,
+    registry: PrefixRegistry | None = None,
+    strict: bool = True,
+) -> None:
+    """Run post-commit graph sync; raise or log ``GraphSyncError`` per ``strict``."""
+    try:
+        flush_graph_sync(
+            state,
+            graph_sync,
+            mode=mode,
+            mapper_for=mapper_for,
+            registry=registry,
+        )
+    except GraphSyncError as exc:
+        if strict:
+            raise
+        logger.warning(
+            "graph sync failed after SQL commit (%s); %s push(es) and %s remove(s) still queued — "
+            "call retry_graph_sync() after fixing the graph target",
+            exc.failure.operation,
+            len(state.graph_sync_pushes),
+            len(state.graph_sync_removes),
+        )
+
+
 def prior_nested_iris_for_save(
     state: SessionState,
     instance: OntoModel,

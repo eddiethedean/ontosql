@@ -75,6 +75,28 @@ def test_retry_graph_sync_after_partial_failure(sync_engine) -> None:
     assert not session.graph_sync_pending
 
 
+def test_strict_graph_sync_false_logs_and_preserves_queue(sync_engine) -> None:
+    target = StoreSyncTarget()
+    with (
+        patch(
+            "ontosql.sync.push_instance",
+            side_effect=RuntimeError("simulated graph push failure"),
+        ),
+        OntoSession(
+            sync_engine,
+            maps=[PersonMap, OrganizationMap],
+            graph_sync=target,
+            graph_sync_mode="replace",
+            strict_graph_sync=False,
+        ) as session,
+    ):
+        session.save(Person(id=73, name="Lenient", employer=None))
+
+    assert session.graph_sync_pending
+    with OntoSession(sync_engine, maps=[PersonMap]) as check:
+        assert check.get(Person, identity=73) is not None
+
+
 def test_sync_session_requires_context_manager(sync_engine) -> None:
     session = OntoSession(sync_engine, maps=[PersonMap])
     with pytest.raises(RuntimeError, match="not active"):
@@ -95,6 +117,14 @@ def test_flush_preserves_pending_on_error(sync_engine) -> None:
         ):
             session.flush()
         assert len(session._state.pending) == 1  # noqa: SLF001
+
+
+def test_load_graph_max_triples_incremental() -> None:
+    """max_triples must abort during parse, not after full expansion."""
+    lines = "\n".join(f"ex:s ex:p \"{i}\" ." for i in range(5))
+    turtle = f"@prefix ex: <http://example.org/> .\n{lines}"
+    with pytest.raises(OntoImportError, match="max_triples"):
+        load_graph(turtle, format="turtle", max_triples=2)
 
 
 def test_import_max_triples_raises() -> None:

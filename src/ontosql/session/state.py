@@ -66,6 +66,9 @@ class SessionState:
     def clear_pending_delete(self, entity_type: type[OntoModel], identity: Any) -> None:
         self.identity.clear_pending_delete(entity_type, identity)
 
+    def clear_all_pending_delete_tombstones(self) -> None:
+        self.identity.clear_all_pending_delete_tombstones()
+
     def expire(self, entity_type: type[OntoModel], identity: Any) -> None:
         self.identity.expire(entity_type, identity)
 

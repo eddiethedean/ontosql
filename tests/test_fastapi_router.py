@@ -75,6 +75,11 @@ def test_list_persons_jsonld_document_shape(api_client: TestClient) -> None:
         assert "@context" not in node, "list nodes must not nest full JSON-LD documents"
 
 
+def test_create_missing_required_field_returns_422(api_client: TestClient) -> None:
+    resp = api_client.post("/onto/person", json={"employer": None})
+    assert resp.status_code == 422
+
+
 def test_create_and_delete_person(api_client: TestClient) -> None:
     create = api_client.post("/onto/person", json={"name": "Grace Hopper", "employer": None})
     assert create.status_code == 201

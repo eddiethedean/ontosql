@@ -9,12 +9,47 @@ from pyoxigraph import NamedNode
 from triplemodel import RDF_TYPE, Store, bind_namespaces
 
 from ontosql.import_.hydrate import OntoImportError
+from ontosql.rdf.formats import normalize_format
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.rdf_util import resolve_prefix_registry
 
 # Suggested caps when ``untrusted=True`` (API boundary for public import endpoints).
 UNTRUSTED_DEFAULT_MAX_BYTES = 1_048_576
 UNTRUSTED_DEFAULT_MAX_TRIPLES = 100_000
+
+
+def _pyoxigraph_format(fmt: str) -> Any:
+    from pyoxigraph import RdfFormat
+
+    key = normalize_format(fmt)
+    mapping = {
+        "turtle": RdfFormat.TURTLE,
+        "nt": RdfFormat.N_TRIPLES,
+        "xml": RdfFormat.RDF_XML,
+        "json-ld": RdfFormat.JSON_LD,
+    }
+    return mapping[key]
+
+
+def _parse_into_store(
+    graph: Store,
+    text: str,
+    *,
+    format: str,
+    max_triples: int | None,
+) -> None:
+    """Parse RDF text into graph, enforcing max_triples incrementally when set."""
+    if max_triples is None:
+        graph.parse(text, format=format)
+        return
+    from pyoxigraph import parse
+
+    for count, quad in enumerate(parse(text, format=_pyoxigraph_format(format)), start=1):
+        graph.add((quad.subject, quad.predicate, quad.object))
+        if count > max_triples:
+            raise OntoImportError(
+                f"RDF graph exceeds max_triples={max_triples} during parse"
+            )
 
 
 def load_graph(
@@ -34,10 +69,9 @@ def load_graph(
     When ``untrusted=True``, applies ``UNTRUSTED_DEFAULT_MAX_BYTES`` and
     ``UNTRUSTED_DEFAULT_MAX_TRIPLES`` for any limit not explicitly set.
 
-    **Note:** ``max_triples`` is checked **after** ``graph.parse()`` completes.
-    A small payload can still expand during parsing (blank-node chains, JSON-LD
-    expansion). Always set ``max_bytes`` and rate-limit import endpoints; do not
-    rely on ``max_triples`` alone for DoS protection.
+    When ``max_triples`` is set, parsing stops as soon as the cap is exceeded
+    (incremental enforcement). Without ``max_triples``, the full graph is
+    parsed before return — pair with ``max_bytes`` on untrusted inputs.
     """
     if untrusted:
         if max_bytes is None:
@@ -58,11 +92,7 @@ def load_graph(
     graph = Store()
     if registry is not None:
         bind_namespaces(graph, registry.prefixes())
-    graph.parse(text, format=format)
-    if max_triples is not None and len(graph) > max_triples:
-        raise OntoImportError(
-            f"RDF graph exceeds max_triples={max_triples} (got {len(graph)} triples)"
-        )
+    _parse_into_store(graph, text, format=format, max_triples=max_triples)
     return graph
 
 

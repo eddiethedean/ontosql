@@ -23,11 +23,12 @@ from ontosql.session._ops import (
     resolve_save_is_new_and_snapshot,
     validate_get_identity,
 )
+from ontosql.session._query import count_pending_deletes_matching, find_with_limit
 from ontosql.session._sql import load_snapshot_from_db, reload_after_save
 from ontosql.session.base import GraphSyncTargetLike, SessionBase
 from ontosql.session.collections import attach_collections
 from ontosql.session.graph_sync import (
-    flush_graph_sync,
+    flush_graph_sync_on_exit,
     prior_nested_iris_for_save,
     queue_graph_push,
     queue_graph_remove,
@@ -55,6 +56,7 @@ class OntoSession(SessionBase):
         graph_sync_mode: GraphSyncMode = "patch",
         registry: PrefixRegistry | None = None,
         strict_updates: bool = True,
+        strict_graph_sync: bool = True,
     ) -> None:
         super().__init__(maps)
         self._engine = engine
@@ -64,6 +66,7 @@ class OntoSession(SessionBase):
         self._graph_sync_mode = graph_sync_mode
         self._registry_prefix = registry
         self._strict_updates = strict_updates
+        self._strict_graph_sync = strict_graph_sync
 
     def __enter__(self) -> OntoSession:
         self._session = Session(self._engine)
@@ -79,12 +82,13 @@ class OntoSession(SessionBase):
                     self.flush()
                 self._session.commit()
                 logger.debug("session commit sync")
-                flush_graph_sync(
+                flush_graph_sync_on_exit(
                     self._state,
                     self._graph_sync,
                     mode=self._graph_sync_mode,
                     mapper_for=self._mapper_for,
                     registry=self._registry_prefix,
+                    strict=self._strict_graph_sync,
                 )
             else:
                 self._state.clear_pending()
@@ -120,6 +124,7 @@ class OntoSession(SessionBase):
         """
         self._require_session().rollback()
         self._state.clear_graph_sync()
+        self._state.clear_all_pending_delete_tombstones()
         if clear_uow:
             self._state.clear_pending()
         elif self._state.pending:
@@ -183,6 +188,20 @@ class OntoSession(SessionBase):
         offset: int | None = None,
     ) -> list[OntoModel]:
         mapper_cls = self._mapper_for(entity_type)
+        if limit is not None:
+            sql_session = self._require_session()
+            return find_with_limit(
+                self._state,
+                mapper_cls,
+                entity_type,
+                where=where,
+                order_by=order_by,
+                limit=limit,
+                offset=offset,
+                run_select_all=lambda stmt: sql_session.exec(stmt).all(),
+                attach=lambda instances: attach_collections(sql_session, mapper_cls, instances),
+                register=self._register,
+            )
         plan = compile_select_plan(
             mapper_cls,
             where=where,
@@ -211,7 +230,15 @@ class OntoSession(SessionBase):
         stmt = compile_count_statement(mapper_cls, where=where)
         result = self._require_session().exec(stmt).one()
         total = count_scalar(result)
-        return max(0, total - self._state.count_pending_deletes(entity_type))
+        sql_session = self._require_session()
+        pending = count_pending_deletes_matching(
+            self._state,
+            mapper_cls,
+            entity_type,
+            where=where,
+            run_select_first=lambda stmt: sql_session.exec(stmt).first(),
+        )
+        return max(0, total - pending)
 
     def _reload_after_save(
         self,
@@ -249,6 +276,7 @@ class OntoSession(SessionBase):
             instance,
             mapper_cls,
             run_select=lambda stmt: self._require_session().exec(stmt),
+            session=self._require_session(),
         )
 
     def _remove_snapshot_for_delete(
@@ -321,7 +349,7 @@ class OntoSession(SessionBase):
                 PendingDelete(plan=plan, instance=instance, snapshot=snapshot)
             )
 
-    def _apply_pending_delete(self, pending: PendingDelete) -> None:
+    def _pending_delete_sql(self, pending: PendingDelete) -> None:
         execute_delete_plan(
             self._require_session(),
             pending.plan,
@@ -331,19 +359,23 @@ class OntoSession(SessionBase):
         identity = getattr(pending.instance, mapper_cls.identity_field, None)
         if identity is not None:
             self._state.expire(mapper_cls.entity, identity)
-        if self._graph_sync is not None:
-            queue_graph_remove(
-                self._state,
-                pending.instance,
-                snapshot=pending.snapshot,
-            )
+
+    def _queue_pending_delete_graph(self, pending: PendingDelete) -> None:
+        queue_graph_remove(
+            self._state,
+            pending.instance,
+            snapshot=pending.snapshot,
+        )
 
     def flush(self) -> None:
         """Apply pending save/delete plans; stops on first error (unprocessed queue preserved)."""
         flush_pending(
             self._state,
             execute_write=self._execute_write,
-            apply_pending_delete=self._apply_pending_delete,
+            pending_delete_sql=self._pending_delete_sql,
+            queue_pending_delete_graph=(
+                self._queue_pending_delete_graph if self._graph_sync is not None else None
+            ),
             reload_for_graph=lambda et, ident: self.get(et, identity=ident),
             graph_sync_enabled=self._graph_sync is not None,
         )

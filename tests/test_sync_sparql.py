@@ -51,6 +51,19 @@ def test_save_pushes_to_sparql_session(sync_engine) -> None:
     assert NamedNode(reg.expand("schema:Person")) in types
 
 
+def test_onto_graph_sync_push_prior_nested_retracts_stale(sync_engine) -> None:
+    graph_session = SPARQLSession()
+    sync = OntoGraphSync(graph_session, maps=[PersonMap, OrganizationMap], mode="patch")
+    org_iri = "https://data.example.org/org/10"
+    person = Person(id=71, name="Stale Nested", employer=Organization(id=10, name="Old Org"))
+    sync.push(person)
+    person.employer = None
+    sync.push(person, prior_nested_iris={org_iri})
+    from triplemodel.store.terms import term_str
+
+    assert not any(term_str(t[0]) == org_iri for t in graph_session._store.graph)
+
+
 def test_onto_graph_sync_push_pull(sync_engine) -> None:
     graph_session = SPARQLSession()
     sync = OntoGraphSync(graph_session, maps=[PersonMap, OrganizationMap])

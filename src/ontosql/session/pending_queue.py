@@ -26,6 +26,9 @@ class PendingWorkQueue:
     pending_instances: dict[int, OntoModel] = field(default_factory=dict)
     pending_insert_objects: set[int] = field(default_factory=set)
     pending_prior_nested: dict[int, frozenset[str]] = field(default_factory=dict)
+    # Plans whose SQL already ran but post-SQL flush steps may need retry (partial flush).
+    pending_sql_results: dict[int, Any] = field(default_factory=dict)
+    pending_delete_sql_applied: set[int] = field(default_factory=set)
 
     def queue_pending_write(
         self,
@@ -45,6 +48,7 @@ class PendingWorkQueue:
                     self.pending_instances.pop(old_plan_id, None)
                     self.pending_instances[id(plan)] = instance
                     self.pending_prior_nested.pop(old_plan_id, None)
+                    self._migrate_sql_result(old_plan_id, id(plan))
                     if prior_nested_iris is not None:
                         self.pending_prior_nested[id(plan)] = prior_nested_iris
                     return
@@ -62,6 +66,7 @@ class PendingWorkQueue:
                     self.pending_instances.pop(old_plan_id, None)
                     self.pending_instances[id(plan)] = instance
                     self.pending_prior_nested.pop(old_plan_id, None)
+                    self._migrate_sql_result(old_plan_id, id(plan))
                     self.pending_insert_objects.discard(id(other))
                     self.pending_insert_objects.add(obj_id)
                     if prior_nested_iris is not None:
@@ -85,14 +90,40 @@ class PendingWorkQueue:
             self.pending_insert_objects.discard(id(instance))
         return instance
 
+    def _migrate_sql_result(self, old_plan_id: int, new_plan_id: int) -> None:
+        if old_plan_id in self.pending_sql_results:
+            self.pending_sql_results[new_plan_id] = self.pending_sql_results.pop(old_plan_id)
+
+    def sql_result_for_plan(self, plan: WritePlan) -> Any | None:
+        return self.pending_sql_results.get(id(plan))
+
+    def mark_sql_applied(self, plan: WritePlan, inserted_id: Any) -> None:
+        self.pending_sql_results[id(plan)] = inserted_id
+
+    def clear_sql_applied(self, plan: WritePlan) -> None:
+        self.pending_sql_results.pop(id(plan), None)
+
+    def is_delete_sql_applied(self, pending: PendingDelete) -> bool:
+        return id(pending) in self.pending_delete_sql_applied
+
+    def mark_delete_sql_applied(self, pending: PendingDelete) -> None:
+        self.pending_delete_sql_applied.add(id(pending))
+
+    def clear_delete_sql_applied(self, pending: PendingDelete) -> None:
+        self.pending_delete_sql_applied.discard(id(pending))
+
     def clear(self) -> None:
         self.pending.clear()
         self.pending_instances.clear()
         self.pending_insert_objects.clear()
         self.pending_prior_nested.clear()
+        self.pending_sql_results.clear()
+        self.pending_delete_sql_applied.clear()
 
     def clear_after_flush(self) -> None:
         self.pending.clear()
         self.pending_instances.clear()
         self.pending_insert_objects.clear()
         self.pending_prior_nested.clear()
+        self.pending_sql_results.clear()
+        self.pending_delete_sql_applied.clear()

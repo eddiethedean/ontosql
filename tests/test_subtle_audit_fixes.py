@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -299,6 +300,36 @@ def test_collection_replace_deletes_orphan_members(m2m_graph_engine) -> None:
         assert raw.get(SkillRow, 12) is not None
 
 
+def test_collection_replace_without_get_deletes_orphans(m2m_graph_engine) -> None:
+    """REPLACE must orphan-delete from DB snapshot without prior get() (H2)."""
+    class ReplaceSkillsPersonMap(OntoMapper[SkilledPerson]):
+        entity = SkilledPerson
+        id = Map(M2MPersonRow.id)
+        name = Map(M2MPersonRow.name, property="schema:name")
+        skills = Map.collection(
+            Skill,
+            through=PersonSkillRow,
+            source_fk=PersonSkillRow.person_id,
+            target_fk=PersonSkillRow.skill_id,
+            nested_map=SkillMap,
+            field="skills",
+            property="schema:knowsAbout",
+            cascade=CascadePolicy.REPLACE,
+        )
+
+    with OntoSession(
+        m2m_graph_engine,
+        maps=[ReplaceSkillsPersonMap, SkillMap],
+    ) as session:
+        person = SkilledPerson(id=1, name="Ada", skills=[Skill(id=12, name="SPARQL")])
+        session.save(person)
+
+    with Session(m2m_graph_engine) as raw:
+        assert raw.get(SkillRow, 10) is None
+        assert raw.get(SkillRow, 11) is None
+        assert raw.get(SkillRow, 12) is not None
+
+
 def test_rollback_clear_uow_false_warns(sync_engine) -> None:
     with OntoSession(sync_engine, maps=[PersonMap]) as session:
         session.save(Person(id=801, name="Warn", employer=None), flush_now=False)
@@ -345,6 +376,38 @@ def test_count_excludes_pending_delete(sync_engine) -> None:
         assert session.count(Person) == before - 1
 
 
+def test_count_where_ignores_unrelated_pending_delete(sync_engine) -> None:
+    """Filtered count must not subtract tombstones outside the where clause (H1)."""
+    with OntoSession(sync_engine, maps=[PersonMap]) as session:
+        ada = session.get(Person, identity=1)
+        assert ada is not None
+        filtered_before = session.count(Person, where=Person.name.startswith("Charles"))
+        session.delete(ada, flush_now=False)
+        assert session.count(Person, where=Person.name.startswith("Charles")) == filtered_before
+
+
+def test_find_limit_fills_page_with_pending_delete(sync_engine) -> None:
+    """find(limit=N) must return N rows when tombstones are filtered post-query (H7)."""
+    with OntoSession(sync_engine, maps=[PersonMap]) as session:
+        victim = session.get(Person, identity=1)
+        assert victim is not None
+        session.delete(victim, flush_now=False)
+        page = session.find(Person, limit=2)
+        assert len(page) == 2
+        assert all(p.id != 1 for p in page)
+
+
+def test_rollback_clear_uow_false_clears_tombstones(sync_engine) -> None:
+    with OntoSession(sync_engine, maps=[PersonMap]) as session:
+        person = session.get(Person, identity=1)
+        assert person is not None
+        session.delete(person, flush_now=False)
+        assert session.get(Person, identity=1) is None
+        with pytest.warns(UserWarning, match="clear_uow=False"):
+            session.rollback(clear_uow=False)
+        assert session.get(Person, identity=1) is not None
+
+
 def test_delete_graph_remove_reloads_nested_from_db(sync_engine) -> None:
     reg = PrefixRegistry()
     target = StoreSyncTarget()
@@ -370,7 +433,8 @@ def test_delete_graph_remove_reloads_nested_from_db(sync_engine) -> None:
     assert not any(term_str(t[0]) == org_iri for t in target.graph)
 
 
-def test_flush_partial_failure_clears_graph_queue(sync_engine) -> None:
+def test_flush_partial_failure_preserves_graph_queue_for_completed_items(sync_engine) -> None:
+    """Item 1 graph push must survive item 2 execute failure (C2)."""
     import ontosql.session.sync as sync_mod
 
     target = StoreSyncTarget()
@@ -392,7 +456,47 @@ def test_flush_partial_failure_clears_graph_queue(sync_engine) -> None:
             pytest.raises(RuntimeError, match="fail on second"),
         ):
             session.flush()
-        assert not session.graph_sync_pending
+        assert session.graph_sync_pending
+        assert call_count == 2
+        session.flush()
+    assert len(target.graph) > 0
+
+
+def test_flush_reload_failure_does_not_reexecute_sql(sync_engine) -> None:
+    """Post-SQL reload failure must not re-run execute_write for item 1 (C1)."""
+    import ontosql.session.sync as sync_mod
+    from ontosql.session._ops import identity_from_write_plan
+
+    target = StoreSyncTarget()
+    real_execute = sync_mod.execute_write_plan
+    execute_calls: list[Any] = []
+
+    def counting_execute(session, plan, **kwargs):
+        result = real_execute(session, plan, **kwargs)
+        execute_calls.append(identity_from_write_plan(plan, result))
+        return result
+
+    with OntoSession(sync_engine, maps=[PersonMap], graph_sync=target) as session:
+        session.save(Person(id=820, name="A", employer=None), flush_now=False)
+        session.save(Person(id=821, name="B", employer=None), flush_now=False)
+        original_get = session.get
+
+        def flaky_get(entity_type, *, identity):
+            if identity == 821:
+                raise RuntimeError("reload fail")
+            return original_get(entity_type, identity=identity)
+
+        with (
+            patch.object(sync_mod, "execute_write_plan", side_effect=counting_execute),
+            patch.object(session, "get", side_effect=flaky_get),
+            pytest.raises(RuntimeError, match="reload fail"),
+        ):
+            session.flush()
+        assert execute_calls.count(820) == 1
+        session.flush()
+    with OntoSession(sync_engine, maps=[PersonMap]) as check:
+        assert check.get(Person, identity=820) is not None
+        assert check.get(Person, identity=821) is not None
 
 
 def test_delete_sql_cascade_replace_nested(sync_engine) -> None:

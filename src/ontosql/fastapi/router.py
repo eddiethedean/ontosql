@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from ontosql.fastapi.body_limits import (
     DEFAULT_MAX_BODY_BYTES,
@@ -208,9 +208,20 @@ class OntoRouter:
         @self.router.post(f"/{name}", status_code=status.HTTP_201_CREATED)
         async def create_entity(request: Request, session: AsyncSessionDep) -> Any:
             data = await _read_json_body(request, max_body_bytes)
+            if not isinstance(data, dict):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="JSON body must be an object",
+                )
             if mapper_cls.identity_field not in data:
                 data[mapper_cls.identity_field] = None
-            validated = CreateBody.model_validate(data)
+            try:
+                validated = CreateBody.model_validate(data)
+            except ValidationError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=exc.errors(),
+                ) from exc
             instance = _instance_from_create(
                 entity_type,
                 validated,
@@ -228,6 +239,11 @@ class OntoRouter:
             if instance is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
             data = await _read_json_body(request, max_body_bytes)
+            if not isinstance(data, dict):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="JSON body must be an object",
+                )
             identity_field = mapper_cls.identity_field
             if identity_field in data and data[identity_field] != entity_id:
                 raise HTTPException(
@@ -235,7 +251,13 @@ class OntoRouter:
                     detail=f"Cannot change {identity_field!r} via PATCH",
                 )
             data.pop(identity_field, None)
-            validated = PatchBody.model_validate(data)
+            try:
+                validated = PatchBody.model_validate(data)
+            except ValidationError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=exc.errors(),
+                ) from exc
             updated = instance.model_copy(update=validated.model_dump(exclude_unset=True))
             setattr(updated, identity_field, entity_id)
             if validate_entities:

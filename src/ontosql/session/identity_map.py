@@ -61,6 +61,10 @@ class IdentityMap:
     def clear_pending_delete(self, entity_type: type[OntoModel], identity: object) -> None:
         self.pending_deletes.discard((entity_type, identity))
 
+    def clear_all_pending_delete_tombstones(self) -> None:
+        """Clear pending-delete markers without touching the pending write queue."""
+        self.pending_deletes.clear()
+
     def expire(self, entity_type: type[OntoModel], identity: object) -> None:
         key = (entity_type, identity)
         self.identity_map.pop(key, None)

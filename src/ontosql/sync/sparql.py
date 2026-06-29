@@ -30,15 +30,22 @@ class OntoGraphSync:
         if maps:
             self._mappers.register_many(maps)
 
-    def push(self, instance: OntoModel) -> None:
+    def push(
+        self,
+        instance: OntoModel,
+        *,
+        prior_nested_iris: set[str] | frozenset[str] | None = None,
+    ) -> None:
         """Push a semantic instance into the SPARQL session store."""
         mapper_cls = self._mappers.get(type(instance))
+        prior = set(prior_nested_iris) if prior_nested_iris is not None else None
         sync_instance_to_store(
             instance,
             self._session._store.graph,
             mode=self._mode,
             registry=self._registry,
             mapper_cls=mapper_cls,
+            prior_nested_iris=prior,
         )
 
     def pull(
