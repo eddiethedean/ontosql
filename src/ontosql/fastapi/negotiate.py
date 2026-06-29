@@ -34,9 +34,12 @@ def _parse_accept_params(part: str) -> tuple[str, float]:
         if token.startswith("q="):
             q_str = token[2:].strip()
             try:
-                q = float(q_str)
+                q_val = float(q_str)
             except ValueError:
-                q = 1.0
+                return media_type, -1.0
+            if q_val < 0.0 or q_val > 1.0:
+                return media_type, -1.0
+            q = q_val
     return media_type, q
 
 
@@ -45,11 +48,13 @@ def _matches_known_mime(media_type: str) -> str | None:
     if media_type in _KNOWN_MIMES:
         return media_type
     if "/" in media_type:
-        major, _, _minor = media_type.partition("/")
-        if _minor == "*" and major:
+        major, _, minor = media_type.partition("/")
+        if minor == "*" and major:
             matches = [m for m in _KNOWN_MIMES if m.startswith(f"{major}/")]
             if len(matches) == 1:
                 return matches[0]
+            if major == "application" and "application/ld+json" in _KNOWN_MIMES:
+                return "application/ld+json"
     return None
 
 
@@ -60,7 +65,7 @@ def _parse_accept(accept: str | None) -> str | None:
     candidates: list[tuple[float, str]] = []
     for part in accept.split(","):
         media_type, q = _parse_accept_params(part)
-        if not media_type or q == 0.0:
+        if not media_type or q <= 0.0:
             continue
         if media_type in ("*/*", "*"):
             continue
@@ -119,6 +124,14 @@ def negotiate_onto_response(request: Request, data: Any) -> Response:
 
     fmt = format_for_mime(chosen)
     if fmt is not None:
-        return RDFResponse(data, format=fmt)
+        try:
+            return RDFResponse(data, format=fmt)
+        except TypeError as exc:
+            from fastapi import HTTPException, status
+
+            raise HTTPException(
+                status_code=status.HTTP_406_NOT_ACCEPTABLE,
+                detail=str(exc),
+            ) from exc
 
     return JSONLDResponse(data)

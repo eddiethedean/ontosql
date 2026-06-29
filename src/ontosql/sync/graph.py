@@ -287,6 +287,7 @@ def remove_instance_from_store(
     *,
     registry: PrefixRegistry | None = None,
     mapper_cls: type[Any] | None = None,
+    snapshot: dict[str, Any] | None = None,
 ) -> Store:
     """Remove root subject triples and exclusive nested subjects."""
     reg = _resolve_registry(instance, registry)
@@ -295,6 +296,8 @@ def remove_instance_from_store(
 
     root_iri = build_instance_iri(instance, reg)
     nested_iris = nested_iris_from_instance(instance, mapper_cls, reg)
+    if snapshot is not None:
+        nested_iris |= nested_iris_from_snapshot(instance, mapper_cls, snapshot, reg)
     _remove_all_subject_triples(target, root_iri)
     for nested_iri in nested_iris:
         if _nested_iri_referenced_elsewhere(

@@ -25,16 +25,13 @@ Migration notes between versions. Full per-minor guides are planned for **0.9** 
 
 No required code changes for basic CRUD if you already pass `maps=[...]` to sessions.
 
-## 0.5.0 → 0.5.1
-
-Documentation and hardening release. Review CHANGELOG if you used removed APIs from the simplicity audit:
+**Removed APIs (0.5.x simplicity audit):**
 
 | Removed | Migration |
 |---------|-----------|
 | `OntoModel.registry` | Pass `maps=[...]` to `OntoSession` |
 | `onto_property(..., graph=)` | Removed; named graphs planned via TripleModel roadmap |
 | `execute_sql` on session | Use SQLAlchemy session from your app layer |
-| `session registry=` kwarg | Use `maps=[...]` |
 | `push_instance` without mapper | Pass `mapper` positionally |
 | Root `GraphSyncFailure` import | `from ontosql.session import GraphSyncFailure` |
 

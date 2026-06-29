@@ -19,7 +19,7 @@ For ad hoc SQL, use the underlying SQLAlchemy session from your application laye
 | Rate limiting | Not provided |
 | Request body validation | Generated Pydantic models validate POST/PATCH bodies |
 | Semantic validation | **Default `validate_entities=True`** runs `OntoModel.model_validate` |
-| Body size cap | **Default `max_body_bytes=65536`** on POST/PATCH (413 when exceeded) |
+| Body size cap | **Default `max_body_bytes=65536`** on POST/PATCH; streams body in chunks (413 when exceeded) |
 | Async session | **Required** — `AsyncSessionDep` on all routes |
 
 ### Internet exposure requirements

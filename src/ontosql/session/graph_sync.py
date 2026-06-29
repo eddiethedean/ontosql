@@ -8,7 +8,7 @@ from typing import Any, Literal
 from ontosql._log import logger
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel
-from ontosql.session.state import GraphPushEntry, SessionState
+from ontosql.session.state import GraphPushEntry, GraphRemoveEntry, SessionState
 from ontosql.sync.graph import GraphSyncMode, nested_iris_from_snapshot
 
 GraphSyncOperation = Literal["remove", "push"]
@@ -68,9 +68,14 @@ def queue_graph_push(
     )
 
 
-def queue_graph_remove(state: SessionState, instance: OntoModel) -> None:
+def queue_graph_remove(
+    state: SessionState,
+    instance: OntoModel,
+    *,
+    snapshot: dict[str, Any] | None = None,
+) -> None:
     """Queue an instance for graph removal after SQL commit."""
-    state.graph_sync_removes.append(instance)
+    state.graph_sync_removes.append(GraphRemoveEntry(instance=instance, snapshot=snapshot))
 
 
 def flush_graph_sync(
@@ -93,7 +98,8 @@ def flush_graph_sync(
     state.graph_sync_failures.clear()
 
     while state.graph_sync_removes:
-        instance = state.graph_sync_removes[0]
+        entry = state.graph_sync_removes[0]
+        instance = entry.instance
         mapper_cls = mapper_for(type(instance))
         try:
             remove_instance(
@@ -101,6 +107,7 @@ def flush_graph_sync(
                 graph_sync,
                 mapper=mapper_cls,
                 registry=registry,
+                snapshot=entry.snapshot,
             )
         except Exception as exc:
             failure = GraphSyncFailure(instance=instance, operation="remove", error=exc)

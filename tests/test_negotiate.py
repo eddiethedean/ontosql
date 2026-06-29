@@ -50,7 +50,12 @@ def test_parse_accept_q_with_charset() -> None:
 
 def test_parse_accept_wildcard_returns_none() -> None:
     assert _parse_accept("*/*") is None
-    assert _parse_accept("application/*") is None
+    assert _parse_accept("application/*") == "application/ld+json"
+
+
+def test_parse_accept_invalid_q_rejected() -> None:
+    assert _parse_accept("application/json;q=2") is None
+    assert _parse_accept("text/turtle;q=-1") is None
 
 
 def test_parse_accept_no_substring_match() -> None:
@@ -106,3 +111,15 @@ def test_client_ld_json_lower_q_than_turtle(client: TestClient) -> None:
     )
     assert r.status_code == 200
     assert "text/turtle" in r.headers["content-type"]
+
+
+def test_negotiate_rdf_accept_non_serializable_returns_406() -> None:
+    app = FastAPI()
+
+    @app.get("/bad")
+    def bad_route(request: Request) -> object:
+        return negotiate_onto_response(request, {"plain": "dict"})
+
+    client = TestClient(app)
+    resp = client.get("/bad", headers={"Accept": "text/turtle"})
+    assert resp.status_code == 406

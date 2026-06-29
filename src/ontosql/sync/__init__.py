@@ -70,6 +70,7 @@ def remove_instance(
     *,
     mapper: type[Any],
     registry: Any | None = None,
+    snapshot: dict[str, Any] | None = None,
 ) -> None:
     """Remove an instance subgraph from a graph sync target."""
     from ontosql.sync.graph import remove_instance_from_store
@@ -79,6 +80,7 @@ def remove_instance(
         _target_store(target),
         mapper_cls=mapper,
         registry=registry,
+        snapshot=snapshot,
     )
 
 

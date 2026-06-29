@@ -6,6 +6,7 @@ import warnings
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from sqlmodel import SQLModel
 
 from ontosql._log import logger
 from ontosql.compile.execute import async_execute_delete_plan, async_execute_write_plan
@@ -15,6 +16,7 @@ from ontosql.compile.write import compile_delete_plan, count_scalar
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session._ops import (
+    _merge_snapshots_for_save,
     compile_save_plan_for_instance,
     identity_from_write_plan,
     merge_identity_into_instance,
@@ -106,16 +108,20 @@ class AsyncOntoSession(SessionBase):
         See ``docs/internals/session-lifecycle.md``.
         """
         await self._require_session().rollback()
+        self._state.clear_graph_sync()
         if clear_uow:
             self._state.clear_pending()
-            self._state.clear_graph_sync()
-        elif self._state.pending or self._state.has_graph_sync_pending:
+        elif self._state.pending:
             warnings.warn(
-                "rollback(clear_uow=False) left pending save/delete or graph sync queues; "
+                "rollback(clear_uow=False) left pending save/delete queues; "
                 "they may flush on session exit",
                 stacklevel=2,
             )
         logger.debug("session rollback async explicit clear_uow=%s", clear_uow)
+
+    def create_tables(self, *models: type[SQLModel]) -> None:
+        """Create physical tables (convenience for tests)."""
+        SQLModel.metadata.create_all(self._engine, tables=[m.__table__ for m in models])  # type: ignore[attr-defined]
 
     def _require_session(self) -> AsyncSession:
         if self._session is None:
@@ -200,7 +206,8 @@ class AsyncOntoSession(SessionBase):
         stmt = compile_count_statement(mapper_cls, where=where)
         result = await self._require_session().execute(stmt)
         row = result.one()
-        return count_scalar(row)
+        total = count_scalar(row)
+        return max(0, total - self._state.count_pending_deletes(entity_type))
 
     async def _reload_after_save(
         self,
@@ -240,6 +247,20 @@ class AsyncOntoSession(SessionBase):
             run_select=lambda stmt: self._require_session().execute(stmt),
         )
 
+    async def _remove_snapshot_for_delete(
+        self, instance: OntoModel, mapper_cls: type[Any]
+    ) -> dict[str, Any] | None:
+        db_snapshot = await self._load_snapshot_from_db(instance, mapper_cls)
+        session_snapshot = self._state.get_snapshot(instance)
+        return _merge_snapshots_for_save(session_snapshot, db_snapshot)
+
+    def _queue_graph_remove_for_delete(
+        self, instance: OntoModel, mapper_cls: type[Any], snapshot: dict[str, Any] | None
+    ) -> None:
+        if self._graph_sync is None:
+            return
+        queue_graph_remove(self._state, instance, snapshot=snapshot)
+
     async def save(self, instance: OntoModel, *, flush_now: bool = True) -> OntoModel:
         mapper_cls = self._mapper_for(type(instance))
         is_new = self._is_new_instance(mapper_cls, instance)
@@ -269,30 +290,32 @@ class AsyncOntoSession(SessionBase):
                 inserted_id,
                 prior_nested_iris=prior_nested,
             )
-        self._state.queue_pending_write(plan, instance)
+        self._state.queue_pending_write(plan, instance, prior_nested_iris=prior_nested)
         return instance
 
     async def delete(self, instance: OntoModel, *, flush_now: bool = True) -> None:
         mapper_cls = self._mapper_for(type(instance))
-        plan = compile_delete_plan(mapper_cls, instance)
+        snapshot = await self._remove_snapshot_for_delete(instance, mapper_cls)
+        plan = compile_delete_plan(mapper_cls, instance, snapshot=snapshot)
         identity = getattr(instance, mapper_cls.identity_field, None)
         if flush_now:
             await self._execute_delete(plan)
-            if self._graph_sync is not None:
-                queue_graph_remove(self._state, instance)
+            self._queue_graph_remove_for_delete(instance, mapper_cls, snapshot)
         else:
             if identity is not None:
                 self._state.mark_pending_delete(type(instance), identity)
-            self._state.pending.append(PendingDelete(plan=plan, instance=instance))
+            self._state.pending.append(
+                PendingDelete(plan=plan, instance=instance, snapshot=snapshot)
+            )
 
     async def _apply_pending_delete(self, pending: PendingDelete) -> None:
-        await async_execute_delete_plan(self._require_session(), pending.plan)
-        mapper_cls = pending.plan.mapper_cls
-        identity = getattr(pending.instance, mapper_cls.identity_field, None)
-        if identity is not None:
-            self._state.expire(mapper_cls.entity, identity)
+        await self._execute_delete(pending.plan)
         if self._graph_sync is not None:
-            queue_graph_remove(self._state, pending.instance)
+            queue_graph_remove(
+                self._state,
+                pending.instance,
+                snapshot=pending.snapshot,
+            )
 
     async def flush(self) -> None:
         """Apply pending save/delete plans; stops on first error (unprocessed queue preserved)."""
@@ -300,22 +323,17 @@ class AsyncOntoSession(SessionBase):
             return
         queue = list(self._state.pending)
         processed = 0
+        pushes_before = len(self._state.graph_sync_pushes)
+        removes_before = len(self._state.graph_sync_removes)
         try:
             for item in queue:
                 if isinstance(item, WritePlan):
                     plan = item
                     source_instance = self._state.peek_pending_instance(plan)
-                    prior_nested = frozenset()
-                    if self._graph_sync is not None and source_instance is not None:
-                        prior_nested = prior_nested_iris_for_save(
-                            self._state,
-                            source_instance,
-                            plan.mapper_cls,
-                            self._state.get_snapshot(source_instance),
-                            self._registry_prefix,
-                        )
+                    prior_nested = self._state.prior_nested_for_plan(plan) or frozenset()
                     inserted_id = await self._execute_write(plan)
                     self._state.pop_pending_instance(plan)
+                    self._state.pending_prior_nested.pop(id(plan), None)
                     if source_instance is not None:
                         merge_identity_into_instance(
                             source_instance,
@@ -337,10 +355,15 @@ class AsyncOntoSession(SessionBase):
                 processed += 1
         except Exception:
             self._state.pending = queue[processed:]
+            self._state.restore_graph_sync(
+                pushes_from=pushes_before,
+                removes_from=removes_before,
+            )
             raise
         self._state.pending.clear()
         self._state.pending_instances.clear()
         self._state.pending_insert_objects.clear()
+        self._state.pending_prior_nested.clear()
         logger.debug("session flush async complete")
 
     async def _execute_write(self, plan: WritePlan) -> Any:
@@ -357,7 +380,11 @@ class AsyncOntoSession(SessionBase):
         return identity
 
     async def _execute_delete(self, plan: DeletePlan) -> None:
-        await async_execute_delete_plan(self._require_session(), plan)
+        await async_execute_delete_plan(
+            self._require_session(),
+            plan,
+            mapper_registry=self._registry,
+        )
         if plan.root.where:
             identity = next(iter(plan.root.where.values()))
             self._state.expire(plan.mapper_cls.entity, identity)

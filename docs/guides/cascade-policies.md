@@ -8,7 +8,7 @@ Nested fields use `Map.nested(..., cascade=...)` to define what happens on `save
 |--------|---------|----------|
 | **`link`** (default) | Updates parent FK only; nested row must already exist | Shared reference data (many people → same org) |
 | **`upsert`** | Insert or update nested row; set parent FK | Owned nested data, shared updates OK |
-| **`replace`** | Delete old nested row when association changes; then upsert new | Sole ownership of nested row |
+| **`replace`** | Delete old nested row when association changes; then upsert new; on root **`delete()`**, removes exclusive nested rows | Sole ownership of nested row |
 | **`ignore`** | Skip nested persistence | Read-only or externally managed nested |
 
 Always set `fk_column=` when cascade is not `ignore`.
@@ -51,6 +51,10 @@ On REPLACE with FK change:
 2. Old nested row is deleted (if exclusively owned)
 3. New nested row is upserted
 4. Parent FK is updated
+
+## Delete behavior
+
+`delete()` always removes the root mapped row. With **`CascadePolicy.REPLACE`**, exclusive nested rows and collection member rows (when no other parent references them) are deleted in the same transaction. **`link`** and **`upsert`** do not delete nested rows on root delete — use database `ON DELETE` rules or explicit cleanup if needed.
 
 ## Related
 

@@ -18,6 +18,7 @@ class PendingDelete:
 
     plan: DeletePlan
     instance: OntoModel
+    snapshot: dict[str, Any] | None = None
 
 
 @dataclass
@@ -26,6 +27,14 @@ class GraphPushEntry:
 
     instance: OntoModel
     prior_nested_iris: frozenset[str] = field(default_factory=frozenset)
+
+
+@dataclass
+class GraphRemoveEntry:
+    """Queued graph remove with optional DB/session snapshot for nested IRIs."""
+
+    instance: OntoModel
+    snapshot: dict[str, Any] | None = None
 
 
 @dataclass
@@ -38,8 +47,9 @@ class SessionState:
     pending_instances: dict[int, OntoModel] = field(default_factory=dict)
     pending_deletes: set[PendingDeleteKey] = field(default_factory=set)
     pending_insert_objects: set[int] = field(default_factory=set)
+    pending_prior_nested: dict[int, frozenset[str]] = field(default_factory=dict)
     graph_sync_pushes: list[GraphPushEntry] = field(default_factory=list)
-    graph_sync_removes: list[OntoModel] = field(default_factory=list)
+    graph_sync_removes: list[GraphRemoveEntry] = field(default_factory=list)
     graph_sync_failures: list[Any] = field(default_factory=list)
 
     def snapshot_key(self, instance: OntoModel) -> SnapshotKey | None:
@@ -61,6 +71,13 @@ class SessionState:
         if identity is None:
             return
         key = (entity_type, identity)
+        if key in self.identity_map and self.identity_map[key] is not instance:
+            import warnings
+
+            warnings.warn(
+                f"Identity map entry for {entity_type.__name__}({identity!r}) replaced",
+                stacklevel=3,
+            )
         self.identity_map[key] = instance
         self.snapshots[key] = instance.model_dump()
 
@@ -85,7 +102,13 @@ class SessionState:
         self.snapshots.pop(key, None)
         self.clear_pending_delete(entity_type, identity)
 
-    def queue_pending_write(self, plan: WritePlan, instance: OntoModel) -> None:
+    def queue_pending_write(
+        self,
+        plan: WritePlan,
+        instance: OntoModel,
+        *,
+        prior_nested_iris: frozenset[str] | None = None,
+    ) -> None:
         """Queue a deferred save; replaces an existing queued save for the same object."""
         obj_id = id(instance)
         entity_type = type(instance)
@@ -93,9 +116,13 @@ class SessionState:
         if obj_id in self.pending_insert_objects:
             for idx, item in enumerate(self.pending):
                 if isinstance(item, WritePlan) and self.pending_instances.get(id(item)) is instance:
+                    old_plan_id = id(item)
                     self.pending[idx] = plan
-                    self.pending_instances.pop(id(item), None)
+                    self.pending_instances.pop(old_plan_id, None)
                     self.pending_instances[id(plan)] = instance
+                    self.pending_prior_nested.pop(old_plan_id, None)
+                    if prior_nested_iris is not None:
+                        self.pending_prior_nested[id(plan)] = prior_nested_iris
                     return
         if identity is not None:
             for idx, item in enumerate(self.pending):
@@ -106,15 +133,24 @@ class SessionState:
                     continue
                 other_id = getattr(other, other.identity_field, None)
                 if other_id == identity and type(other) is entity_type:
+                    old_plan_id = id(item)
                     self.pending[idx] = plan
-                    self.pending_instances.pop(id(item), None)
+                    self.pending_instances.pop(old_plan_id, None)
                     self.pending_instances[id(plan)] = instance
+                    self.pending_prior_nested.pop(old_plan_id, None)
                     self.pending_insert_objects.discard(id(other))
                     self.pending_insert_objects.add(obj_id)
+                    if prior_nested_iris is not None:
+                        self.pending_prior_nested[id(plan)] = prior_nested_iris
                     return
         self.pending_insert_objects.add(obj_id)
         self.pending.append(plan)
         self.pending_instances[id(plan)] = instance
+        if prior_nested_iris is not None:
+            self.pending_prior_nested[id(plan)] = prior_nested_iris
+
+    def prior_nested_for_plan(self, plan: WritePlan) -> frozenset[str] | None:
+        return self.pending_prior_nested.get(id(plan))
 
     def peek_pending_instance(self, plan: WritePlan) -> OntoModel | None:
         return self.pending_instances.get(id(plan))
@@ -130,6 +166,23 @@ class SessionState:
         self.pending_instances.clear()
         self.pending_deletes.clear()
         self.pending_insert_objects.clear()
+        self.pending_prior_nested.clear()
+
+    def count_pending_deletes(self, entity_type: type[OntoModel]) -> int:
+        return sum(1 for et, _ in self.pending_deletes if et is entity_type)
+
+    def restore_graph_sync(self, *, pushes_from: int, removes_from: int) -> None:
+        """Truncate graph sync queues to lengths before a flush attempt."""
+        if pushes_from < len(self.graph_sync_pushes):
+            del self.graph_sync_pushes[pushes_from:]
+        if removes_from < len(self.graph_sync_removes):
+            del self.graph_sync_removes[removes_from:]
+
+    def expire_all(self) -> None:
+        """Evict all instances from the identity map and snapshots."""
+        self.identity_map.clear()
+        self.snapshots.clear()
+        self.pending_deletes.clear()
 
     def clear_graph_sync(self) -> None:
         self.graph_sync_pushes.clear()

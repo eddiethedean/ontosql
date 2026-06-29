@@ -61,9 +61,16 @@ def write_instance_to_graph(
     registry: PrefixRegistry,
     *,
     visited: set[int] | None = None,
+    visited_iris: set[str] | None = None,
 ) -> str:
     """Write one semantic instance subgraph into an existing Store."""
-    return _write_instance(graph, instance, registry, visited=visited or set())
+    return _write_instance(
+        graph,
+        instance,
+        registry,
+        visited=visited or set(),
+        visited_iris=visited_iris or set(),
+    )
 
 
 def instance_to_graph(
@@ -76,7 +83,7 @@ def instance_to_graph(
     reg = _resolve_registry(instance, registry)
     graph = Store()
     bind_namespaces(graph, reg.prefixes())
-    write_instance_to_graph(graph, instance, reg, visited=visited)
+    write_instance_to_graph(graph, instance, reg, visited=set(), visited_iris=set())
     return graph
 
 
@@ -103,8 +110,9 @@ def instances_to_graph(
     graph = Store()
     bind_namespaces(graph, reg.prefixes())
     seen = visited if visited is not None else set()
+    seen_iris: set[str] = set()
     for instance in instances:
-        write_instance_to_graph(graph, instance, reg, visited=seen)
+        write_instance_to_graph(graph, instance, reg, visited=seen, visited_iris=seen_iris)
     return graph
 
 
@@ -149,12 +157,14 @@ def _write_instance(
     registry: PrefixRegistry,
     *,
     visited: set[int],
+    visited_iris: set[str],
 ) -> str:
     inst_key = id(instance)
     subject_iri = build_instance_iri(instance, registry)
-    if inst_key in visited:
+    if inst_key in visited or subject_iri in visited_iris:
         return subject_iri
     visited.add(inst_key)
+    visited_iris.add(subject_iri)
 
     subject = NamedNode(subject_iri)
     model_cls = type(instance)
@@ -174,12 +184,16 @@ def _write_instance(
         field_meta = get_onto_property_meta(model_cls, field_name)
 
         if isinstance(value, OntoModel):
-            nested_iri = _write_instance(graph, value, registry, visited=visited)
+            nested_iri = _write_instance(
+                graph, value, registry, visited=visited, visited_iris=visited_iris
+            )
             graph.add((subject, pred_node, NamedNode(nested_iri)))
         elif isinstance(value, (list, tuple, set)):
             for item in value:
                 if isinstance(item, OntoModel):
-                    nested_iri = _write_instance(graph, item, registry, visited=visited)
+                    nested_iri = _write_instance(
+                        graph, item, registry, visited=visited, visited_iris=visited_iris
+                    )
                     graph.add((subject, pred_node, NamedNode(nested_iri)))
                 elif item is not None:
                     lit = _literal_object(item, registry=registry, meta=field_meta)

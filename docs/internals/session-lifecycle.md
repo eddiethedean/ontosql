@@ -57,7 +57,7 @@ sequenceDiagram
 `flush()` processes `pending` **sequentially**:
 
 - Each successful item is removed from the queue and executed against the **current** SQLAlchemy transaction.
-- If item *N* fails, items *N+1…* remain queued; SQL for items *1…N-1* is **not** rolled back automatically.
+- If item *N* fails, items *N+1…* remain queued; graph sync pushes added during the failed flush are **restored** to the pre-flush queue length.
 - Not an atomic multi-item transaction unless the database driver/session already wraps them.
 
 ## Rollback
@@ -65,12 +65,12 @@ sequenceDiagram
 `session.rollback()`:
 
 - Rolls back the **SQLAlchemy** transaction.
-- **Clears** `pending`, graph sync queues, and pending-delete tombstones by default (`clear_uow=True` since 0.5.2).
-- Does **not** clear `identity_map` or `snapshots` unless instances are expired separately.
+- **Always clears** graph sync queues (even when `clear_uow=False`).
+- **Clears** `pending` and pending-delete tombstones when `clear_uow=True` (default).
 
-Pass `clear_uow=False` only when you intentionally want queued writes to flush on context exit after rollback. A `UserWarning` is emitted if pending or graph queues remain non-empty.
+Pass `clear_uow=False` only when you intentionally want queued SQL writes to flush on context exit after rollback. A `UserWarning` is emitted if the pending queue remains non-empty.
 
-After `rollback(clear_uow=False)`, call `clear_pending()` if you must prevent queued writes from flushing on context exit. Expire cached instances with `session.expire(...)` or start a fresh session if identity map state is stale.
+After `rollback()`, call `expire_all()` or `expire(...)` if identity map state is stale relative to the database.
 
 ## Graph sync timing
 
@@ -78,8 +78,8 @@ Graph updates are **queued** during `save()` / `delete()` and applied **after SQ
 
 | Event | SQL | Graph |
 |-------|-----|-------|
-| `save()` | Queued or flushed per `flush_now` | Queued push |
-| `delete()` | Queued or flushed | Queued remove (root subject only) |
+| `save()` | Queued or flushed per `flush_now` | Queued push (after successful flush in deferred path) |
+| `delete()` | Queued or flushed | Queued remove (uses pre-delete snapshot for nested IRIs) |
 | `commit()` | Durable | Not yet updated |
 | `flush_graph_sync()` | — | Push/remove applied |
 

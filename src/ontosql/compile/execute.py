@@ -16,6 +16,7 @@ from ontosql.compile._sql_runner import (
     check_replace_nested_exclusive,
     inbound_fk_count_stmts,
     nested_delete_fk_nulling,
+    nested_delete_identity,
     run_null_fks_for_nested_deletes,
 )
 from ontosql.compile.plan import CollectionWritePlan, DeletePlan, WritePlan
@@ -141,6 +142,14 @@ class _SyncWriteExecutor:
                 self.run_stmt(
                     insert(through_table).values({source_key: parent_id, target_key: tid})
                 )
+            for member_delete in cwp.member_deletes:
+                assert_delete_exclusive(
+                    member_delete,
+                    field_name=cwp.field_name,
+                    run_count=lambda stmt: self.session.exec(stmt).one(),
+                    mapper_registry=self.mapper_registry,
+                )
+                self.execute_delete(member_delete)
 
     def _run_write_plan(self, plan: WritePlan) -> Any:
         self.null_fks(plan)
@@ -271,6 +280,17 @@ class _AsyncWriteExecutor:
                 await self.run_stmt(
                     insert(through_table).values({source_key: parent_id, target_key: tid})
                 )
+            for member_delete in cwp.member_deletes:
+                nested_id = nested_delete_identity(member_delete)
+                if self.mapper_registry is None:
+                    raise ExecuteError("Collection REPLACE member delete requires mapper_registry=")
+                stmts = inbound_fk_count_stmts(self.mapper_registry, member_delete)
+                total = 0
+                for _, stmt in stmts:
+                    result = await self.session.execute(stmt)
+                    total += count_scalar(result.one())
+                check_replace_nested_exclusive(total, cwp.field_name, nested_id)
+                await self.execute_delete(member_delete)
 
     async def _run_write_plan(self, plan: WritePlan) -> Any:
         await self.null_fks(plan)
@@ -332,14 +352,114 @@ def execute_write_plan(
     )._run_write_plan(plan)
 
 
-def execute_delete_plan(session: Any, plan: DeletePlan) -> None:
-    """Execute a DeletePlan synchronously."""
+def assert_delete_exclusive(
+    delete_plan: DeletePlan,
+    *,
+    field_name: str,
+    run_count: Callable[[Any], Any],
+    mapper_registry: Any | None,
+    exclude_table: Any | None = None,
+    exclude_where: dict[str, Any] | None = None,
+) -> None:
+    nested_id = nested_delete_identity(delete_plan)
+    if mapper_registry is None:
+        raise ExecuteError(
+            "DELETE nested cascade requires mapper_registry= for cross-table FK safety"
+        )
+    stmts = inbound_fk_count_stmts(
+        mapper_registry,
+        delete_plan,
+        exclude_table=exclude_table,
+        exclude_where=exclude_where,
+    )
+    total = sum(count_scalar(run_count(stmt)) for _, stmt in stmts)
+    check_replace_nested_exclusive(total, field_name, nested_id)
+
+
+def _run_delete_plan(
+    session: Any,
+    plan: DeletePlan,
+    *,
+    mapper_registry: Any | None,
+    run_count: Callable[[Any], Any],
+    execute_nested: Callable[[DeletePlan], None],
+) -> None:
+    for field_name, nested_plan in plan.nested_deletes:
+        assert_delete_exclusive(
+            nested_plan,
+            field_name=field_name,
+            run_count=run_count,
+            mapper_registry=mapper_registry,
+            exclude_table=plan.root.table,
+            exclude_where=plan.root.where,
+        )
+        execute_nested(nested_plan)
     if plan.root.where is None:
         raise ExecuteError("delete plan requires where clause")
     table = plan.root.table
     stmt = delete(table)
     stmt = _apply_where(stmt, table, plan.root.where)
     session.exec(stmt)
+
+
+def execute_delete_plan(
+    session: Any,
+    plan: DeletePlan,
+    *,
+    mapper_registry: Any | None = None,
+) -> None:
+    """Execute a DeletePlan synchronously."""
+
+    def _exec_nested(nested: DeletePlan) -> None:
+        execute_delete_plan(session, nested, mapper_registry=mapper_registry)
+
+    _run_delete_plan(
+        session,
+        plan,
+        mapper_registry=mapper_registry,
+        run_count=lambda stmt: session.exec(stmt).one(),
+        execute_nested=_exec_nested,
+    )
+
+
+async def async_execute_delete_plan(
+    session: AsyncSession,
+    plan: DeletePlan,
+    *,
+    mapper_registry: Any | None = None,
+) -> None:
+    """Execute a DeletePlan on an AsyncSession."""
+
+    async def _exec_nested(nested: DeletePlan) -> None:
+        await async_execute_delete_plan(session, nested, mapper_registry=mapper_registry)
+
+    async def _run_count(stmt: Any) -> Any:
+        result = await session.execute(stmt)
+        return result.one()
+
+    for field_name, nested_plan in plan.nested_deletes:
+        nested_id = nested_delete_identity(nested_plan)
+        if mapper_registry is None:
+            raise ExecuteError(
+                "DELETE nested cascade requires mapper_registry= for cross-table FK safety"
+            )
+        stmts = inbound_fk_count_stmts(
+            mapper_registry,
+            nested_plan,
+            exclude_table=plan.root.table,
+            exclude_where=plan.root.where,
+        )
+        total = 0
+        for _, stmt in stmts:
+            total += count_scalar(await _run_count(stmt))
+        check_replace_nested_exclusive(total, field_name, nested_id)
+        await _exec_nested(nested_plan)
+    if plan.root.where is None:
+        raise ExecuteError("delete plan requires where clause")
+    table = plan.root.table
+    stmt = delete(table)
+    stmt = _apply_where(stmt, table, plan.root.where)
+    await session.execute(stmt)
 
 
 async def async_execute_write_plan(
@@ -355,13 +475,3 @@ async def async_execute_write_plan(
         mapper_registry=mapper_registry,
         strict_updates=strict_updates,
     )._run_write_plan(plan)
-
-
-async def async_execute_delete_plan(session: AsyncSession, plan: DeletePlan) -> None:
-    """Execute a DeletePlan on an AsyncSession."""
-    if plan.root.where is None:
-        raise ExecuteError("delete plan requires where clause")
-    table = plan.root.table
-    stmt = delete(table)
-    stmt = _apply_where(stmt, table, plan.root.where)
-    await session.execute(stmt)

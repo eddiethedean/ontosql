@@ -16,6 +16,7 @@ from ontosql.compile.write import compile_delete_plan, count_scalar
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session._ops import (
+    _merge_snapshots_for_save,
     compile_save_plan_for_instance,
     identity_from_write_plan,
     merge_identity_into_instance,
@@ -118,12 +119,12 @@ class OntoSession(SessionBase):
         See ``docs/internals/session-lifecycle.md``.
         """
         self._require_session().rollback()
+        self._state.clear_graph_sync()
         if clear_uow:
             self._state.clear_pending()
-            self._state.clear_graph_sync()
-        elif self._state.pending or self._state.has_graph_sync_pending:
+        elif self._state.pending:
             warnings.warn(
-                "rollback(clear_uow=False) left pending save/delete or graph sync queues; "
+                "rollback(clear_uow=False) left pending save/delete queues; "
                 "they may flush on session exit",
                 stacklevel=2,
             )
@@ -209,7 +210,8 @@ class OntoSession(SessionBase):
         mapper_cls = self._mapper_for(entity_type)
         stmt = compile_count_statement(mapper_cls, where=where)
         result = self._require_session().exec(stmt).one()
-        return count_scalar(result)
+        total = count_scalar(result)
+        return max(0, total - self._state.count_pending_deletes(entity_type))
 
     def _reload_after_save(
         self,
@@ -249,6 +251,23 @@ class OntoSession(SessionBase):
             run_select=lambda stmt: self._require_session().exec(stmt),
         )
 
+    def _remove_snapshot_for_delete(
+        self, instance: OntoModel, mapper_cls: type[Any]
+    ) -> dict[str, Any] | None:
+        db_snapshot = self._load_snapshot_from_db(instance, mapper_cls)
+        session_snapshot = self._state.get_snapshot(instance)
+        return _merge_snapshots_for_save(session_snapshot, db_snapshot)
+
+    def _queue_graph_remove_for_delete(
+        self,
+        instance: OntoModel,
+        mapper_cls: type[Any],
+        snapshot: dict[str, Any] | None,
+    ) -> None:
+        if self._graph_sync is None:
+            return
+        queue_graph_remove(self._state, instance, snapshot=snapshot)
+
     def save(self, instance: OntoModel, *, flush_now: bool = True) -> OntoModel:
         mapper_cls = self._mapper_for(type(instance))
         is_new = self._is_new_instance(mapper_cls, instance)
@@ -278,32 +297,46 @@ class OntoSession(SessionBase):
                 inserted_id,
                 prior_nested_iris=prior_nested,
             )
-        self._state.queue_pending_write(plan, instance)
+        self._state.queue_pending_write(plan, instance, prior_nested_iris=prior_nested)
         return instance
 
     def delete(self, instance: OntoModel, *, flush_now: bool = True) -> None:
         mapper_cls = self._mapper_for(type(instance))
-        plan = compile_delete_plan(mapper_cls, instance)
+        snapshot = self._remove_snapshot_for_delete(instance, mapper_cls)
+        plan = compile_delete_plan(mapper_cls, instance, snapshot=snapshot)
         identity = getattr(instance, mapper_cls.identity_field, None)
         if flush_now:
-            execute_delete_plan(self._require_session(), plan)
+            execute_delete_plan(
+                self._require_session(),
+                plan,
+                mapper_registry=self._registry,
+            )
             if identity is not None:
                 self._state.expire(type(instance), identity)
-            if self._graph_sync is not None:
-                queue_graph_remove(self._state, instance)
+            self._queue_graph_remove_for_delete(instance, mapper_cls, snapshot)
         else:
             if identity is not None:
                 self._state.mark_pending_delete(type(instance), identity)
-            self._state.pending.append(PendingDelete(plan=plan, instance=instance))
+            self._state.pending.append(
+                PendingDelete(plan=plan, instance=instance, snapshot=snapshot)
+            )
 
     def _apply_pending_delete(self, pending: PendingDelete) -> None:
-        execute_delete_plan(self._require_session(), pending.plan)
+        execute_delete_plan(
+            self._require_session(),
+            pending.plan,
+            mapper_registry=self._registry,
+        )
         mapper_cls = pending.plan.mapper_cls
         identity = getattr(pending.instance, mapper_cls.identity_field, None)
         if identity is not None:
             self._state.expire(mapper_cls.entity, identity)
         if self._graph_sync is not None:
-            queue_graph_remove(self._state, pending.instance)
+            queue_graph_remove(
+                self._state,
+                pending.instance,
+                snapshot=pending.snapshot,
+            )
 
     def flush(self) -> None:
         """Apply pending save/delete plans; stops on first error (unprocessed queue preserved)."""
@@ -311,22 +344,17 @@ class OntoSession(SessionBase):
             return
         queue = list(self._state.pending)
         processed = 0
+        pushes_before = len(self._state.graph_sync_pushes)
+        removes_before = len(self._state.graph_sync_removes)
         try:
             for item in queue:
                 if isinstance(item, WritePlan):
                     plan = item
                     source_instance = self._state.peek_pending_instance(plan)
-                    prior_nested = frozenset()
-                    if self._graph_sync is not None and source_instance is not None:
-                        prior_nested = prior_nested_iris_for_save(
-                            self._state,
-                            source_instance,
-                            plan.mapper_cls,
-                            self._state.get_snapshot(source_instance),
-                            self._registry_prefix,
-                        )
+                    prior_nested = self._state.prior_nested_for_plan(plan) or frozenset()
                     inserted_id = self._execute_write(plan)
                     self._state.pop_pending_instance(plan)
+                    self._state.pending_prior_nested.pop(id(plan), None)
                     if source_instance is not None:
                         merge_identity_into_instance(
                             source_instance,
@@ -348,10 +376,15 @@ class OntoSession(SessionBase):
                 processed += 1
         except Exception:
             self._state.pending = queue[processed:]
+            self._state.restore_graph_sync(
+                pushes_from=pushes_before,
+                removes_from=removes_before,
+            )
             raise
         self._state.pending.clear()
         self._state.pending_instances.clear()
         self._state.pending_insert_objects.clear()
+        self._state.pending_prior_nested.clear()
         logger.debug("session flush sync complete")
 
     def _execute_write(self, plan: WritePlan) -> Any:

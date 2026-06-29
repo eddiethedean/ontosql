@@ -223,10 +223,10 @@ async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as sessio
 | `get(entity, *, identity=..., iri=...)` | 0.2.0 | Load one instance by primary key or IRI |
 | `find(entity, *, where=..., order_by=..., limit=..., offset=...)` | 0.2.0 | Query with semantic field expressions |
 | `save(instance, *, flush_now=True)` | 0.3.0 | Insert or update; returns hydrated instance |
-| `delete(instance, *, flush_now=True)` | 0.3.0 | Delete root row by identity |
+| `delete(instance, *, flush_now=True)` | 0.3.0 | Delete root row; `REPLACE` nested/collection members when exclusively owned |
 | `flush()` / `clear_pending()` | 0.3.0 | Apply or discard pending write queue |
 | `rollback()` (sync) | 0.5.x | Roll back open SQLAlchemy transaction |
-| `count(entity, *, where=...)` | 0.3.0 | Count rows matching a filter |
+| `count(entity, *, where=...)` | 0.3.0 | Count rows matching a filter; subtracts pending-delete tombstones in-session |
 | `paginate(...)` / `paginate_async(...)` | 0.3.0 | `Page` with optional total count |
 | `retry_graph_sync()` | 0.5.x | Retry queued graph ops after partial post-commit failure |
 | `graph_sync_pending` / `graph_sync_failures` | 0.5.x | Graph split-brain diagnostics |

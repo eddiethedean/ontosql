@@ -186,11 +186,34 @@ def _compile_nested(
     return nested_plans, nested_deletes, fk_updates
 
 
+def _snapshot_collection_ids(
+    snapshot: dict[str, Any] | None,
+    field_name: str,
+    nested_mapper: type[Any],
+) -> set[Any]:
+    if snapshot is None:
+        return set()
+    raw_items = snapshot.get(field_name)
+    if not isinstance(raw_items, list):
+        return set()
+    ids: set[Any] = set()
+    identity_field = nested_mapper.identity_field
+    for item in raw_items:
+        if isinstance(item, dict):
+            member_id = item.get(identity_field)
+        else:
+            member_id = getattr(item, identity_field, None)
+        if member_id is not None:
+            ids.add(member_id)
+    return ids
+
+
 def _compile_collections(
     mapper_cls: type[Any],
     instance: OntoModel,
     *,
     partial_fields: set[str] | None,
+    snapshot: dict[str, Any] | None = None,
 ) -> list[CollectionWritePlan]:
     plans: list[CollectionWritePlan] = []
     for field_name, cmap in mapper_cls.collection_maps.items():
@@ -216,12 +239,23 @@ def _compile_collections(
                     raise WriteCompileError(
                         f"Collection item in {field_name!r} requires an identity for cascade=link"
                     )
+        member_deletes: list[DeletePlan] = []
+        if cmap.cascade is CascadePolicy.REPLACE and snapshot is not None:
+            old_ids = _snapshot_collection_ids(snapshot, field_name, cmap.nested_mapper)
+            new_ids = {
+                _identity_value(cmap.nested_mapper, item)
+                for item in items
+                if _identity_value(cmap.nested_mapper, item) is not None
+            }
+            for removed_id in old_ids - new_ids:
+                member_deletes.append(_delete_plan_for_identity(cmap.nested_mapper, removed_id))
         plans.append(
             CollectionWritePlan(
                 field_name=field_name,
                 policy=cmap.cascade,
                 items=list(items),
                 nested_writes=nested_writes,
+                member_deletes=member_deletes,
             )
         )
     return plans
@@ -291,6 +325,7 @@ def compile_save_plan(
         mapper_cls,
         instance,
         partial_fields=partial_fields if not new else None,
+        snapshot=snapshot,
     )
 
     return WritePlan(
@@ -304,8 +339,13 @@ def compile_save_plan(
     )
 
 
-def compile_delete_plan(mapper_cls: type[Any], instance: OntoModel) -> DeletePlan:
-    """Build a DeletePlan for delete() — root row only."""
+def compile_delete_plan(
+    mapper_cls: type[Any],
+    instance: OntoModel,
+    *,
+    snapshot: dict[str, Any] | None = None,
+) -> DeletePlan:
+    """Build a DeletePlan for delete() — root row plus REPLACE nested cascades."""
     identity = mapper_cls.identity_field
     if identity not in mapper_cls.column_maps:
         raise WriteCompileError(f"Mapper {mapper_cls.__name__} has no identity column map")
@@ -318,10 +358,26 @@ def compile_delete_plan(mapper_cls: type[Any], instance: OntoModel) -> DeletePla
     if root_table is None:
         raise WriteCompileError(f"Mapper {mapper_cls.__name__} has no primary_table")
 
+    nested_deletes: list[tuple[str, DeletePlan]] = []
+    for field_name, nmap in mapper_cls.nested_maps.items():
+        if nmap.cascade is not CascadePolicy.REPLACE:
+            continue
+        nested_value = getattr(instance, field_name, None)
+        nested_id: Any | None = None
+        if nested_value is not None:
+            nested_id = _identity_value(nmap.nested_mapper, nested_value)
+        if nested_id is None:
+            nested_id = _snapshot_nested_identity(snapshot, field_name, nmap.nested_mapper)
+        if nested_id is not None:
+            nested_deletes.append(
+                (field_name, _delete_plan_for_identity(nmap.nested_mapper, nested_id))
+            )
+
     return DeletePlan(
         mapper_cls=mapper_cls,
         root=TableWrite(
             table=root_table,
             where={_column_key(identity_col.column): identity_value},
         ),
+        nested_deletes=nested_deletes,
     )

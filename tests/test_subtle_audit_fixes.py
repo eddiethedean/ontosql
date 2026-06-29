@@ -268,11 +268,159 @@ def test_graph_sync_collection_patch_retracts_stale_skills(m2m_graph_engine) -> 
     assert build_instance_iri(Skill(id=12, name="SPARQL"), reg) in linked
 
 
+def test_collection_replace_deletes_orphan_members(m2m_graph_engine) -> None:
+    class ReplaceSkillsPersonMap(OntoMapper[SkilledPerson]):
+        entity = SkilledPerson
+        id = Map(M2MPersonRow.id)
+        name = Map(M2MPersonRow.name, property="schema:name")
+        skills = Map.collection(
+            Skill,
+            through=PersonSkillRow,
+            source_fk=PersonSkillRow.person_id,
+            target_fk=PersonSkillRow.skill_id,
+            nested_map=SkillMap,
+            field="skills",
+            property="schema:knowsAbout",
+            cascade=CascadePolicy.REPLACE,
+        )
+
+    with OntoSession(
+        m2m_graph_engine,
+        maps=[ReplaceSkillsPersonMap, SkillMap],
+    ) as session:
+        person = session.get(SkilledPerson, identity=1)
+        assert person is not None
+        person.skills = [Skill(id=12, name="SPARQL")]
+        session.save(person)
+
+    with Session(m2m_graph_engine) as raw:
+        assert raw.get(SkillRow, 10) is None
+        assert raw.get(SkillRow, 11) is None
+        assert raw.get(SkillRow, 12) is not None
+
+
 def test_rollback_clear_uow_false_warns(sync_engine) -> None:
     with OntoSession(sync_engine, maps=[PersonMap]) as session:
         session.save(Person(id=801, name="Warn", employer=None), flush_now=False)
         with pytest.warns(UserWarning, match="clear_uow=False"):
             session.rollback(clear_uow=False)
+
+
+def test_deferred_flush_graph_sync_retracts_stale_nested(sync_engine) -> None:
+    """Deferred save must capture prior_nested at queue time (detached instance)."""
+    reg = PrefixRegistry()
+    target = StoreSyncTarget()
+    with OntoSession(
+        sync_engine,
+        maps=[PersonMap, OrganizationMap],
+        graph_sync=target,
+        graph_sync_mode="patch",
+    ) as session:
+        person = session.get(Person, identity=1)
+        assert person is not None
+        session.save(person)
+
+    org_iri = build_instance_iri(Organization(id=10, name="Analytical Engines Inc."), reg)
+    assert any(term_str(t[0]) == org_iri for t in target.graph)
+
+    with OntoSession(
+        sync_engine,
+        maps=[PersonMap, OrganizationMap],
+        graph_sync=target,
+        graph_sync_mode="patch",
+    ) as session:
+        person = Person(id=1, name="Ada Lovelace", employer=None)
+        session.save(person, flush_now=False)
+        session.flush()
+
+    assert not any(term_str(t[0]) == org_iri for t in target.graph)
+
+
+def test_count_excludes_pending_delete(sync_engine) -> None:
+    with OntoSession(sync_engine, maps=[PersonMap]) as session:
+        person = session.get(Person, identity=1)
+        assert person is not None
+        before = session.count(Person)
+        session.delete(person, flush_now=False)
+        assert session.count(Person) == before - 1
+
+
+def test_delete_graph_remove_reloads_nested_from_db(sync_engine) -> None:
+    reg = PrefixRegistry()
+    target = StoreSyncTarget()
+    with OntoSession(
+        sync_engine,
+        maps=[PersonMap, OrganizationMap],
+        graph_sync=target,
+    ) as session:
+        person = session.get(Person, identity=1)
+        assert person is not None
+        session.save(person)
+
+    org_iri = build_instance_iri(Organization(id=10, name="Analytical Engines Inc."), reg)
+    assert any(term_str(t[0]) == org_iri for t in target.graph)
+
+    with OntoSession(
+        sync_engine,
+        maps=[PersonMap, OrganizationMap],
+        graph_sync=target,
+    ) as session:
+        session.delete(Person.model_construct(id=1, name="Ada Lovelace", employer=None))
+
+    assert not any(term_str(t[0]) == org_iri for t in target.graph)
+
+
+def test_flush_partial_failure_clears_graph_queue(sync_engine) -> None:
+    import ontosql.session.sync as sync_mod
+
+    target = StoreSyncTarget()
+    real_execute = sync_mod.execute_write_plan
+    call_count = 0
+
+    def flaky_execute(session, plan, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            raise RuntimeError("fail on second")
+        return real_execute(session, plan, **kwargs)
+
+    with OntoSession(sync_engine, maps=[PersonMap], graph_sync=target) as session:
+        session.save(Person(id=810, name="A", employer=None), flush_now=False)
+        session.save(Person(id=811, name="B", employer=None), flush_now=False)
+        with (
+            patch.object(sync_mod, "execute_write_plan", side_effect=flaky_execute),
+            pytest.raises(RuntimeError, match="fail on second"),
+        ):
+            session.flush()
+        assert not session.graph_sync_pending
+
+
+def test_delete_sql_cascade_replace_nested(sync_engine) -> None:
+    class ReplacePersonMap(OntoMapper[Person]):
+        entity = Person
+        id = Map(PersonRow.id)
+        name = Map(PersonRow.name)
+        employer = Map.nested(
+            Organization,
+            join=PersonRow.org_id == OrgRow.id,
+            nested_map=OrganizationMap,
+            fk_column=PersonRow.org_id,
+            cascade=CascadePolicy.REPLACE,
+        )
+
+    with Session(sync_engine) as raw:
+        row = raw.get(PersonRow, 2)
+        assert row is not None
+        row.org_id = None
+        raw.commit()
+
+    with OntoSession(sync_engine, maps=[ReplacePersonMap, OrganizationMap]) as session:
+        person = session.get(Person, identity=1)
+        assert person is not None
+        session.delete(person)
+
+    with Session(sync_engine) as raw:
+        assert raw.get(OrgRow, 10) is None
 
 
 @pytest.fixture

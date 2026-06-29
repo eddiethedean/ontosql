@@ -104,9 +104,20 @@ def test_router_skip_duplicate_register() -> None:
 
 
 def test_list_pagination_params(api_client: TestClient) -> None:
-    resp = api_client.get("/onto/person?limit=1&offset=0")
+    resp = api_client.get(
+        "/onto/person?limit=1&offset=0",
+        headers={"Accept": "application/json"},
+    )
     assert resp.status_code == 200
     assert len(resp.json()) == 1
+
+
+def test_list_default_accept_is_jsonld(api_client: TestClient) -> None:
+    resp = api_client.get("/onto/person?limit=1&offset=0")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("application/ld+json")
+    body = resp.json()
+    assert "@graph" in body or "@id" in body
 
 
 def test_list_limit_capped_at_100(api_client: TestClient) -> None:

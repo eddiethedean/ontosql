@@ -95,7 +95,17 @@ async def _read_json_body(request: Request, max_body_bytes: int) -> Any:
                 status_code=_HTTP_413,
                 detail=f"Request body exceeds max_body_bytes={max_body_bytes}",
             )
-    raw = await request.body()
+    chunks: list[bytes] = []
+    total = 0
+    async for chunk in request.stream():
+        total += len(chunk)
+        if total > max_body_bytes:
+            raise HTTPException(
+                status_code=_HTTP_413,
+                detail=f"Request body exceeds max_body_bytes={max_body_bytes}",
+            )
+        chunks.append(chunk)
+    raw = b"".join(chunks)
     if len(raw) > max_body_bytes:
         raise HTTPException(
             status_code=_HTTP_413,
@@ -204,7 +214,7 @@ class OntoRouter:
                     return negotiate_graph_response(chosen, graph)
 
             page = await paginate_async(session, entity_type, limit=limit, offset=offset)
-            if chosen == "application/ld+json":
+            if chosen == "application/ld+json" or chosen is None:
                 from ontosql.export.instance import instances_to_jsonld
 
                 payload = instances_to_jsonld(page.items)

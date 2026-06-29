@@ -50,6 +50,10 @@ class SessionBase:
             raise TypeError(f"entity_type must be an OntoModel subclass, got {entity_type!r}")
         self._state.expire(entity_type, identity)
 
+    def expire_all(self) -> None:
+        """Evict all cached instances and snapshots from the identity map."""
+        self._state.expire_all()
+
     def clear_pending(self) -> None:
         """Discard queued save/delete plans and graph sync queues without touching SQL.
 

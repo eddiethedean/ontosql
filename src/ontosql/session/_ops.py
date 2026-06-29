@@ -42,6 +42,8 @@ def _merge_snapshots_for_save(
             nested_merged = dict(session_value)
             nested_merged.update(db_value)
             merged[key] = nested_merged
+        elif isinstance(session_value, list) and isinstance(db_value, list):
+            merged[key] = db_value if db_value else session_value
         elif db_value is None and isinstance(session_value, dict):
             merged[key] = None
         elif db_value is not None:

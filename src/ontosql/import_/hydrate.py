@@ -5,6 +5,7 @@ from __future__ import annotations
 import types
 from typing import Any, Union, get_args, get_origin
 
+from pydantic import ValidationError
 from pyoxigraph import Literal, NamedNode
 from triplemodel import RDF_TYPE, Store
 
@@ -53,6 +54,54 @@ def _scalar_type(py_type: Any) -> Any:
     return py_type
 
 
+def _is_collection_type(py_type: Any) -> bool:
+    origin = get_origin(py_type)
+    return origin in (list, tuple, set, frozenset)
+
+
+def _collection_item_type(py_type: Any) -> Any:
+    origin = get_origin(py_type)
+    if origin in (list, tuple, set, frozenset):
+        args = get_args(py_type)
+        if args:
+            return args[0]
+    return str
+
+
+def _expand_datatype(meta: dict[str, Any], registry: PrefixRegistry) -> str | None:
+    datatype = meta.get("datatype")
+    if datatype is None:
+        return None
+    if ":" in datatype and "://" not in datatype:
+        return registry.expand(datatype)
+    return datatype
+
+
+def _literal_matches_meta(term: Literal, meta: dict[str, Any], registry: PrefixRegistry) -> bool:
+    language = meta.get("language")
+    if language is not None:
+        return term.language == language
+    datatype = _expand_datatype(meta, registry)
+    if datatype is not None:
+        return term.datatype is not None and str(term.datatype) == datatype
+    return True
+
+
+def _pick_literal(objects: list[Any], meta: dict[str, Any], registry: PrefixRegistry) -> Any:
+    literals = [o for o in objects if isinstance(o, Literal)]
+    if not literals:
+        return objects[0]
+    if meta.get("language") or meta.get("datatype"):
+        for lit in literals:
+            if _literal_matches_meta(lit, meta, registry):
+                return lit
+        raise OntoImportError(
+            f"No literal matches expected metadata language={meta.get('language')!r} "
+            f"datatype={meta.get('datatype')!r}"
+        )
+    return literals[0]
+
+
 def _coerce_literal(
     term: Any,
     *,
@@ -83,6 +132,11 @@ def _coerce_literal(
             return float(raw)
         except ValueError as exc:
             raise OntoImportError(f"Cannot coerce literal {raw!r} to float") from exc
+    expected_dt = _expand_datatype(meta, registry)
+    if expected_dt is not None and term.datatype is not None and str(term.datatype) != expected_dt:
+        raise OntoImportError(
+            f"Literal datatype {term.datatype!s} does not match expected {expected_dt!r}"
+        )
     return raw
 
 
@@ -177,7 +231,24 @@ def graph_to_instance(
         from ontosql.semantic.model import get_onto_property_meta
 
         meta = get_onto_property_meta(entity_type, field_name)
-        fields[field_name] = _coerce_literal(objects[0], py_type=py_type, registry=reg, meta=meta)
+        if _is_collection_type(py_type):
+            item_type = _collection_item_type(py_type)
+            values: list[Any] = []
+            seen: set[Any] = set()
+            for obj in objects:
+                term = _pick_literal(objects=[obj], meta=meta, registry=reg)
+                value = _coerce_literal(term, py_type=item_type, registry=reg, meta=meta)
+                if value not in seen:
+                    seen.add(value)
+                    values.append(value)
+            fields[field_name] = values
+        else:
+            if len(objects) > 1:
+                raise OntoImportError(
+                    f"Scalar field {field_name!r} has {len(objects)} values; expected one"
+                )
+            term = _pick_literal(objects, meta, reg)
+            fields[field_name] = _coerce_literal(term, py_type=py_type, registry=reg, meta=meta)
 
     for field_name, nmap in mapper.nested_maps.items():
         predicate = _predicate_iri(entity_type, field_name, reg)
@@ -201,8 +272,12 @@ def graph_to_instance(
                 _depth=_depth + 1,
                 _visited=visited,
             )
+        elif isinstance(obj, Literal):
+            raise OntoImportError(f"Nested field {field_name!r} expects a URI object, got Literal")
         else:
-            fields[field_name] = None
+            raise OntoImportError(
+                f"Nested field {field_name!r} expects a URI object, got {type(obj).__name__}"
+            )
 
     for field_name, cmap in mapper.collection_maps.items():
         predicate = _predicate_iri(entity_type, field_name, reg)
@@ -239,7 +314,10 @@ def graph_to_instance(
                 )
         fields[field_name] = items
 
-    return entity_type.model_validate(fields)
+    try:
+        return entity_type.model_validate(fields)
+    except ValidationError as exc:
+        raise OntoImportError(f"Cannot validate {entity_type.__name__} from RDF: {exc}") from exc
 
 
 def subject_iri_from_jsonld(doc: dict[str, Any]) -> str:

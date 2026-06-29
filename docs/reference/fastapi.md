@@ -46,4 +46,6 @@ Requires `pip install ontosql[fastapi]`. Beta-experimental tier — see [SPECS.m
 
 ## Production patterns
 
+List `GET` routes default to **`application/ld+json`** when no `Accept` header is sent (same as item `GET`). Pass `Accept: application/json` for a plain JSON array.
+
 See [production-router.md](../guides/production-router.md) and [FastAPI quick start](../guides/fastapi-quickstart.md).

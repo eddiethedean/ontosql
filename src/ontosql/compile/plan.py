@@ -57,6 +57,7 @@ class CollectionWritePlan:
     policy: CascadePolicy
     items: list[Any]
     nested_writes: list[Any] = field(default_factory=list)
+    member_deletes: list[DeletePlan] = field(default_factory=list)
 
 
 @dataclass
@@ -74,7 +75,8 @@ class WritePlan:
 
 @dataclass
 class DeletePlan:
-    """Delete plan for one semantic entity (root row only in v0.3)."""
+    """Delete plan for one semantic entity (root row and optional nested cascades)."""
 
     mapper_cls: type[Any]
     root: TableWrite
+    nested_deletes: list[tuple[str, DeletePlan]] = field(default_factory=list)

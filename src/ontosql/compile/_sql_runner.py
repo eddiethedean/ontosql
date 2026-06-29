@@ -54,27 +54,6 @@ def nested_delete_identity(delete_plan: DeletePlan) -> Any:
     return next(iter(delete_plan.root.where.values()))
 
 
-def replace_nested_exclusive_count_stmt(
-    plan: WritePlan,
-    field_name: str,
-    delete_plan: DeletePlan,
-) -> Any | None:
-    """Build a COUNT stmt for REPLACE exclusivity, or None when check does not apply."""
-    nmap = plan.mapper_cls.nested_maps.get(field_name)
-    if nmap is None or nmap.fk_column is None or plan.root.where is None:
-        return None
-    nested_id = nested_delete_identity(delete_plan)
-    fk_key = _column_key(nmap.fk_column)
-    parent_table = plan.root.table
-    identity_col = plan.mapper_cls.column_maps[plan.mapper_cls.identity_field]
-    parent_id_key = _column_key(identity_col.column)
-    parent_id = plan.root.where.get(parent_id_key)
-    stmt = select(func.count()).select_from(parent_table).where(parent_table.c[fk_key] == nested_id)
-    if parent_id is not None:
-        stmt = stmt.where(parent_table.c[parent_id_key] != parent_id)
-    return stmt
-
-
 def check_replace_nested_exclusive(count: int, field_name: str, nested_id: Any) -> None:
     if count > 0:
         raise ExecuteError(

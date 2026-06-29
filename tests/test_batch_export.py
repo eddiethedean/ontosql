@@ -82,3 +82,15 @@ def test_instances_to_rdf_batch() -> None:
     people = [Person(id=1, name="Ada", employer=None), Person(id=2, name="Grace", employer=None)]
     body = instances_to_rdf(people, format="turtle")
     assert "Ada" in body and "Grace" in body
+
+
+def test_instances_to_graph_deduplicates_by_iri() -> None:
+    org_a = Organization(id=10, name="Shared Org")
+    org_b = Organization(id=10, name="Shared Org")
+    people = [
+        Person(id=1, name="Ada", employer=org_a),
+        Person(id=2, name="Grace", employer=org_b),
+    ]
+    graph = instances_to_graph(people)
+    org_names = graph_literal_values(graph, "https://data.example.org/org/10", "schema:name")
+    assert org_names == ["Shared Org"]
