@@ -6,6 +6,8 @@ Pick the path that matches your goal. Each link is a single next step — not th
 
 [Quick start](../getting-started/quickstart.md) — `pip install ontosql`, copy the Tier 1 script, run semantic CRUD in under 10 minutes (no repo clone).
 
+[Tutorial](../getting-started/tutorial.md) — full walkthrough with reads, writes, and semantic queries.
+
 **Then go deeper:** [When to use OntoSQL](../getting-started/when-to-use.md) · [Semantic queries](semantic-queries.md) · [Architecture](../ARCHITECTURE.md) · [Technical specification](../SPECS.md)
 
 ## Async sessions

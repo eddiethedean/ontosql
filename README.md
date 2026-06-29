@@ -62,6 +62,7 @@ SQLModel.metadata.create_all(engine)
 with Session(engine) as raw:
     raw.add(PersonRow(id=1, name="Ada Lovelace"))
     raw.commit()
+# Demo seeds via SQLModel; production code typically uses session.save() — see quickstart.
 
 with OntoSession(engine, maps=[PersonMap]) as session:
     print(session.get(Person, identity=1).name)
@@ -89,6 +90,8 @@ python examples/person_org_demo.py
 | [person_org_async.py](examples/person_org_async.py) | Async session |
 | [hybrid_person_org.py](examples/hybrid_person_org.py) | Graph sync, import |
 | [person_org_api_production.py](examples/person_org_api_production.py) | Production FastAPI pattern |
+
+See [examples/README.md](examples/README.md) for layout and how `_bootstrap.py` works.
 
 ## Development
 

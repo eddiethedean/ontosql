@@ -19,7 +19,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 
 | Tier | Import paths | Policy until 1.0 |
 |------|----------------|------------------|
-| **Beta-stable** | `import ontosql` (root exports), `ontosql.semantic`, `ontosql.mapping`, `ontosql.session`, `ontosql.registry` | Additive changes only in minor releases until 1.0 |
+| **Beta-stable** | `import ontosql` (root exports), `ontosql.semantic`, `ontosql.mapping`, `ontosql.session`, `ontosql.registry`, `ontosql.io`, `ontosql.ports`, `ontosql.rdf` | Additive changes only in minor releases until 1.0 |
 | **Beta-supported** | `ontosql.export`, `ontosql.import_`, `ontosql.sync`, `ontosql.query` | May evolve; documented in [SPECS.md](SPECS.md) |
 | **Beta-experimental** | `ontosql.fastapi`, `ontosql.shacl`, `ontosql.export.jsonld` | Extra-gated; may change without deprecation |
 | **Internal** | `ontosql.compile`, `ontosql.session._ops`, `_*` helpers | Not part of the public contract — do not import in application code |
@@ -41,13 +41,18 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 | `GraphSyncFailure` | `ontosql.session` only (not re-exported from root) |
 | `OntoImportError` | `ontosql.import_` (also re-exported from root) |
 | `PrefixRegistry` | `ontosql.registry` |
+| `to_jsonld`, `to_rdf`, `from_jsonld` | `ontosql.io` (also root re-exports) |
+| `MapperLookup`, `MapperMetadata`, `PlanExecutor`, `GraphSyncPort` | `ontosql.ports` (also root re-exports) |
 
-`MapperRegistry` is exported from `ontosql.mapping` for multi-map registration; prefer `OntoSession(maps=[...])` for application wiring.
+`MapperRegistry` is exported from `ontosql.mapping` for multi-map registration; prefer `OntoSession(maps=[...])` or optional `mapper_registry=` for application wiring.
 
 ### Supported subpackages
 
 | Package | Key entry points |
 |---------|------------------|
+| `ontosql.io` | `to_jsonld`, `to_rdf`, `from_jsonld` — preferred module-level I/O API |
+| `ontosql.ports` | `SessionBackend`, `PlanExecutor`, `MapperLookup`, `MapperMetadata`, `GraphSyncPort` — extension protocols |
+| `ontosql.rdf` | `formats`, `literals`, `predicates` — shared RDF kernel (replaces `ontosql.export._formats` shim) |
 | `ontosql.export` | `instance_to_graph`, `instance_to_jsonld`, `instance_to_rdf`, `instances_to_graph`, `instances_to_jsonld`, `instances_to_rdf`, `write_instance_to_graph` |
 | `ontosql.import_` | `import_from_jsonld`, `import_from_rdf`, `graph_to_instance`, `OntoImportError` |
 | `ontosql.sync` | `push_instance`, `remove_instance`, `StoreSyncTarget`, `GraphSyncTarget`, `GraphSyncMode`, `materialize_find`, `materialize_find_async` |
@@ -57,8 +62,10 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 
 ### Instance methods on `OntoModel`
 
-- `to_jsonld()`, `to_rdf()` — export via TripleModel
-- `from_jsonld(doc, mapper=...)` — import via mapper metadata
+- `to_jsonld()`, `to_rdf()` — thin wrappers delegating to `ontosql.io`
+- `from_jsonld(doc, mapper=...)` — thin wrapper delegating to `ontosql.io.from_jsonld`
+
+Prefer `ontosql.to_jsonld(instance)` / `ontosql.from_jsonld(Person, doc, mapper=...)` for new code.
 
 ### Internal (unsupported)
 
@@ -73,7 +80,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 | **0.2.x** | Export (`to_jsonld` / `to_rdf`); export polish via TripleModel APIs |
 | **0.3.0** | `save` / `delete`, cascade policies, partial updates, `OntoRouter`, OpenAPI |
 | **0.4.0** | RDF import, graph sync, SHACL, `REPLACE` cascade, prefix bundles |
-| **0.5.0** | `Map.computed`, `Map.collection`, batch export, select-plan cache, dialect guides |
+| **0.5.0** | `Map.computed`, `Map.collection`, batch export, select-plan cache, SOLID refactor (`io`, `ports`, `rdf`), shared flush coordinator, `strict_graph_sync`, `mapper_registry=` |
 | **0.6** | Aggregations, extended filters, `explain`, mapper lint |
 | **0.7** | Bulk write, observability, read-replica routing, production guides |
 | **0.8** | Schema packs, OWL codegen, vocabulary modules |
@@ -231,10 +238,13 @@ async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as sessio
 | `retry_graph_sync()` | 0.5.x | Retry queued graph ops after partial post-commit failure |
 | `graph_sync_pending` / `graph_sync_failures` | 0.5.x | Graph split-brain diagnostics |
 
-Optional constructor arguments (0.4.0):
+Optional constructor arguments (0.4.0+):
 
 - `graph_sync` — `GraphSyncTarget` or `Store` with `graph` and `update_graph(add=, remove=)`
 - `graph_sync_mode` — `GraphSyncMode`: `"patch"` (default), `"replace"`, or `"add"`
+- `strict_graph_sync` — `bool` (default `True`, 0.5.0): raise `GraphSyncError` on session exit when post-commit graph sync fails
+- `mapper_registry` — optional `MapperLookup` (0.5.0): shared mapper lookup for sessions and compile paths; alternative to passing `maps=[...]` only
+- `registry` — optional `PrefixRegistry` for post-commit graph sync CURIE expansion
 
 Graph sync is applied **after SQL commit** on session exit. Rolled-back sessions discard queued graph updates. Partial graph failures raise `GraphSyncError` with remaining queue preserved for `retry_graph_sync()`. `flush()` queues graph sync for flushed writes; commit still required before the graph updates.
 
@@ -272,11 +282,12 @@ Used by session (IRI resolution), export, import, sync, and FastAPI responses.
 Export operates on **semantic instances** using `type_iri`, `onto_property`, and IRI templates. Implementation builds a TripleModel `Store` graph and serializes with pyoxigraph.
 
 ```python
-person.to_jsonld(registry=None) -> dict
+person.to_jsonld(registry=None) -> dict   # delegates to ontosql.io.to_jsonld
 person.to_rdf(format="turtle", registry=None) -> str
+ontosql.to_jsonld(person)                 # preferred module-level API
 ```
 
-Module-level helpers: `ontosql.export.instance_to_jsonld`, `instance_to_rdf`, `instance_to_graph`, `instances_to_jsonld`, `instances_to_rdf`, `instances_to_graph` (0.5.0 batch).
+Module-level helpers: `ontosql.io` (`to_jsonld`, `to_rdf`, `from_jsonld`), `ontosql.export.instance_to_jsonld`, `instance_to_rdf`, `instance_to_graph`, `instances_to_jsonld`, `instances_to_rdf`, `instances_to_graph` (0.5.0 batch).
 
 | Format | Notes |
 |--------|--------|

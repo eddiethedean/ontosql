@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
 ## [0.5.0] - 2026-06-29
 
 ### Added
@@ -28,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Compile layer split** — `columns`, `nested_write`, `collection_write`, `save_plan`, `execute_runner`
 - **Session internals split** — `IdentityMap`, `PendingWorkQueue`, `GraphSyncQueue`, shared flush coordinator
 - Documentation audit: slim README, beta banners, [when-to-use](getting-started/when-to-use.md), [semantic queries](guides/semantic-queries.md), [FastAPI quick start](guides/fastapi-quickstart.md), mkdocstrings [API reference](reference/session.md), expanded FAQ/troubleshooting, SPECS drift fixes
+- **Documentation adoption audit** — API/Architecture/Operations nav split, [tutorial](getting-started/tutorial.md), [I/O](reference/io.md) and [query](reference/query.md) reference, upgrading guide 0.5.0 consolidation, SECURITY `max_triples` accuracy, [examples/README](https://github.com/eddiethedean/ontosql/blob/main/examples/README.md)
 - **Enterprise adoption** — [enterprise-adoption.md](enterprise-adoption.md) evaluation + checklist, [SUPPORT.md](SUPPORT.md), [compliance guide](guides/compliance.md)
 - **Operations guides** — [Alembic](guides/alembic.md), [testing](guides/testing.md), [upgrading](guides/upgrading.md), [graph sync runbook](guides/graph-sync-operations.md)
 - **API reference** — [FastAPI](reference/fastapi.md), [export](reference/export.md), [import](reference/import.md), [sync](reference/sync.md), [SHACL](reference/shacl.md); [GLOSSARY.md](GLOSSARY.md)
@@ -78,11 +81,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Migration
 
-See [guides/upgrading.md](guides/upgrading.md#05x-06x) for `ontosql.io`, `ontosql.ports`, and `mapper_registry=` moves. See [Migrating from 0.4.x to 0.5.x](#migrating-from-04x-to-05x) below for earlier upgrades.
+See [guides/upgrading.md](guides/upgrading.md#solid-refactor-05x) for `ontosql.io`, `ontosql.ports`, and `mapper_registry=` moves. See [Migrating from 0.4.x to 0.5.x](#migrating-from-04x-to-05x) below for earlier upgrades.
 
 ## Migrating from 0.4.x to 0.5.x
 
-0.5.0 bundles the 0.4.x feature set, SOLID internal refactor (`ontosql.io`, `ontosql.ports`, `ontosql.rdf`), and audit-driven session/graph/API fixes. Most applications need no code changes unless you adopt new features or hit the migration table in [upgrading.md](guides/upgrading.md#05x-06x).
+0.5.0 bundles the 0.4.x feature set, SOLID internal refactor (`ontosql.io`, `ontosql.ports`, `ontosql.rdf`), and audit-driven session/graph/API fixes. Most applications need no code changes unless you adopt new features or hit the migration table in [upgrading.md](guides/upgrading.md#solid-refactor-05x).
 
 ### New capabilities (optional)
 

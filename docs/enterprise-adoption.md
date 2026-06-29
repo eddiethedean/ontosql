@@ -7,7 +7,7 @@ This page summarizes what a **documentation-only** evaluator can conclude about 
 
 ## Overall verdict
 
-OntoSQL is **documented honestly as pre-1.0 beta software** with strong architecture and security transparency. It is suitable for **controlled PoC** (Postgres, pinned version, SQL-first team). It is **not document-ready for enterprise platform standard** today without 1.0, a support policy, performance evidence, and full API reference.
+OntoSQL is **documented honestly as pre-1.0 beta software** with strong architecture and security transparency. It is suitable for **controlled PoC** (Postgres, pinned version, SQL-first team). Enterprise platform standardization should wait for 1.0, a support policy, and performance evidence.
 
 ---
 
@@ -122,7 +122,7 @@ No vendor SLA, performance benchmarks, compliance certifications, or production 
 
 | Scenario | Recommendation |
 |----------|----------------|
-| Enterprise platform standard | **Do not adopt** until 1.0 + support policy + benchmarks + full API reference |
+| Enterprise platform standard | **Do not adopt** until 1.0 + support policy + benchmarks |
 | Team PoC (Postgres, pinned 0.5.x) | **Proceed with spike** — budget mapper work and security review |
 | Hybrid SQL + RDF production | **High caution** — custom reconciliation; see [graph sync ops](guides/graph-sync-operations.md) |
 | Public `OntoRouter` | **Reject default scaffold** — custom auth/authz only |
@@ -159,7 +159,7 @@ Use this before approving OntoSQL beyond a time-boxed PoC.
 
 - [ ] Adopter test plan — [testing guide](guides/testing.md)
 - [ ] Upgrade path documented for your version jump — [upgrading](guides/upgrading.md)
-- [ ] API review: [Session](reference/session.md), [Mapping](reference/mapping.md), [SPECS](SPECS.md); other modules in reference index
+- [ ] API review: [Session](reference/session.md), [Mapping](reference/mapping.md), [Query](reference/query.md), [I/O](reference/io.md), [SPECS](SPECS.md)
 
 ### Still open (documented gaps)
 

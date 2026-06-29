@@ -87,7 +87,7 @@ Release notes: [changelog](changelog.md) · [GitHub CHANGELOG](https://github.co
 
 ## Read next
 
-New to OntoSQL? Follow [Start here](guides/start-here.md) or jump to the [quick start](getting-started/quickstart.md).
+New to OntoSQL? Follow [Start here](guides/start-here.md), the [quick start](getting-started/quickstart.md), or the [tutorial](getting-started/tutorial.md).
 
 Evaluating adoption? Read [When to use OntoSQL](getting-started/when-to-use.md), [Enterprise adoption](enterprise-adoption.md), and [Security](SECURITY.md).
 

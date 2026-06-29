@@ -25,8 +25,11 @@ def engine():
     yield eng
     SQLModel.metadata.drop_all(eng)
 
-def test_get_person(engine, PersonMap):
-    with OntoSession(engine, maps=[PersonMap]) as session:
+# Define PersonMap / OrganizationMap in your test module or conftest
+# (see examples/models.py or the quick start Tier 1 script).
+
+def test_get_person(engine, PersonMap, OrganizationMap):
+    with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
         ...
 ```
 
@@ -73,7 +76,7 @@ from httpx import ASGITransport, AsyncClient
 async def test_list_requires_auth(app):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        r = await client.get("/onto/Person")
+        r = await client.get("/onto/person")  # routes use lowercase entity names
         assert r.status_code == 401
 ```
 
@@ -87,7 +90,7 @@ Until 1.0 API freeze:
 - Run your integration suite on every upgrade
 - Review [CHANGELOG](../changelog.md) and [upgrading.md](upgrading.md)
 
-Public API contract is documented in [SPECS.md](../SPECS.md); generated reference: [Session](../reference/session.md), [Mapping](../reference/mapping.md).
+Public API contract is documented in [SPECS.md](../SPECS.md); generated reference: [Session](../reference/session.md), [Mapping](../reference/mapping.md), [Query](../reference/query.md), [I/O](../reference/io.md).
 
 ## Performance testing
 

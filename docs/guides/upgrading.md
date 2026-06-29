@@ -12,9 +12,25 @@ Migration notes between versions. Full per-minor guides are planned for **0.9** 
 3. Search for removed APIs in your codebase (see tables below)
 4. Upgrade optional extras together (`async`, `fastapi`, `sparql`, `shacl`)
 
-## 0.5.x → 0.6.x
+## 0.4.x → 0.5.x {#04x-05x}
 
-**Structural SOLID refactor** — behavior preserved; imports and extension points updated.
+0.5.0 ships the structural SOLID refactor (previously planned as a separate minor) plus additive features and audit fixes. See [changelog migrating section](../changelog.md#migrating-from-04x-to-05x).
+
+### Mostly additive
+
+| Topic | Action |
+|-------|--------|
+| New features | Optional: `Map.computed`, `Map.collection`, batch export |
+| `OntoRouter` | Requires async lifespan + auth for public exposure |
+| `REPLACE` cascade | Review nested delete behavior — [cascade policies](cascade-policies.md) |
+| Graph sync | Eventual consistency after commit — [HYBRID.md](../HYBRID.md) |
+| `strict_graph_sync=` | Default `True` — failed post-commit graph sync raises on session exit |
+
+No required code changes for basic CRUD if you already pass `maps=[...]` to sessions.
+
+### Internal API moves (SOLID refactor) {#solid-refactor-05x}
+
+Behavior preserved; imports and extension points updated:
 
 | Before | After |
 |--------|-------|
@@ -27,20 +43,7 @@ Migration notes between versions. Full per-minor guides are planned for **0.9** 
 
 `OntoModel.to_jsonld()` / `to_rdf()` / `from_jsonld()` remain as thin wrappers delegating to `ontosql.io`.
 
-## 0.4.x → 0.5.x
-
-**Mostly additive.** See [changelog migrating section](../changelog.md).
-
-| Topic | Action |
-|-------|--------|
-| New features | Optional: `Map.computed`, `Map.collection`, batch export |
-| `OntoRouter` | Requires async lifespan + auth for public exposure |
-| `REPLACE` cascade | Review nested delete behavior — [cascade policies](cascade-policies.md) |
-| Graph sync | Eventual consistency after commit — [HYBRID.md](../HYBRID.md) |
-
-No required code changes for basic CRUD if you already pass `maps=[...]` to sessions.
-
-**Removed APIs (0.5.x simplicity audit):**
+### Removed APIs (0.5.x simplicity audit)
 
 | Removed | Migration |
 |---------|-----------|

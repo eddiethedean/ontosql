@@ -37,7 +37,9 @@ Before mounting `OntoRouter` on a reachable host:
 `import_from_rdf`, `load_graph`, and related helpers accept optional `max_bytes` and `max_triples` (raises `OntoImportError` when exceeded).
 
 - Set **`untrusted=True`** on import paths that accept public payloads to apply `UNTRUSTED_DEFAULT_MAX_BYTES` (1 MiB) and `UNTRUSTED_DEFAULT_MAX_TRIPLES` (100k) when limits are omitted.
-- **`max_triples` is checked after `graph.parse()`** — a small payload can still expand during parsing. Always set `max_bytes`, rate-limit import endpoints, and never expose import without authentication.
+- **`max_triples`**, when set, is enforced **incrementally during RDF parse** — parsing stops as soon as the cap is exceeded (`OntoImportError`).
+- **`max_bytes`** is enforced on the raw payload before parsing.
+- Defense in depth: authenticate import endpoints, rate-limit, and set both limits on untrusted paths.
 - **`max_nesting_depth`** (default 32) on `graph_to_instance` limits deep nested RDF chains during hydration.
 
 **PyLD JSON-LD compaction** (`compact_jsonld`, `frame_jsonld`) uses a **safe document loader by default** that blocks remote `@context` URL fetches (SSRF mitigation). `allow_remote_contexts=True` requires an explicit trusted `document_loader=` (PyLD’s default loader fetches remote URLs). RDF import via pyoxigraph does not use PyLD.

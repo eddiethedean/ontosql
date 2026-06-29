@@ -71,7 +71,7 @@ Not yet. **0.5.x is beta** (PyPI classifier: Development Status :: 4 - Beta). AP
 
 ## Where is the API reference?
 
-- **Generated API:** [Session](reference/session.md) · [Mapping](reference/mapping.md) · [FastAPI](reference/fastapi.md) · [Export](reference/export.md) · [Import](reference/import.md) · [Sync](reference/sync.md) · [SHACL](reference/shacl.md)
+- **Generated API:** [Session](reference/session.md) · [Mapping](reference/mapping.md) · [Query](reference/query.md) · [I/O](reference/io.md) · [FastAPI](reference/fastapi.md) · [Export](reference/export.md) · [Import](reference/import.md) · [Sync](reference/sync.md) · [SHACL](reference/shacl.md)
 - **Contract:** [SPECS.md](SPECS.md) — module layout and stability tiers
 - **Hosted site:** [ontosql.readthedocs.io](https://ontosql.readthedocs.io/en/latest/)
 

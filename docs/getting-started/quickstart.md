@@ -80,7 +80,7 @@ with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
 
 ## Tier 2: RDF export (optional)
 
-Add to the end of your script:
+Append inside the `with OntoSession(...)` block from Tier 1 (after `ada = session.get(...)`):
 
 ```python
     print(ada.to_rdf(format="turtle")[:200])

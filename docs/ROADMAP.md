@@ -163,6 +163,9 @@ OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethe
 | Select-plan skeleton cache (`compile/cache.py`) | Shipped |
 | Batched collection hydration (N+1 avoidance) | Shipped |
 | Postgres dialect guide (`postgres-dialect.md`) | Shipped |
+| SOLID refactor — `ontosql.io`, `ontosql.ports`, `ontosql.rdf`, shared flush coordinator | Shipped |
+| `strict_graph_sync=` and session audit fixes (flush, tombstones, graph sync) | Shipped |
+| Documentation — API/Architecture/Operations nav, tutorial, I/O and query reference | Shipped |
 
 ### Success criteria (met)
 
