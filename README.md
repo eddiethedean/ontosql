@@ -4,18 +4,17 @@
 [![CI](https://github.com/eddiethedean/ontosql/actions/workflows/ci.yml/badge.svg)](https://github.com/eddiethedean/ontosql/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/pypi/pyversions/ontosql)](https://pypi.org/project/ontosql/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Documentation Status](https://readthedocs.org/projects/ontosql/badge/?version=latest)](https://ontosql.readthedocs.io/en/latest/?badge=latest)
-[![Docs (GitHub Pages)](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://eddiethedean.github.io/ontosql/)
+[![Documentation](https://readthedocs.org/projects/ontosql/badge/?version=latest)](https://ontosql.readthedocs.io/en/latest/)
 
 **Semantic data access for SQL** — a Python mapper (SQLModel + Pydantic) with optional RDF export. **Not** a SPARQL database or OBDA query engine.
 
 > **Who is this for?** Teams building **SQL-first** apps (Postgres, SQLite) that want **ontology-shaped Python models** and optional JSON-LD/RDF APIs. RDF and graph sync are optional — you can use OntoSQL for semantic CRUD only.
 
-Real databases are not one table per ontology class. OntoSQL separates **physical** SQLModel tables from **semantic** Pydantic entities and connects them with an explicit **mapper**. Application code uses semantic types; OntoSQL compiles SQL on the backend. Optional RDF export uses [TripleModel](https://github.com/eddiethedean/triplemodel); graph-native apps can pair OntoSQL with [SparqlModel](https://github.com/eddiethedean/sparqlmodel) — see [Ecosystem](docs/ECOSYSTEM.md).
+Real databases are not one table per ontology class. OntoSQL separates **physical** SQLModel tables from **semantic** Pydantic entities and connects them with an explicit **mapper**. Application code uses semantic types; OntoSQL compiles SQL on the backend. Optional RDF export uses [TripleModel](https://github.com/eddiethedean/triplemodel); graph-native apps can pair OntoSQL with [SparqlModel](https://github.com/eddiethedean/sparqlmodel) — see [Ecosystem](https://ontosql.readthedocs.io/en/latest/ECOSYSTEM.html).
 
-**Requirements:** Python 3.10+. See [Compatibility](docs/COMPATIBILITY.md).
+**Requirements:** Python 3.10+. See [Compatibility](https://ontosql.readthedocs.io/en/latest/COMPATIBILITY.html).
 
-> **Production note:** `OntoRouter` requires **`dependencies=[Depends(your_auth)]`** before internet exposure. Defaults: async sessions, semantic validation, 64 KiB body cap. Graph sync is **eventually consistent** after SQL commit. See [Security](docs/SECURITY.md).
+> **Production note:** `OntoRouter` requires **`dependencies=[Depends(your_auth)]`** before internet exposure. Defaults: async sessions, semantic validation, 64 KiB body cap. Graph sync is **eventually consistent** after SQL commit. See [Security](https://ontosql.readthedocs.io/en/latest/SECURITY.html).
 
 ## Install
 
@@ -31,11 +30,11 @@ pip install "ontosql[shacl]"     # SHACL shape generation + validation
 
 ## Start here
 
-1. **Try it (PyPI)** — copy the [standalone quick start](docs/getting-started/quickstart.md#tier-1-sql-crud-no-rdf-required) into `demo.py` (no clone required) · [Start here on Read the Docs](https://ontosql.readthedocs.io/en/latest/guides/start-here.html)
-2. [Architecture](docs/ARCHITECTURE.md) — why two model layers and explicit maps
-3. [Hybrid deployments](docs/HYBRID.md) — SQL + RDF graph sync (optional)
-4. [Technical specification](docs/SPECS.md) — full API reference · [hosted docs](https://ontosql.readthedocs.io/)
-5. [FAQ](docs/FAQ.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
+1. **Try it (PyPI)** — copy the [standalone quick start](https://ontosql.readthedocs.io/en/latest/getting-started/quickstart.html#tier-1-sql-crud-no-rdf-required) into `demo.py` (no clone required) · [Start here](https://ontosql.readthedocs.io/en/latest/guides/start-here.html)
+2. [Architecture](https://ontosql.readthedocs.io/en/latest/ARCHITECTURE.html) — why two model layers and explicit maps
+3. [Hybrid deployments](https://ontosql.readthedocs.io/en/latest/HYBRID.html) — SQL + RDF graph sync (optional)
+4. [Technical specification](https://ontosql.readthedocs.io/en/latest/SPECS.html) — full API reference
+5. [FAQ](https://ontosql.readthedocs.io/en/latest/FAQ.html) · [Troubleshooting](https://ontosql.readthedocs.io/en/latest/TROUBLESHOOTING.html)
 
 ### Examples (repository clone)
 
@@ -137,7 +136,7 @@ class PersonMap(OntoMapper[Person]):
     )
 ```
 
-See [Cascade policies](docs/guides/cascade-policies.md) for nested write behavior (`link`, `upsert`, `replace`, `ignore`). Default **`link`** is safest for shared nested entities.
+See [Cascade policies](https://ontosql.readthedocs.io/en/latest/guides/cascade-policies.html) for nested write behavior (`link`, `upsert`, `replace`, `ignore`). Default **`link`** is safest for shared nested entities.
 
 ### 4. Session (CRUD)
 
@@ -162,7 +161,7 @@ with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
     session.delete(new_person)
 ```
 
-Async sessions use `AsyncOntoSession` with the same API — see [Async guide](docs/getting-started/async.md) and [examples/person_org_async.py](examples/person_org_async.py).
+Async sessions use `AsyncOntoSession` with the same API — see [Async guide](https://ontosql.readthedocs.io/en/latest/getting-started/async.html) and [examples/person_org_async.py](examples/person_org_async.py).
 
 ### 5. Export and import
 
@@ -183,14 +182,14 @@ Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleM
 - **OntoMapper** / **Map** — declarative bindings to columns, joins, and nested entities
 - **OntoSession** / **AsyncOntoSession** — `get`, `find`, `save`, `delete`, `paginate`, identity map
 - **Semantic queries** — nested paths, `contains` / `endswith`, `OrderBy(desc=True)`
-- **CascadePolicy** — explicit nested write behavior on `Map.nested` ([guide](docs/guides/cascade-policies.md))
+- **CascadePolicy** — explicit nested write behavior on `Map.nested` ([guide](https://ontosql.readthedocs.io/en/latest/guides/cascade-policies.html))
 - **`Map.computed`** — read-only SQL expressions on semantic fields (0.5.0)
 - **`Map.collection`** — many-to-many bridge tables with cascade policies (0.5.0)
 - **OntoRouter** (`ontosql[fastapi]`) — auto CRUD routes + content negotiation
 - **PrefixRegistry** — CURIE expansion and JSON-LD `@context`
 - **Export** — `to_jsonld()` / `to_rdf()` on semantic instances
-- **Import** — `ontosql.import_` hydrates `OntoModel` from RDF ([FAQ](docs/FAQ.md#import-path))
-- **Graph sync** — mirror SQL writes to RDF graphs on commit ([HYBRID.md](docs/HYBRID.md))
+- **Import** — `ontosql.import_` hydrates `OntoModel` from RDF ([FAQ](https://ontosql.readthedocs.io/en/latest/FAQ.html#import-path-why-ontosqlimport_))
+- **Graph sync** — mirror SQL writes to RDF graphs on commit ([Hybrid guide](https://ontosql.readthedocs.io/en/latest/HYBRID.html))
 - **SHACL** — generate and validate shapes from maps (`ontosql[shacl]`)
 - **Prefix bundles** — `PrefixRegistry.curated("schema_org")` or `curated("dcterms")` for schema.org / DC Terms
 
@@ -233,49 +232,49 @@ router.include_in(app)
 
 See [examples/person_org_api_production.py](examples/person_org_api_production.py) for hand-written production routes (no `OntoRouter`).
 
-> **Production:** `OntoRouter` requires `dependencies=[Depends(your_auth)]` before public exposure. See [production-router.md](docs/guides/production-router.md) and [Security](docs/SECURITY.md).
+> **Production:** `OntoRouter` requires `dependencies=[Depends(your_auth)]` before public exposure. See [Production FastAPI](https://ontosql.readthedocs.io/en/latest/guides/production-router.html) and [Security](https://ontosql.readthedocs.io/en/latest/SECURITY.html).
 
 ## Documentation
 
+Full site: **[ontosql.readthedocs.io](https://ontosql.readthedocs.io/en/latest/)**
+
 ### Getting started
 
-- [Start here](docs/guides/start-here.md) — pick your path (CRUD, FastAPI, hybrid graph, production)
-- [Installation](docs/getting-started/installation.md)
-- [Quick start (standalone)](docs/getting-started/quickstart.md)
-- [Async sessions](docs/getting-started/async.md)
+- [Start here](https://ontosql.readthedocs.io/en/latest/guides/start-here.html) — pick your path (CRUD, FastAPI, hybrid graph, production)
+- [Installation](https://ontosql.readthedocs.io/en/latest/getting-started/installation.html)
+- [Quick start (standalone)](https://ontosql.readthedocs.io/en/latest/getting-started/quickstart.html)
+- [Async sessions](https://ontosql.readthedocs.io/en/latest/getting-started/async.html)
 
 ### Guides
 
-- [Cascade policies](docs/guides/cascade-policies.md)
-- [Bridge tables](docs/guides/bridge-tables.md) — many-to-many `Map.collection`
-- [Multi-map views](docs/guides/multi-map-views.md) — one table, multiple semantic entities
-- [Postgres dialect](docs/guides/postgres-dialect.md) — UUID, JSONB, ARRAY
-- [Hybrid SQL + graph](docs/HYBRID.md)
-- [FAQ](docs/FAQ.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Cascade policies](https://ontosql.readthedocs.io/en/latest/guides/cascade-policies.html)
+- [Bridge tables](https://ontosql.readthedocs.io/en/latest/guides/bridge-tables.html) — many-to-many `Map.collection`
+- [Multi-map views](https://ontosql.readthedocs.io/en/latest/guides/multi-map-views.html) — one table, multiple semantic entities
+- [Postgres dialect](https://ontosql.readthedocs.io/en/latest/guides/postgres-dialect.html) — UUID, JSONB, ARRAY
+- [Hybrid SQL + graph](https://ontosql.readthedocs.io/en/latest/HYBRID.html)
+- [FAQ](https://ontosql.readthedocs.io/en/latest/FAQ.html)
+- [Troubleshooting](https://ontosql.readthedocs.io/en/latest/TROUBLESHOOTING.html)
 
 ### Architecture and reference
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Ecosystem](docs/ECOSYSTEM.md) — OntoSQL, TripleModel, SparqlModel
-- [Technical specification](docs/SPECS.md)
-- [Compatibility](docs/COMPATIBILITY.md)
-- [Security](docs/SECURITY.md)
-- [Dependencies](docs/DEPS.md)
+- [Architecture](https://ontosql.readthedocs.io/en/latest/ARCHITECTURE.html)
+- [Ecosystem](https://ontosql.readthedocs.io/en/latest/ECOSYSTEM.html) — OntoSQL, TripleModel, SparqlModel
+- [Technical specification](https://ontosql.readthedocs.io/en/latest/SPECS.html)
+- [Compatibility](https://ontosql.readthedocs.io/en/latest/COMPATIBILITY.html)
+- [Security](https://ontosql.readthedocs.io/en/latest/SECURITY.html)
+- [Dependencies](https://ontosql.readthedocs.io/en/latest/DEPS.html)
 
 ### Project
 
-- [Roadmap](docs/ROADMAP.md)
-- [Changelog](CHANGELOG.md)
-- [Contributing](CONTRIBUTING.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Releasing](docs/RELEASING.md) (maintainers)
-- [Documentation (Read the Docs)](https://ontosql.readthedocs.io/) — primary docs host; builds from [`.readthedocs.yaml`](.readthedocs.yaml)
-- [Documentation (GitHub Pages)](https://eddiethedean.github.io/ontosql/) — mirror built from [mkdocs.yml](mkdocs.yml) on every push to `main`
+- [Roadmap](https://ontosql.readthedocs.io/en/latest/ROADMAP.html)
+- [Changelog](https://ontosql.readthedocs.io/en/latest/changelog.html)
+- [Contributing](https://ontosql.readthedocs.io/en/latest/contributing.html)
+- [Code of Conduct](https://ontosql.readthedocs.io/en/latest/code_of_conduct.html)
+- [Releasing](https://ontosql.readthedocs.io/en/latest/RELEASING.html) (maintainers)
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [Releasing](docs/RELEASING.md).
+See [Contributing](https://ontosql.readthedocs.io/en/latest/contributing.html) and [Releasing](https://ontosql.readthedocs.io/en/latest/RELEASING.html).
 
 ```bash
 pip install -e ".[dev]"

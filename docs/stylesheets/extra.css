@@ -148,22 +148,6 @@
   align-items: center;
 }
 
-.os-logo--dark {
-  display: none;
-}
-
-[data-md-color-scheme="slate"] .os-logo--light {
-  display: none;
-}
-
-[data-md-color-scheme="slate"] .os-logo--dark {
-  display: block;
-}
-
-.os-logo {
-  height: 1.6rem;
-}
-
 /* ── Material grid cards ────────────────────────────────────── */
 .md-typeset .grid.cards > ul > li {
   border-radius: 1rem;
