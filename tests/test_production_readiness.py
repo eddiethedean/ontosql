@@ -121,7 +121,7 @@ def test_flush_preserves_pending_on_error(sync_engine) -> None:
 
 def test_load_graph_max_triples_incremental() -> None:
     """max_triples must abort during parse, not after full expansion."""
-    lines = "\n".join(f"ex:s ex:p \"{i}\" ." for i in range(5))
+    lines = "\n".join(f'ex:s ex:p "{i}" .' for i in range(5))
     turtle = f"@prefix ex: <http://example.org/> .\n{lines}"
     with pytest.raises(OntoImportError, match="max_triples"):
         load_graph(turtle, format="turtle", max_triples=2)

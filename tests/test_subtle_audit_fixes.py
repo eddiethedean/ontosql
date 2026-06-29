@@ -302,6 +302,7 @@ def test_collection_replace_deletes_orphan_members(m2m_graph_engine) -> None:
 
 def test_collection_replace_without_get_deletes_orphans(m2m_graph_engine) -> None:
     """REPLACE must orphan-delete from DB snapshot without prior get() (H2)."""
+
     class ReplaceSkillsPersonMap(OntoMapper[SkilledPerson]):
         entity = SkilledPerson
         id = Map(M2MPersonRow.id)

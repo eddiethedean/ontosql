@@ -47,9 +47,7 @@ def _parse_into_store(
     for count, quad in enumerate(parse(text, format=_pyoxigraph_format(format)), start=1):
         graph.add((quad.subject, quad.predicate, quad.object))
         if count > max_triples:
-            raise OntoImportError(
-                f"RDF graph exceeds max_triples={max_triples} during parse"
-            )
+            raise OntoImportError(f"RDF graph exceeds max_triples={max_triples} during parse")
 
 
 def load_graph(

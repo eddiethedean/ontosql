@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Migration
 
-See [guides/upgrading.md](docs/guides/upgrading.md#05x--06x).
+See [guides/upgrading.md](guides/upgrading.md#05x-06x).
 
 ## [0.5.0] - 2026-06-29
 
