@@ -9,23 +9,23 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from ontosql.compile.execute import async_execute_delete_plan, async_execute_write_plan
 from ontosql.compile.plan import DeletePlan, WritePlan
 from ontosql.compile.select import compile_count_statement, compile_select_plan
-from ontosql.compile.write import compile_delete_plan, compile_save_plan
+from ontosql.compile.write import compile_delete_plan
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
+from ontosql.session._ops import (
+    compile_save_plan_for_instance,
+    count_scalar,
+    identity_from_write_plan,
+    reload_identity,
+    resolve_save_is_new_and_snapshot,
+    validate_get_identity,
+)
 from ontosql.session.base import SessionBase
 from ontosql.session.collections import attach_collections_async
 from ontosql.session.graph_sync import flush_graph_sync, queue_graph_push, queue_graph_remove
 from ontosql.session.hydrate import hydrate_first, hydrate_row
 from ontosql.session.state import PendingDelete
 from ontosql.sync.graph import GraphSyncMode
-
-
-def _count_scalar(row: Any) -> int:
-    if hasattr(row, "_mapping"):
-        return int(next(iter(row._mapping.values())))
-    if isinstance(row, tuple):
-        return int(row[0])
-    return int(row)
 
 
 class AsyncOntoSession(SessionBase):
@@ -87,10 +87,7 @@ class AsyncOntoSession(SessionBase):
         id: Any | None = None,
         iri: str | None = None,
     ) -> OntoModel | None:
-        if id is None and iri is None:
-            raise ValueError("get() requires id= or iri=")
-        if id is not None and iri is not None:
-            raise ValueError("get() accepts only one of id= or iri=")
+        validate_get_identity(id=id, iri=iri)
         if id is not None:
             cached = self._state.get_cached(entity_type, id)
             if cached is not None:
@@ -141,7 +138,7 @@ class AsyncOntoSession(SessionBase):
         stmt = compile_count_statement(mapper_cls, where=where)
         result = await self._require_session().execute(stmt)
         row = result.one()
-        return _count_scalar(row)
+        return count_scalar(row)
 
     async def _reload_after_save(
         self,
@@ -150,11 +147,7 @@ class AsyncOntoSession(SessionBase):
         plan: WritePlan,
         inserted_id: Any,
     ) -> OntoModel:
-        identity = getattr(instance, mapper_cls.identity_field, None)
-        if identity is None:
-            identity = inserted_id
-        if identity is None and plan.root.where:
-            identity = next(iter(plan.root.where.values()))  # pragma: no cover
+        identity = reload_identity(instance, mapper_cls, plan, inserted_id)
         if identity is not None:
             reloaded = await self.get(type(instance), id=identity)
             if reloaded is not None:
@@ -189,20 +182,15 @@ class AsyncOntoSession(SessionBase):
     async def save(self, instance: OntoModel, *, flush: bool = True) -> OntoModel:
         mapper_cls = self._mapper_for(type(instance))
         is_new = self._is_new_instance(mapper_cls, instance)
-        snapshot = self._state.get_snapshot(instance)
-        if snapshot is None and not is_new:
-            snapshot = await self._load_snapshot_from_db(instance, mapper_cls)
-        if is_new:
-            db_snapshot = await self._load_snapshot_from_db(instance, mapper_cls)
-            if db_snapshot is not None:
-                is_new = False
-                snapshot = db_snapshot
-        plan = compile_save_plan(
-            mapper_cls,
+        db_snapshot = await self._load_snapshot_from_db(instance, mapper_cls)
+        is_new, snapshot = resolve_save_is_new_and_snapshot(
+            self._state,
             instance,
-            partial_fields=instance.model_fields_set if not is_new else None,
             is_new=is_new,
-            snapshot=snapshot,
+            db_snapshot=db_snapshot,
+        )
+        plan = compile_save_plan_for_instance(
+            mapper_cls, instance, is_new=is_new, snapshot=snapshot
         )
         if flush:
             inserted_id = await self._execute_write(plan)
@@ -237,9 +225,7 @@ class AsyncOntoSession(SessionBase):
                 plan = item
                 inserted_id = await self._execute_write(plan)
                 entity_type = plan.mapper_cls.entity
-                identity = inserted_id
-                if identity is None and plan.root.where:
-                    identity = next(iter(plan.root.where.values()))
+                identity = identity_from_write_plan(plan, inserted_id)
                 if identity is not None and self._graph_sync is not None:
                     reloaded = await self.get(entity_type, id=identity)
                     if reloaded is not None:
@@ -249,14 +235,10 @@ class AsyncOntoSession(SessionBase):
 
     async def _execute_write(self, plan: WritePlan) -> Any:
         session = self._require_session()
-        identity = await async_execute_write_plan(session, plan)
-        entity_type = plan.mapper_cls.entity
-        if identity is None and plan.root.where:
-            identity = next(iter(plan.root.where.values()))
-        elif identity is None and plan.mapper_cls.identity_field in plan.root.values:
-            identity = plan.root.values[plan.mapper_cls.identity_field]
+        returned = await async_execute_write_plan(session, plan)
+        identity = identity_from_write_plan(plan, returned)
         if identity is not None:
-            self._state.expire(entity_type, identity)
+            self._state.expire(plan.mapper_cls.entity, identity)
         return identity
 
     async def _execute_delete(self, plan: DeletePlan) -> None:

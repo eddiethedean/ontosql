@@ -15,6 +15,53 @@ API contract for **ontosql 0.5.0**. Sections marked *planned* are on the [roadma
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rationale.
 
+## API stability (0.5.x)
+
+| Tier | Import paths | Policy until 1.0 |
+|------|----------------|------------------|
+| **Beta-stable** | `import ontosql` (root exports), `ontosql.semantic`, `ontosql.mapping`, `ontosql.session`, `ontosql.registry` | Additive changes only in minor releases; deprecations with warnings before removal |
+| **Beta-supported** | `ontosql.export`, `ontosql.import_`, `ontosql.sync`, `ontosql.query` | May evolve; documented in [SPECS.md](SPECS.md) |
+| **Beta-experimental** | `ontosql.fastapi`, `ontosql.shacl`, `ontosql.export.jsonld` | Extra-gated; may change without deprecation |
+| **Internal** | `ontosql.compile`, `ontosql.session._ops`, `_*` helpers | Not part of the public contract — do not import in application code |
+
+**Semver commitment** begins at **1.0** ([ROADMAP.md](ROADMAP.md)). Until then, patch releases fix bugs; minor releases add features. Breaking changes are reserved for **2.0+**.
+
+`OntoRouter` is a **demo** convenience layer — not production-ready without auth, rate limits, and async session wiring ([SECURITY.md](SECURITY.md)).
+
+## Public API surface
+
+### Root package (`import ontosql`)
+
+| Symbol | Module |
+|--------|--------|
+| `OntoModel`, `onto_property` | `ontosql.semantic` |
+| `Map`, `OntoMapper`, `CascadePolicy` | `ontosql.mapping` |
+| `OntoSession`, `AsyncOntoSession`, `Page`, `paginate` | `ontosql.session` |
+| `PrefixRegistry` | `ontosql.registry` |
+
+### Supported subpackages
+
+| Package | Key entry points |
+|---------|------------------|
+| `ontosql.export` | `instance_to_graph`, `instance_to_jsonld`, `instance_to_rdf`, `instances_to_graph`, `instances_to_jsonld`, `instances_to_rdf` |
+| `ontosql.import_` | `import_from_jsonld`, `import_from_rdf`, `graph_to_instance` |
+| `ontosql.sync` | `push_instance`, `remove_instance`, `StoreSyncTarget`, `materialize_find`, `materialize_entity` |
+| `ontosql.query` | `FieldRef`, `FieldPath`, expression operators on semantic fields |
+| `ontosql.fastapi` | `OntoRouter`, `onto_session_lifespan`, `get_onto_session`, `get_async_onto_session` (requires `ontosql[fastapi]`) |
+| `ontosql.shacl` | `shapes_from_mapper`, `validate_instance` (requires `ontosql[shacl]`) |
+
+### Instance methods on `OntoModel`
+
+- `to_jsonld()`, `to_rdf()` — export via TripleModel
+- `from_jsonld(doc, mapper=...)` — import via mapper metadata
+
+### Internal (unsupported)
+
+- `ontosql.compile.*` — SQL plan types and executors; may change without notice
+- `ontosql.session._ops` — shared session helpers
+- `ontosql.mapping.registry.MapperRegistry` — use session `maps=[...]` instead of global registry
+- `get_global_registry()` — prefer per-session registration
+
 ## Implementation phases
 
 | Phase | Scope |

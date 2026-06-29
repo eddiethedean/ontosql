@@ -8,6 +8,7 @@ from triplemodel import Store
 
 from ontosql.semantic.model import OntoModel
 from ontosql.sync.graph import GraphSyncMode, sync_instance_to_store
+from ontosql.sync.materialize import materialize_entity, materialize_find
 from ontosql.sync.target import GraphSyncTarget
 
 
@@ -100,6 +101,8 @@ def patch_subject(
 __all__ = [
     "GraphSyncMode",
     "StoreSyncTarget",
+    "materialize_entity",
+    "materialize_find",
     "patch_subject",
     "push_instance",
     "remove_instance",

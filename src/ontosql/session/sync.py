@@ -10,23 +10,23 @@ from sqlmodel import Session, SQLModel
 from ontosql.compile.execute import execute_delete_plan, execute_write_plan
 from ontosql.compile.plan import WritePlan
 from ontosql.compile.select import compile_count_statement, compile_select_plan
-from ontosql.compile.write import compile_delete_plan, compile_save_plan
+from ontosql.compile.write import compile_delete_plan
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
+from ontosql.session._ops import (
+    compile_save_plan_for_instance,
+    count_scalar,
+    identity_from_write_plan,
+    reload_identity,
+    resolve_save_is_new_and_snapshot,
+    validate_get_identity,
+)
 from ontosql.session.base import SessionBase
 from ontosql.session.collections import attach_collections
 from ontosql.session.graph_sync import flush_graph_sync, queue_graph_push, queue_graph_remove
 from ontosql.session.hydrate import hydrate_first, hydrate_row
 from ontosql.session.state import PendingDelete
 from ontosql.sync.graph import GraphSyncMode
-
-
-def _count_scalar(row: Any) -> int:
-    if hasattr(row, "_mapping"):
-        return int(next(iter(row._mapping.values())))
-    if isinstance(row, tuple):
-        return int(row[0])
-    return int(row)
 
 
 class OntoSession(SessionBase):
@@ -84,10 +84,7 @@ class OntoSession(SessionBase):
         id: Any | None = None,
         iri: str | None = None,
     ) -> OntoModel | None:
-        if id is None and iri is None:
-            raise ValueError("get() requires id= or iri=")
-        if id is not None and iri is not None:
-            raise ValueError("get() accepts only one of id= or iri=")
+        validate_get_identity(id=id, iri=iri)
         if id is not None:
             cached = self._state.get_cached(entity_type, id)
             if cached is not None:
@@ -136,7 +133,7 @@ class OntoSession(SessionBase):
         mapper_cls = self._mapper_for(entity_type)
         stmt = compile_count_statement(mapper_cls, where=where)
         result = self._session.exec(stmt).one()
-        return _count_scalar(result)
+        return count_scalar(result)
 
     def _reload_after_save(
         self,
@@ -145,11 +142,7 @@ class OntoSession(SessionBase):
         plan: WritePlan,
         inserted_id: Any,
     ) -> OntoModel:
-        identity = getattr(instance, mapper_cls.identity_field, None)
-        if identity is None:
-            identity = inserted_id
-        if identity is None and plan.root.where:
-            identity = next(iter(plan.root.where.values()))  # pragma: no cover
+        identity = reload_identity(instance, mapper_cls, plan, inserted_id)
         if identity is not None:
             reloaded = self.get(type(instance), id=identity)
             if reloaded is not None:
@@ -180,29 +173,18 @@ class OntoSession(SessionBase):
             return None
         return row_instance.model_dump()
 
-    def _resolve_snapshot(
-        self, instance: OntoModel, mapper_cls: type[Any], *, is_new: bool
-    ) -> dict[str, Any] | None:
-        snapshot = self._state.get_snapshot(instance)
-        if snapshot is not None or is_new:
-            return snapshot
-        return self._load_snapshot_from_db(instance, mapper_cls)
-
     def save(self, instance: OntoModel, *, flush: bool = True) -> OntoModel:
         mapper_cls = self._mapper_for(type(instance))
         is_new = self._is_new_instance(mapper_cls, instance)
-        snapshot = self._resolve_snapshot(instance, mapper_cls, is_new=is_new)
-        if is_new:
-            db_snapshot = self._load_snapshot_from_db(instance, mapper_cls)
-            if db_snapshot is not None:
-                is_new = False
-                snapshot = db_snapshot
-        plan = compile_save_plan(
-            mapper_cls,
+        db_snapshot = self._load_snapshot_from_db(instance, mapper_cls)
+        is_new, snapshot = resolve_save_is_new_and_snapshot(
+            self._state,
             instance,
-            partial_fields=instance.model_fields_set if not is_new else None,
             is_new=is_new,
-            snapshot=snapshot,
+            db_snapshot=db_snapshot,
+        )
+        plan = compile_save_plan_for_instance(
+            mapper_cls, instance, is_new=is_new, snapshot=snapshot
         )
         if flush:
             inserted_id = self._execute_write(plan)
@@ -241,9 +223,7 @@ class OntoSession(SessionBase):
                 plan = item
                 inserted_id = self._execute_write(plan)
                 entity_type = plan.mapper_cls.entity
-                identity = inserted_id
-                if identity is None and plan.root.where:
-                    identity = next(iter(plan.root.where.values()))
+                identity = identity_from_write_plan(plan, inserted_id)
                 if identity is not None and self._graph_sync is not None:
                     reloaded = self.get(entity_type, id=identity)
                     if reloaded is not None:
@@ -252,14 +232,10 @@ class OntoSession(SessionBase):
                 self._apply_pending_delete(item)
 
     def _execute_write(self, plan: WritePlan) -> Any:
-        identity = execute_write_plan(self._session, plan)
-        entity_type = plan.mapper_cls.entity
-        if identity is None and plan.root.where:
-            identity = next(iter(plan.root.where.values()))
-        elif identity is None and plan.mapper_cls.identity_field in plan.root.values:
-            identity = plan.root.values[plan.mapper_cls.identity_field]
+        returned = execute_write_plan(self._session, plan)
+        identity = identity_from_write_plan(plan, returned)
         if identity is not None:
-            self._state.expire(entity_type, identity)
+            self._state.expire(plan.mapper_cls.entity, identity)
         return identity
 
     def execute_sql(self, statement: str, params: dict[str, Any] | None = None) -> Any:

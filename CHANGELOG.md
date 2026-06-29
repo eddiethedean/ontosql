@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **SHACL** — `shapes_from_mapper` now sets `sh:minCount` to `1` for required scalar properties (was incorrectly `0` for all non-identity fields)
+- **Async session** — `save()` snapshot resolution aligned with sync session via shared `session/_ops.py`
+
+### Added
+
+- Shared session orchestration helpers in `ontosql.session._ops` (used by sync and async sessions)
+- Public API stability tiers documented in [SPECS.md](SPECS.md)
+- Postgres integration tests expanded in CI
+
+## Migrating from 0.4.x to 0.5.x
+
+0.5.0 is **additive** for most applications. No changes are required unless you adopt new features.
+
+### New capabilities (optional)
+
+- **`Map.computed`** — read-only SQL expression fields; excluded from `save()`; filterable and orderable
+- **`Map.collection`** — many-to-many bridge tables with explicit cascade policies; see [bridge-tables.md](guides/bridge-tables.md)
+- **Batch export** — `instances_to_graph`, `instances_to_jsonld`, `instances_to_rdf` for efficient multi-instance RDF
+- **Select-plan cache** — internal performance improvement; no API change
+
+### Behavior notes
+
+- **`materialize_find`** now builds one `Store` via batch export (same RDF intent, different memory profile)
+- **`CascadePolicy.REPLACE`** (from 0.4.0) deletes old nested rows when associations change — do not use on shared nested entities; see [cascade-policies.md](guides/cascade-policies.md)
+- **`OntoRouter`** remains **demo-grade** — no auth, sync sessions in async routes; see [SECURITY.md](SECURITY.md)
+- **Graph sync** is eventual-consistency after SQL commit, not two-phase commit; see [HYBRID.md](HYBRID.md)
+
+### API stability (0.5.x)
+
+Until **1.0**, minor releases may add APIs and fix bugs. Breaking changes are reserved for **2.0+** per [ROADMAP.md](ROADMAP.md). Semver guarantees begin at 1.0.
+
 ## [0.5.0] - 2026-06-29
 
 ### Added

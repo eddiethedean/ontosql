@@ -114,7 +114,7 @@ def shapes_from_mapper(
             get_origin(field_info.annotation) is not None
             and type(None) in get_args(field_info.annotation)
         )
-        min_count = "0" if optional or field_name != mapper_cls.identity_field else "1"
+        min_count = "0" if optional else "1"
         graph.add(
             (
                 prop_shape,

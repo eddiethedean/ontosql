@@ -6,6 +6,8 @@ Real databases are not one table per ontology class. OntoSQL separates **physica
 
 **Requirements:** Python 3.10+. See [Compatibility](docs/COMPATIBILITY.md).
 
+> **Production note:** `OntoRouter` (`ontosql[fastapi]`) is **demo-grade** — no authentication, authorization, or rate limiting. Graph sync is **eventually consistent** after SQL commit. See [Security](docs/SECURITY.md) and [Hybrid deployments](docs/HYBRID.md).
+
 ## Install
 
 ```bash

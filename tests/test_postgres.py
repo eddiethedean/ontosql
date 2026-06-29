@@ -1,4 +1,4 @@
-"""Postgres integration smoke tests (skipped unless ONTO_TEST_DATABASE_URL is set)."""
+"""Postgres integration tests (skipped unless ONTO_TEST_DATABASE_URL is set)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel
 
 from ontosql import OntoSession
-from tests.models import OrganizationMap, OrgRow, Person, PersonMap, PersonRow
+from tests.models import Organization, OrganizationMap, OrgRow, Person, PersonMap, PersonRow
 
 DATABASE_URL = os.environ.get("ONTO_TEST_DATABASE_URL")
 
@@ -28,6 +28,8 @@ def postgres_engine():
     with Session(engine) as session:
         session.add(OrgRow(id=10, name="Postgres Org"))
         session.add(PersonRow(id=1, name="Postgres Ada", org_id=10))
+        session.add(PersonRow(id=2, name="Postgres Bob", org_id=10))
+        session.add(PersonRow(id=3, name="Solo Person", org_id=None))
         session.commit()
     yield engine
     SQLModel.metadata.drop_all(engine)
@@ -43,13 +45,55 @@ def test_postgres_session_get_and_find(postgres_engine) -> None:
         assert person.employer.name == "Postgres Org"
 
         results = session.find(Person, where=Person.name.startswith("Postgres"))
-        assert len(results) == 1
+        assert len(results) == 2
 
 
 def test_postgres_session_save_round_trip(postgres_engine) -> None:
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
-        session.save(Person(id=2, name="New Person", employer=None))
+        session.save(Person(id=4, name="New Person", employer=None))
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
-        loaded = session.get(Person, id=2)
+        loaded = session.get(Person, id=4)
         assert loaded is not None
         assert loaded.name == "New Person"
+
+
+def test_postgres_session_partial_update(postgres_engine) -> None:
+    with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
+        person = session.get(Person, id=1)
+        assert person is not None
+        person.name = "Ada P."
+        session.save(person)
+    with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
+        reloaded = session.get(Person, id=1)
+        assert reloaded is not None
+        assert reloaded.name == "Ada P."
+        assert reloaded.employer is not None
+
+
+def test_postgres_session_link_nested_employer(postgres_engine) -> None:
+    with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
+        person = session.get(Person, id=3)
+        assert person is not None
+        assert person.employer is None
+        person.employer = Organization(id=10, name="Postgres Org")
+        session.save(person)
+    with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
+        reloaded = session.get(Person, id=3)
+        assert reloaded is not None
+        assert reloaded.employer is not None
+        assert reloaded.employer.id == 10
+
+
+def test_postgres_session_delete(postgres_engine) -> None:
+    with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
+        person = session.get(Person, id=2)
+        assert person is not None
+        session.delete(person)
+    with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
+        assert session.get(Person, id=2) is None
+
+
+def test_postgres_session_count(postgres_engine) -> None:
+    with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
+        assert session.count(Person) == 3
+        assert session.count(Person, where=Person.name.startswith("Postgres")) == 2
