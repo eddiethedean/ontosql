@@ -36,7 +36,20 @@ git push origin vX.Y.Z
 
 Create a GitHub release from the tag and paste the relevant `CHANGELOG.md` section.
 
-Pushing a semver tag (`v*.*.*`) also triggers the [Release workflow](https://github.com/eddiethedean/ontosql/blob/main/.github/workflows/release.yml) to build and publish to PyPI.
+Pushing a semver tag (`v*.*.*`) triggers the [Release workflow](https://github.com/eddiethedean/ontosql/blob/main/.github/workflows/release.yml), which runs pre-release checks before publishing:
+
+| Check | Purpose |
+|-------|---------|
+| Tag ↔ `pyproject.toml` version | Prevents mismatched releases |
+| `CHANGELOG.md` section | Ensures release notes exist for the tag |
+| Ruff lint + format | Code style |
+| `ty check` | Static types |
+| Pytest (≥90% coverage) | Test suite |
+| `mkdocs build --strict` | Documentation |
+| Postgres integration tests | Dialect smoke tests |
+| `twine check` + wheel import | Distribution metadata and installability |
+
+Publish to PyPI runs only when all checks pass.
 
 ## PyPI
 
