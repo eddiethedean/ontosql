@@ -9,8 +9,7 @@ from models import OrganizationMap, Person, PersonMap, seed_demo_data
 from ontosql import OntoSession
 from ontosql.import_ import import_from_jsonld
 from ontosql.shacl import shapes_from_mapper, validate_instance
-from ontosql.sync import StoreSyncTarget
-from ontosql.sync.materialize import materialize_find
+from ontosql.sync import StoreSyncTarget, materialize_find
 
 
 def main() -> None:

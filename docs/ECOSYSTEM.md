@@ -80,6 +80,20 @@ Planned integrations (see [ROADMAP.md](ROADMAP.md)):
 | Knowledge graph as primary store | **SparqlModel** |
 | Round-trip Turtle/JSON-LD files without a session | **TripleModel** |
 
+## Comparison: SQLModel vs OntoSQL vs SparqlModel
+
+| | SQLModel / SQLAlchemy | OntoSQL | SparqlModel |
+|---|----------------------|---------|-------------|
+| **Primary store** | SQL tables | SQL tables | RDF graph / SPARQL |
+| **Application models** | Table row models | `OntoModel` (semantic) | `SPARQLModel` (graph) |
+| **Schema mapping** | 1:1 table ↔ model typical | Explicit `OntoMapper` / `Map` | Graph-native fields |
+| **Nested reads** | Relationships or manual joins | Compiled `Map.nested` joins | Graph traversal |
+| **RDF / JSON-LD** | Manual | `to_jsonld()` / `to_rdf()` from maps | Native |
+| **Migrations** | You own (Alembic, etc.) | You own — OntoSQL does not migrate | Graph store dependent |
+| **Best when** | Standard CRUD, no ontology layer | Legacy SQL + semantic API + optional RDF | Graph-first applications |
+
+OntoSQL **builds on** SQLModel for physical tables; it does not replace SQLAlchemy. Use raw SQLModel when you do not need semantic separation or RDF export.
+
 ## Model conventions (cross-package)
 
 When defining models that may appear in both SQL and graph contexts, align these fields:

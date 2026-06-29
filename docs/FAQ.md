@@ -41,8 +41,10 @@ No. Export/import target JSON-LD and RDF serializations; optional SHACL validate
 
 ## SQLite vs PostgreSQL?
 
-Both work. CI tests SQLite. Enable foreign keys on SQLite in production if you rely on FK constraints with REPLACE cascade. Postgres is recommended for production relational workloads.
+Both work. CI runs the full test matrix on **SQLite** (Python 3.10–3.13) and a dedicated **PostgreSQL** job for session CRUD ([`test_postgres.py`](https://github.com/eddiethedean/ontosql/blob/main/tests/test_postgres.py)). Enable foreign keys on SQLite in production if you rely on FK constraints with REPLACE cascade. Postgres is recommended for production relational workloads. See [guides/postgres-dialect.md](guides/postgres-dialect.md).
 
 ## Where is the API reference?
 
-[SPECS.md](SPECS.md) is the contract document. Module layout is listed there; a generated docs site is planned for 0.9.
+- **Hosted docs:** [https://eddiethedean.github.io/ontosql/](https://eddiethedean.github.io/ontosql/)
+- **Contract:** [SPECS.md](SPECS.md) — module layout and stability tiers
+- Generated API docs from docstrings are planned for 0.9

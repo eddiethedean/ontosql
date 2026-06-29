@@ -72,4 +72,5 @@ nav:
       - Roadmap: ROADMAP.md
       - Changelog: changelog.md
       - Contributing: contributing.md
+      - Code of Conduct: code_of_conduct.md
       - Releasing: RELEASING.md

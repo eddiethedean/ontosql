@@ -1,25 +1,18 @@
 # Quick start
 
-This guide is **self-contained** — it works after `pip install ontosql` only (no repo clone required).
+Three tiers — stop when you have what you need. **Tier 1 works after `pip install ontosql` only** (no repo clone).
 
-## 1. Install
+## Tier 1: SQL CRUD (no RDF required)
+
+### 1. Install
 
 ```bash
 pip install ontosql
 ```
 
-## 2. Copy the example models
+### 2. Minimal script
 
-Save as `demo.py` or run from the repository:
-
-```bash
-pip install ontosql
-python examples/person_org_demo.py
-```
-
-The [examples/models.py](https://github.com/eddiethedean/ontosql/blob/main/examples/models.py) module defines physical tables, semantic models, and mappers for Person / Organization.
-
-## 3. Minimal script
+Save as `demo.py` and run `python demo.py`:
 
 ```python
 from sqlmodel import Field, Session, SQLModel, create_engine
@@ -81,12 +74,38 @@ with Session(engine) as raw:
 with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
     ada = session.get(Person, id=1)
     print(ada.name, ada.employer.name if ada.employer else "")
-    print(ada.to_rdf(format="turtle")[:200])
 ```
 
-## 4. Read next
+`type_iri` and `iri_template` enable RDF export later; they do not require a graph database.
+
+## Tier 2: RDF export (optional)
+
+Add to the end of your script:
+
+```python
+    print(ada.to_rdf(format="turtle")[:200])
+    print(ada.to_jsonld())
+```
+
+## Tier 3: Graph sync (optional)
+
+Mirror SQL writes to an in-memory RDF graph on commit. See [HYBRID.md](../HYBRID.md) and [examples/hybrid_person_org.py](https://github.com/eddiethedean/ontosql/blob/main/examples/hybrid_person_org.py) (requires a repository clone).
+
+## Examples from a clone
+
+The `examples/` directory is **not** in the PyPI wheel. After cloning:
+
+```bash
+git clone https://github.com/eddiethedean/ontosql.git
+cd ontosql && pip install -e ".[dev]"
+python examples/person_org_demo.py
+```
+
+Shared models live in [examples/models.py](https://github.com/eddiethedean/ontosql/blob/main/examples/models.py).
+
+## Read next
 
 - [Architecture](../ARCHITECTURE.md) — design rationale
-- [Cascade policies](../guides/cascade-policies.md) — nested writes
-- [HYBRID.md](../HYBRID.md) — graph sync (optional)
+- [Cascade policies](../guides/cascade-policies.md) — nested writes (`link` vs `replace`)
+- [Ecosystem](../ECOSYSTEM.md) — when to use OntoSQL vs SQLModel vs SparqlModel
 - [SPECS.md](../SPECS.md) — full API

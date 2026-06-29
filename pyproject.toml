@@ -26,6 +26,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+async = ["aiosqlite>=0.20", "greenlet>=3.0"]
 fastapi = ["fastapi>=0.100", "orjson>=3.9"]
 jsonld = ["PyLD>=3.0"]
 sparql = ["sparqlmodel>=0.13.1"]
@@ -55,7 +56,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/eddiethedean/ontosql"
-Documentation = "https://github.com/eddiethedean/ontosql#readme"
+Documentation = "https://eddiethedean.github.io/ontosql/"
 Repository = "https://github.com/eddiethedean/ontosql"
 Issues = "https://github.com/eddiethedean/ontosql/issues"
 Changelog = "https://github.com/eddiethedean/ontosql/blob/main/CHANGELOG.md"

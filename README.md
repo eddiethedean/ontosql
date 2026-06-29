@@ -1,8 +1,16 @@
 # OntoSQL
 
-**Semantic data access for SQL** — map ontology-shaped models onto real database schemas and write CRUD in Python, not RDF.
+[![PyPI version](https://img.shields.io/pypi/v/ontosql)](https://pypi.org/project/ontosql/)
+[![CI](https://github.com/eddiethedean/ontosql/actions/workflows/ci.yml/badge.svg)](https://github.com/eddiethedean/ontosql/actions/workflows/ci.yml)
+[![Python 3.10+](https://img.shields.io/pypi/pyversions/ontosql)](https://pypi.org/project/ontosql/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://eddiethedean.github.io/ontosql/)
 
-Real databases are not one table per ontology class. OntoSQL separates **physical** SQLModel tables from **semantic** Pydantic entities and connects them with an explicit **mapper**. Application code uses semantic types; OntoSQL compiles SQL on the backend. RDF export uses [TripleModel](https://github.com/eddiethedean/triplemodel); graph-native apps can pair OntoSQL with [SparqlModel](https://github.com/eddiethedean/sparqlmodel) — see [Ecosystem](docs/ECOSYSTEM.md).
+**Semantic data access for SQL** — a Python mapper (SQLModel + Pydantic) with optional RDF export. **Not** a SPARQL database or OBDA query engine.
+
+> **Who is this for?** Teams building **SQL-first** apps (Postgres, SQLite) that want **ontology-shaped Python models** and optional JSON-LD/RDF APIs. RDF and graph sync are optional — you can use OntoSQL for semantic CRUD only.
+
+Real databases are not one table per ontology class. OntoSQL separates **physical** SQLModel tables from **semantic** Pydantic entities and connects them with an explicit **mapper**. Application code uses semantic types; OntoSQL compiles SQL on the backend. Optional RDF export uses [TripleModel](https://github.com/eddiethedean/triplemodel); graph-native apps can pair OntoSQL with [SparqlModel](https://github.com/eddiethedean/sparqlmodel) — see [Ecosystem](docs/ECOSYSTEM.md).
 
 **Requirements:** Python 3.10+. See [Compatibility](docs/COMPATIBILITY.md).
 
@@ -12,29 +20,42 @@ Real databases are not one table per ontology class. OntoSQL separates **physica
 
 ```bash
 pip install ontosql
+pip install "ontosql[async]"     # AsyncOntoSession + SQLite (aiosqlite, greenlet)
 pip install "ontosql[fastapi]"   # OntoRouter + content negotiation
 pip install "ontosql[jsonld]"    # optional JSON-LD compact/frame (PyLD)
 pip install "ontosql[sparql]"    # SparqlModel graph sync adapter
 pip install "ontosql[shacl]"     # SHACL shape generation + validation
+# Combine extras: pip install "ontosql[fastapi,shacl,async]"
 ```
-
-For async SQLite examples: `pip install aiosqlite greenlet`.
 
 ## Start here
 
-1. **Quick start** (below) — models, maps, session CRUD in ~10 minutes
+1. **Try it (PyPI)** — copy the [standalone quick start](docs/getting-started/quickstart.md#tier-1-sql-crud-no-rdf-required) into `demo.py` (no clone required)
 2. [Architecture](docs/ARCHITECTURE.md) — why two model layers and explicit maps
 3. [Hybrid deployments](docs/HYBRID.md) — SQL + RDF graph sync (optional)
-4. [Technical specification](docs/SPECS.md) — full API reference
+4. [Technical specification](docs/SPECS.md) — full API reference · [hosted docs](https://eddiethedean.github.io/ontosql/)
 5. [FAQ](docs/FAQ.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
 
-Runnable examples (after `pip install ontosql`):
+### Examples (repository clone)
+
+The `examples/` directory is **not included in the PyPI wheel**. Clone the repo to run scripts:
 
 ```bash
-python examples/person_org_demo.py          # sync CRUD
-python examples/person_org_async.py         # async session (needs aiosqlite)
-python examples/hybrid_person_org.py        # graph sync + import + SHACL
-python examples/multi_map_person.py         # schema:Person vs foaf:Person views
+git clone https://github.com/eddiethedean/ontosql.git
+cd ontosql && pip install -e ".[dev]"
+```
+
+| Script | Extras | What it teaches |
+|--------|--------|-----------------|
+| [person_org_demo.py](examples/person_org_demo.py) | core | Sync CRUD round-trip |
+| [person_org_async.py](examples/person_org_async.py) | `ontosql[async]` | Async session |
+| [hybrid_person_org.py](examples/hybrid_person_org.py) | core (`shacl` optional) | Graph sync, import, SHACL |
+| [multi_map_person.py](examples/multi_map_person.py) | core | One table, multiple semantic views |
+| [person_org_api.py](examples/person_org_api.py) | `ontosql[fastapi]` + `uvicorn` | FastAPI OntoRouter demo |
+
+```bash
+python examples/person_org_demo.py
+pip install "ontosql[async]" && python examples/person_org_async.py
 pip install "ontosql[fastapi]" uvicorn && python examples/person_org_api.py
 ```
 
@@ -43,16 +64,10 @@ pip install "ontosql[fastapi]" uvicorn && python examples/person_org_api.py
 ### 0. Database engine
 
 ```python
-from sqlmodel import Session, SQLModel, create_engine
-
-from ontosql import OntoSession
+from sqlmodel import SQLModel, create_engine
 
 engine = create_engine("sqlite:///./app.db")
 SQLModel.metadata.create_all(engine)  # use Alembic in production
-
-# Optional: seed data
-with Session(engine) as raw:
-  ...
 ```
 
 ### 1. Physical models (database truth)
@@ -116,26 +131,32 @@ class PersonMap(OntoMapper[Person]):
     employer = Map.nested(
         Organization,
         join=(PersonRow.org_id == OrgRow.id),
-        target=OrgRow,
         nested_map=OrganizationMap,
         property="schema:worksFor",
         fk_column=PersonRow.org_id,
     )
 ```
 
-See [Cascade policies](docs/guides/cascade-policies.md) for nested write behavior (`link`, `upsert`, `replace`, `ignore`).
+See [Cascade policies](docs/guides/cascade-policies.md) for nested write behavior (`link`, `upsert`, `replace`, `ignore`). Default **`link`** is safest for shared nested entities.
 
 ### 4. Session (CRUD)
 
 ```python
+from sqlmodel import Session
+
 from ontosql import OntoSession, paginate
+
+with Session(engine) as raw:
+    raw.add(OrgRow(id=10, name="Analytical Engines Inc."))
+    raw.add(PersonRow(id=1, name="Ada Lovelace", org_id=10))
+    raw.commit()
 
 with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
     ada = session.get(Person, id=1)
     team = session.find(Person, where=Person.employer.name.startswith("Analytical"))
     page = paginate(session, Person, limit=20, offset=0)
 
-    new_person = session.save(Person.model_construct(name="Grace Hopper", id=None))
+    new_person = session.save(Person.model_construct(name="Grace Hopper", id=None))  # id=None → insert
     new_person.name = "Grace M. Hopper"
     session.save(new_person)
     session.delete(new_person)
@@ -222,8 +243,9 @@ See [examples/person_org_api.py](examples/person_org_api.py) for a runnable API.
 - [Roadmap](docs/ROADMAP.md)
 - [Changelog](CHANGELOG.md)
 - [Contributing](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Releasing](docs/RELEASING.md) (maintainers)
-- [Documentation site](mkdocs.yml) — build with `mkdocs serve` or `mkdocs build --strict`
+- [Documentation site](https://eddiethedean.github.io/ontosql/) — built from [mkdocs.yml](mkdocs.yml) on every push to `main`
 
 ## Development
 

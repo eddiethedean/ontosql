@@ -1,6 +1,8 @@
 # Contributing to OntoSQL
 
-Thank you for contributing. This project is in active development (0.4.x beta).
+Thank you for contributing. This project is in active development (**0.5.x beta**). Semver guarantees begin at 1.0 — see [ROADMAP.md](docs/ROADMAP.md).
+
+Please read the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
 
@@ -22,13 +24,25 @@ mkdocs build --strict
 
 Install docs tooling with `pip install -e ".[docs]"` (also included in `.[dev]`).
 
+### Run a subset of tests
+
+During development you do not need the full suite every time:
+
+```bash
+pytest tests/test_session_write_sync.py -q          # sync CRUD
+pytest tests/test_session_async.py -q                 # async parity
+pytest tests/test_mapping.py -q                       # mapper validation
+```
+
+Postgres integration tests require `ONTO_TEST_DATABASE_URL` (see CI postgres job).
+
 ## Project layout
 
 ```text
 src/ontosql/     # library code
 tests/           # pytest suite; shared fixtures in tests/models.py
 examples/        # runnable demos; shared fixtures in examples/models.py
-docs/            # documentation
+docs/            # documentation (MkDocs site)
 ```
 
 - **Tests** use `tests/models.py` for Person/Organization fixtures.
@@ -41,11 +55,24 @@ docs/            # documentation
 3. Update docs and `CHANGELOG.md` `[Unreleased]` when user-facing behavior changes
 4. Ensure CI passes locally before opening PR
 
+Use the PR template checklist (tests, changelog, docs).
+
 ## Code style
 
 - Ruff for lint and format (line length 100)
 - `ty check` on `src/ontosql`
 - Match existing patterns; avoid drive-by refactors
+
+## Issue labels
+
+Maintainers use these labels (see [.github/labels.yml](.github/labels.yml)):
+
+| Label | Use |
+|-------|-----|
+| `good first issue` | Small, isolated tasks — docs, examples, typo fixes |
+| `documentation` | README, guides, MkDocs |
+| `bug` | Incorrect behavior |
+| `enhancement` | New features |
 
 ## Releases
 

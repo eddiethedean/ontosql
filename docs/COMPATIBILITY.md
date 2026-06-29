@@ -28,6 +28,7 @@ OntoSQL does not cap upper bounds on core dependencies in 0.5.x; verify upgrades
 
 | Extra | Key packages | Notes |
 |-------|----------------|-------|
+| `async` | aiosqlite `>=0.20`, greenlet `>=3.0` | `AsyncOntoSession` with SQLite |
 | `fastapi` | fastapi `>=0.100`, orjson `>=3.9` | `OntoRouter` is demo-grade |
 | `jsonld` | PyLD `>=3.0` | Compaction and framing |
 | `sparql` | sparqlmodel `>=0.13.1` | Graph sync adapter |
@@ -42,7 +43,7 @@ PyPI classifier: **Development Status :: 4 - Beta** (0.5.x). API may evolve unti
 | Database | CI coverage | Production notes |
 |----------|-------------|------------------|
 | **SQLite** | Full test matrix (Python 3.10–3.13) | Enable `PRAGMA foreign_keys=ON` for FK enforcement with REPLACE cascade |
-| **PostgreSQL** | Dedicated CI job ([`tests/test_postgres.py`](../tests/test_postgres.py)) — session CRUD, nested reads, save/delete | Recommended for production; see [postgres-dialect.md](guides/postgres-dialect.md) |
+| **PostgreSQL** | Dedicated CI job ([`test_postgres.py`](https://github.com/eddiethedean/ontosql/blob/main/tests/test_postgres.py)) — session CRUD, nested reads, save/delete | Recommended for production; see [postgres-dialect.md](guides/postgres-dialect.md) |
 
 Other SQLAlchemy-supported databases may work but are not CI-tested.
 

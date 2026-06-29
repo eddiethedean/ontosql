@@ -5,7 +5,7 @@
 ## Install
 
 ```bash
-pip install ontosql aiosqlite greenlet
+pip install "ontosql[async]"
 ```
 
 For PostgreSQL, use `asyncpg` with `create_async_engine("postgresql+asyncpg://...")`.

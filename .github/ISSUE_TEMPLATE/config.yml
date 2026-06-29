@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://eddiethedean.github.io/ontosql/
+    about: Read the docs before opening an issue
+  - name: Troubleshooting
+    url: https://github.com/eddiethedean/ontosql/blob/main/docs/TROUBLESHOOTING.md
+    about: Common errors and fixes

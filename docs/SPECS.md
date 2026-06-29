@@ -149,7 +149,6 @@ class PersonMap(OntoMapper[Person]):
     employer = Map.nested(
         Organization,
         join=(PersonRow.org_id == OrgRow.id),
-        target=OrgRow,
         nested_map=OrganizationMap,
         property="schema:worksFor",
     )

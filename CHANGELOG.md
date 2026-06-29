@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shared session orchestration helpers in `ontosql.session._ops` (used by sync and async sessions)
 - Public API stability tiers documented in [SPECS.md](SPECS.md)
 - Postgres integration tests expanded in CI
+- **Onboarding** — README badges, PyPI vs clone paths, progressive quick start tiers, `ontosql[async]` extra, GitHub Pages docs deploy, contributor templates (issues, PR, CoC, SECURITY)
 
 ## Migrating from 0.4.x to 0.5.x
 
