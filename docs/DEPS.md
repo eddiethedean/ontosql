@@ -54,15 +54,15 @@ OntoSQL does **not** require apps to subclass `TripleModel`. Export builds a gra
 
 - Graph-native ORM sibling to OntoSQL
 - `SPARQLSession`, SPARQL query DSL, cascade `put`/`delete`
-- Planned for graph sync adapters (0.4) — push/pull between SQL session results and SPARQL stores
+- **Shipped:** `OntoGraphSync` adapter in `ontosql.sync.sparql` — push/pull between SQL session results and SPARQL stores ([HYBRID.md](HYBRID.md))
 - Depends on TripleModel; installing `ontosql[sparql]` pulls both SparqlModel and its TripleModel pin
 
 ## FastAPI ecosystem (optional extra)
 
 ### FastAPI + orjson (`ontosql[fastapi]`)
 
-- `OntoRouter` CRUD routes with content negotiation (0.3+)
-- Dependency-injected `OntoSession` via `onto_session_lifespan`
+- `OntoRouter` CRUD routes with content negotiation (0.3+); **0.5+** async-only via `onto_async_session_lifespan` + `AsyncSessionDep`
+- `onto_session_lifespan` / `SessionDep` for custom **sync** routes only
 - `orjson` for fast JSON-LD response bodies
 
 See [SPECS.md](SPECS.md#fastapi-ontosqlfastapi) for production limitations of `OntoRouter`.

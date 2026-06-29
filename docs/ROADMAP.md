@@ -15,7 +15,7 @@ OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethe
 | RDF import (`ontosql.import_`) | Shipped |
 | Graph sync (`ontosql.sync`) + session `graph_sync` hook | Shipped |
 | `OntoGraphSync` SparqlModel adapter (`ontosql[sparql]`) | Shipped |
-| Materialized graph views (`materialize_find`, `materialize_entity`) | Shipped |
+| Materialized graph views (`materialize_find`, `materialize_find_async`) | Shipped |
 | SHACL generation + validation (`ontosql[shacl]`) | Shipped |
 | `CascadePolicy.REPLACE` distinct semantics | Shipped |
 | `PrefixRegistry.curated()` bundles | Shipped |
@@ -126,7 +126,7 @@ OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethe
 - **RDF import** — `import_from_jsonld`, `import_from_rdf`, `graph_to_instance` via mapper metadata
 - **Graph sync** — `push_instance`, `sync_instance_to_store`, `OntoSession(graph_sync=...)`
 - **SparqlModel adapter** — `OntoGraphSync` push/pull (`ontosql[sparql]`)
-- **Materialized views** — `materialize_find`, `materialize_entity`
+- **Materialized views** — `materialize_find`, `materialize_find_async`
 - **SHACL** — `shapes_from_mapper`, `validate_instance` (`ontosql[shacl]`)
 - **Prefix bundles** — `PrefixRegistry.curated("schema_org" | "dcterms")`
 - **`CascadePolicy.REPLACE`** — delete old nested row on association change

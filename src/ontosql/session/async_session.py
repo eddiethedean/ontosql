@@ -73,10 +73,17 @@ class AsyncOntoSession(SessionBase):
             self._session = None
             logger.debug("session close async")
 
-    async def rollback(self) -> None:
-        """Roll back the current SQLAlchemy transaction (uncommitted work only)."""
+    async def rollback(self, *, clear_uow: bool = False) -> None:
+        """Roll back the current SQLAlchemy transaction.
+
+        Does not clear the unit-of-work queue unless ``clear_uow=True``.
+        See ``docs/internals/session-lifecycle.md``.
+        """
         await self._require_session().rollback()
-        logger.debug("session rollback async explicit")
+        if clear_uow:
+            self._state.clear_pending()
+            self._state.clear_graph_sync()
+        logger.debug("session rollback async explicit clear_uow=%s", clear_uow)
 
     def _require_session(self) -> AsyncSession:
         if self._session is None:

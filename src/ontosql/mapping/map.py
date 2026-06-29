@@ -76,18 +76,105 @@ class NestedMap:
         return nested.primary_table
 
 
+def _column_field_name(col: ColumnElement[Any]) -> str:
+    key = getattr(col, "key", None)
+    if key:
+        return str(key)
+    name = getattr(col, "name", None)
+    if name:
+        return str(name)
+    raise ValueError(f"Cannot infer semantic field name for column {col!r}")
+
+
+def _guess_nested_field(entity_type: type[Any]) -> str:
+    return entity_type.__name__[0].lower() + entity_type.__name__[1:]
+
+
+def column(
+    col: ColumnElement[Any],
+    *,
+    property: str | None = None,
+    field: str | None = None,
+) -> ColumnMap:
+    """Map a semantic field to a SQL column (preferred over ``Map(...)``)."""
+    name = field or _column_field_name(col)
+    return ColumnMap(semantic_field=name, column=col, property_curie=property)
+
+
+def nested(
+    entity_type: type[Any],
+    *,
+    join: ColumnElement[bool],
+    nested_map: type[Any],
+    property: str | None = None,
+    field: str | None = None,
+    target: Any = None,  # noqa: ARG001 — accepted for API compatibility with docs
+    cascade: CascadePolicy = CascadePolicy.LINK,
+    fk_column: ColumnElement[Any] | None = None,
+) -> NestedMap:
+    """Map a nested semantic entity (preferred over ``Map.nested``)."""
+    name = field or _guess_nested_field(entity_type)
+    return NestedMap(
+        semantic_field=name,
+        entity_type=entity_type,
+        join=join,
+        nested_mapper=nested_map,
+        property_curie=property,
+        cascade=cascade,
+        fk_column=fk_column,
+    )
+
+
+def computed(
+    expression: ColumnElement[Any],
+    *,
+    field: str,
+    property: str | None = None,
+) -> ComputedMap:
+    """Map a read-only computed field (preferred over ``Map.computed``)."""
+    return ComputedMap(
+        semantic_field=field,
+        expression=expression,
+        property_curie=property,
+    )
+
+
+def collection(
+    entity_type: type[Any],
+    *,
+    through: Any,
+    source_fk: ColumnElement[Any],
+    target_fk: ColumnElement[Any],
+    nested_map: type[Any],
+    property: str | None = None,
+    field: str | None = None,
+    cascade: CascadePolicy = CascadePolicy.LINK,
+) -> CollectionMap:
+    """Map a many-to-many collection (preferred over ``Map.collection``)."""
+    name = field or f"{_guess_nested_field(entity_type)}s"
+    return CollectionMap(
+        semantic_field=name,
+        entity_type=entity_type,
+        through=through,
+        source_fk=source_fk,
+        target_fk=target_fk,
+        nested_mapper=nested_map,
+        property_curie=property,
+        cascade=cascade,
+    )
+
+
 class Map:
-    """Factory for column and nested map bindings."""
+    """Factory for column and nested map bindings (delegates to module functions)."""
 
     def __new__(
         cls,
-        column: ColumnElement[Any],
+        col: ColumnElement[Any],
         *,
         property: str | None = None,
         field: str | None = None,
     ) -> ColumnMap:
-        name = field or _column_field_name(column)
-        return ColumnMap(semantic_field=name, column=column, property_curie=property)
+        return column(col, property=property, field=field)
 
     @staticmethod
     def nested(
@@ -97,17 +184,17 @@ class Map:
         nested_map: type[Any],
         property: str | None = None,
         field: str | None = None,
-        target: Any = None,  # noqa: ARG004 — accepted for API compatibility with docs
+        target: Any = None,
         cascade: CascadePolicy = CascadePolicy.LINK,
         fk_column: ColumnElement[Any] | None = None,
     ) -> NestedMap:
-        name = field or _guess_nested_field(entity_type)
-        return NestedMap(
-            semantic_field=name,
-            entity_type=entity_type,
+        return nested(
+            entity_type,
             join=join,
-            nested_mapper=nested_map,
-            property_curie=property,
+            nested_map=nested_map,
+            property=property,
+            field=field,
+            target=target,
             cascade=cascade,
             fk_column=fk_column,
         )
@@ -119,11 +206,7 @@ class Map:
         field: str,
         property: str | None = None,
     ) -> ComputedMap:
-        return ComputedMap(
-            semantic_field=field,
-            expression=expression,
-            property_curie=property,
-        )
+        return computed(expression, field=field, property=property)
 
     @staticmethod
     def collection(
@@ -137,28 +220,13 @@ class Map:
         field: str | None = None,
         cascade: CascadePolicy = CascadePolicy.LINK,
     ) -> CollectionMap:
-        name = field or f"{_guess_nested_field(entity_type)}s"
-        return CollectionMap(
-            semantic_field=name,
-            entity_type=entity_type,
+        return collection(
+            entity_type,
             through=through,
             source_fk=source_fk,
             target_fk=target_fk,
-            nested_mapper=nested_map,
-            property_curie=property,
+            nested_map=nested_map,
+            property=property,
+            field=field,
             cascade=cascade,
         )
-
-
-def _column_field_name(column: ColumnElement[Any]) -> str:
-    key = getattr(column, "key", None)
-    if key:
-        return str(key)
-    name = getattr(column, "name", None)
-    if name:
-        return str(name)
-    raise ValueError(f"Cannot infer semantic field name for column {column!r}")
-
-
-def _guess_nested_field(entity_type: type[Any]) -> str:
-    return entity_type.__name__[0].lower() + entity_type.__name__[1:]

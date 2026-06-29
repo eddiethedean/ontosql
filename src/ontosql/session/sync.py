@@ -98,10 +98,17 @@ class OntoSession(SessionBase):
             )
         return self._session
 
-    def rollback(self) -> None:
-        """Roll back the current SQLAlchemy transaction (uncommitted work only)."""
+    def rollback(self, *, clear_uow: bool = False) -> None:
+        """Roll back the current SQLAlchemy transaction.
+
+        Does not clear the unit-of-work queue unless ``clear_uow=True``.
+        See ``docs/internals/session-lifecycle.md``.
+        """
         self._require_session().rollback()
-        logger.debug("session rollback sync explicit")
+        if clear_uow:
+            self._state.clear_pending()
+            self._state.clear_graph_sync()
+        logger.debug("session rollback sync explicit clear_uow=%s", clear_uow)
 
     def create_tables(self, *models: type[SQLModel]) -> None:
         """Create physical tables (convenience for tests)."""

@@ -158,14 +158,18 @@ class OntoRouter:
                     return negotiate_graph_response(chosen, graph)
 
             page = await paginate_async(session, entity_type, limit=limit, offset=offset)
-            payload: list[Any] | dict[str, Any]
             if accept and accept.startswith("application/ld+json"):
-                payload = {
-                    "@context": getattr(entity_type, "jsonld_context", {}),
-                    "@graph": [item.to_jsonld() for item in page.items],
-                }
-            else:
-                payload = [item.model_dump() for item in page.items]
+                from ontosql.export.instance import instances_to_jsonld
+
+                payload = instances_to_jsonld(page.items)
+                ctx = getattr(entity_type, "jsonld_context", None) or getattr(
+                    entity_type, "context", None
+                )
+                if ctx:
+                    payload["@context"] = ctx
+                return negotiate_onto_response(request, payload)
+
+            payload = [item.model_dump() for item in page.items]
             return negotiate_onto_response(request, payload)
 
         @self.router.post(f"/{name}", status_code=status.HTTP_201_CREATED)

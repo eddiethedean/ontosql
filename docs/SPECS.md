@@ -26,7 +26,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 
 **Semver commitment** begins at **1.0** ([ROADMAP.md](ROADMAP.md)). Pre-1.0 releases may rename parameters without a deprecation cycle.
 
-`OntoRouter` is a **demo** convenience layer — not production-ready without auth, rate limits, and async session wiring ([SECURITY.md](SECURITY.md)).
+`OntoRouter` is a **supported HTTP scaffold** (beta-experimental) — async-only, with default body limits and semantic validation. **Not safe on public networks** without `dependencies=[Depends(your_auth)]`, rate limits, and object-level authorization ([SECURITY.md](SECURITY.md), [guides/production-router.md](guides/production-router.md)). For hand-written production routes, see [examples/person_org_api_production.py](https://github.com/eddiethedean/ontosql/blob/main/examples/person_org_api_production.py).
 
 ## Public API surface
 
@@ -37,8 +37,9 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 | `OntoModel`, `onto_property` | `ontosql.semantic` |
 | `Map`, `OntoMapper`, `CascadePolicy` | `ontosql.mapping` |
 | `OntoSession`, `AsyncOntoSession`, `Page`, `paginate`, `paginate_async` | `ontosql.session` |
-| `GraphSyncError`, `GraphSyncFailure`, `GraphSyncMode` | `ontosql.session` / `ontosql.sync` |
-| `OntoImportError` | `ontosql.import_` |
+| `GraphSyncError`, `GraphSyncMode` | `ontosql.session` / `ontosql.sync` |
+| `GraphSyncFailure` | `ontosql.session` only (not re-exported from root) |
+| `OntoImportError` | `ontosql.import_` (also re-exported from root) |
 | `PrefixRegistry` | `ontosql.registry` |
 
 `MapperRegistry` is exported from `ontosql.mapping` for multi-map registration; prefer `OntoSession(maps=[...])` for application wiring.
@@ -47,11 +48,11 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 
 | Package | Key entry points |
 |---------|------------------|
-| `ontosql.export` | `instance_to_graph`, `instance_to_jsonld`, `instance_to_rdf`, `instances_to_graph`, `instances_to_jsonld`, `instances_to_rdf` |
+| `ontosql.export` | `instance_to_graph`, `instance_to_jsonld`, `instance_to_rdf`, `instances_to_graph`, `instances_to_jsonld`, `instances_to_rdf`, `write_instance_to_graph` |
 | `ontosql.import_` | `import_from_jsonld`, `import_from_rdf`, `graph_to_instance`, `OntoImportError` |
 | `ontosql.sync` | `push_instance`, `remove_instance`, `StoreSyncTarget`, `GraphSyncTarget`, `GraphSyncMode`, `materialize_find`, `materialize_find_async` |
 | `ontosql.query` | `FieldRef`, `FieldPath`, expression operators on semantic fields |
-| `ontosql.fastapi` | `OntoRouter`, `onto_session_lifespan`, `onto_async_session_lifespan`, `SessionDep`, `AsyncSessionDep`, `get_onto_session`, `get_async_onto_session` (requires `ontosql[fastapi]`) |
+| `ontosql.fastapi` | `OntoRouter`, `DEFAULT_MAX_BODY_BYTES`, `onto_async_session_lifespan`, `AsyncSessionDep`, `get_async_onto_session`, `negotiate_onto_response`, RDF response classes, OpenAPI helpers. `onto_session_lifespan` / `SessionDep` remain for **custom sync routes only** — `OntoRouter` requires async lifespan (requires `ontosql[fastapi]`) |
 | `ontosql.shacl` | `shapes_from_mapper`, `validate_instance` (requires `ontosql[shacl]`) |
 
 ### Instance methods on `OntoModel`
@@ -374,21 +375,28 @@ return negotiate_onto_response(request, semantic_instance)
 - RFC 7231-style `Accept` parsing (`q`, `charset`, `q=0` rejection).
 - `orjson` for JSON-LD bodies when installed.
 
-**0.3.0:** `OntoRouter` for CRUD routes; `onto_session_lifespan`; OpenAPI semantic enrichment.
+### OntoRouter (0.5.x)
 
-### OntoRouter production limitations (0.3.x)
+`OntoRouter` uses **`AsyncSessionDep`** on all routes. Wire **`onto_async_session_lifespan(app, engine, maps)`** at startup (async engine required).
 
-`OntoRouter` is **demo-grade**, not production-hardened:
+| Option | Default (0.5+) | Detail |
+|--------|------------------|--------|
+| `validate_entities` | `True` | Runs `OntoModel.model_validate` on create/patch |
+| `max_body_bytes` | `65536` | POST/PATCH body cap (413 when exceeded) |
+| `dependencies` | `[]` | **Required for internet** — FastAPI `Depends` authn/authz on every route |
 
 | Gap | Detail |
 |-----|--------|
-| No auth | All CRUD routes are unauthenticated unless the host app adds middleware or dependencies |
-| Body validation | POST/PATCH validate with generated Pydantic models; optional `validate_entities=True` runs `OntoModel.model_validate` |
-| Body size | Optional `max_body_bytes` on POST/PATCH (413 when exceeded) |
-| Sync session in async handlers | Blocking I/O under load; use `onto_async_session_lifespan` + `AsyncSessionDep` |
-| List `limit` | Capped at 100 (0.3.1+); still runs find + count per list request |
+| No built-in auth | Pass `dependencies=[Depends(your_auth)]` |
+| No rate limiting | Add middleware or reverse-proxy limits |
+| List `limit` | Capped at 100; runs find + count per list request |
+| Graph sync | Not wired by default; hybrid apps see [HYBRID.md](HYBRID.md) |
 
-Before production: wire auth dependencies, use async sessions where appropriate, and restrict mount paths. See [SECURITY.md](SECURITY.md).
+List JSON-LD uses `instances_to_jsonld()`. Optional class attribute **`jsonld_context`** (or `context` for OpenAPI) overrides `@context` on list responses.
+
+**Custom sync routes:** `onto_session_lifespan` + `SessionDep` for blocking SQLAlchemy in hand-written handlers — not used by `OntoRouter`.
+
+Before production: auth dependencies, rate limits, `debug=False`, protect `/docs`. See [SECURITY.md](SECURITY.md) and [guides/production-router.md](guides/production-router.md).
 
 ---
 
@@ -436,6 +444,18 @@ Do **not**:
 - SQL is compiled, not hand-written for the happy path
 - Standards compliance for **export** and **import** (JSON-LD, RDF); SHACL validation via `ontosql[shacl]`
 - Progressive enhancement via optional extras (`fastapi`, `shacl`, `jsonld`, `sparql`)
+
+## Naming conventions
+
+| Concept | Preferred name | Notes |
+|---------|----------------|-------|
+| Primary key lookup | `identity=` | `session.get(Person, identity=1)` — not `id=` |
+| HTTP path param | `entity_id` | FastAPI route param; maps to `identity=` |
+| Mapper class arg | `mapper_cls` | Low-level sync (`sync_instance_to_store`) |
+| Mapper class arg | `mapper` | User-facing import (`import_from_rdf`, `from_jsonld`) |
+| RDF import module | `ontosql.import_` | Trailing underscore avoids `import` keyword |
+| JSON-LD list context | `jsonld_context` | Optional `ClassVar` on `OntoModel`; OpenAPI also reads `context` |
+| Graph sync mode | `GraphSyncMode` | Literals `"patch"`, `"replace"`, `"add"` |
 
 ## Related documents
 

@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from sqlalchemy.sql import Select
 
+from ontosql.mapping.cascade import CascadePolicy
+
 
 @dataclass
 class ColumnProjection:
@@ -52,7 +54,7 @@ class CollectionWritePlan:
     """Bridge-table sync for a collection field on save."""
 
     field_name: str
-    policy: str
+    policy: CascadePolicy
     items: list[Any]
     nested_writes: list[Any] = field(default_factory=list)
 

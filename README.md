@@ -191,32 +191,48 @@ Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleM
 - **Import** — `ontosql.import_` hydrates `OntoModel` from RDF ([FAQ](docs/FAQ.md#import-path))
 - **Graph sync** — mirror SQL writes to RDF graphs on commit ([HYBRID.md](docs/HYBRID.md))
 - **SHACL** — generate and validate shapes from maps (`ontosql[shacl]`)
-- **Prefix bundles** — `PrefixRegistry.curated()` for schema.org / DC Terms
+- **Prefix bundles** — `PrefixRegistry.curated("schema_org")` or `curated("dcterms")` for schema.org / DC Terms
 
 ## FastAPI
 
 ```python
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import SQLModel
+
 from ontosql.fastapi import OntoRouter, onto_async_session_lifespan
 
-app = FastAPI()
 engine = create_async_engine("sqlite+aiosqlite://")
 
-@app.on_event("startup")
-async def startup():
+
+async def require_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> None:
+    if x_api_key != "your-secret":  # replace with real auth
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-    onto_async_session_lifespan(app, engine, [PersonMap, OrganizationMap])
+    onto_async_session_lifespan(app, engine, maps=[PersonMap, OrganizationMap])
+    yield
+    await engine.dispose()
 
-router = OntoRouter(maps=[PersonMap, OrganizationMap])
+
+app = FastAPI(lifespan=lifespan)
+router = OntoRouter(
+    maps=[PersonMap, OrganizationMap],
+    dependencies=[Depends(require_api_key)],
+)
 router.register(Person)
 router.include_in(app)
 ```
 
-See [examples/person_org_api_production.py](examples/person_org_api_production.py) for a production-oriented API pattern.
+See [examples/person_org_api_production.py](examples/person_org_api_production.py) for hand-written production routes (no `OntoRouter`).
 
-> **Production warning:** Pass `dependencies=[Depends(your_auth)]` on `OntoRouter` before any public network exposure. See [production-router.md](docs/guides/production-router.md) and [Security](docs/SECURITY.md).
+> **Production:** `OntoRouter` requires `dependencies=[Depends(your_auth)]` before public exposure. See [production-router.md](docs/guides/production-router.md) and [Security](docs/SECURITY.md).
 
 ## Documentation
 

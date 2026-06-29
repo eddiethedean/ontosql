@@ -140,3 +140,38 @@ def build_async_onto_test_app(
         router.register(entity)
     router.include_in(app)
     return app
+
+
+@pytest.fixture
+def api_client_full():
+    """FastAPI TestClient: Person + Organization, default router options."""
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    with TestClient(build_async_onto_test_app()) as client:
+        yield client
+
+
+@pytest.fixture
+def api_client_person_only():
+    """FastAPI TestClient: Person routes only (single seeded row)."""
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    with TestClient(build_async_onto_test_app(entities=(Person,))) as client:
+        yield client
+
+
+@pytest.fixture
+def api_client_hardened():
+    """FastAPI TestClient: Person only, validate_entities + small body cap."""
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    with TestClient(
+        build_async_onto_test_app(
+            entities=(Person,),
+            router_kwargs={"validate_entities": True, "max_body_bytes": 256},
+        )
+    ) as client:
+        yield client

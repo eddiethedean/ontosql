@@ -21,6 +21,8 @@ class OntoModel(BaseModel, metaclass=OntoModelMeta):
     type_iri: ClassVar[str | None] = None
     iri_template: ClassVar[str | None] = None
     identity_field: ClassVar[str] = "id"
+    jsonld_context: ClassVar[dict[str, Any] | None] = None
+    """Optional JSON-LD ``@context`` for list/export endpoints (see SPECS)."""
 
     def to_jsonld(self, registry: PrefixRegistry | None = None) -> dict[str, Any]:
         """Export this instance as a JSON-LD document (via TripleModel)."""

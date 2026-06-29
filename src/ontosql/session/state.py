@@ -30,13 +30,6 @@ class SessionState:
     graph_sync_removes: list[OntoModel] = field(default_factory=list)
     graph_sync_failures: list[Any] = field(default_factory=list)
 
-    def identity_key(
-        self, entity_type: type[OntoModel], instance: OntoModel
-    ) -> tuple[type[OntoModel], Any]:
-        mapper_identity = entity_type.identity_field
-        value = getattr(instance, mapper_identity)
-        return (entity_type, value)
-
     def snapshot_key(self, instance: OntoModel) -> SnapshotKey | None:
         entity_type = type(instance)
         identity = getattr(instance, entity_type.identity_field, None)

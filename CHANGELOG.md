@@ -7,11 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Maintainability** — docs reconciled for 0.5.x; `docs/internals/session-lifecycle.md`; `OntoRouter` list JSON-LD uses `instances_to_jsonld`; mapper identity field validated at registration; `rollback(clear_uow=)`; unified write executors; `column`/`nested`/`computed`/`collection` map functions; expanded API contract tests; sync/async session parity tests
+
 ### Security
 
 - **`OntoRouter`** — async `AsyncSessionDep` on all routes; default `validate_entities=True` and `max_body_bytes=65536`; `dependencies=` for authn/authz; safer `Content-Length` handling (400 on invalid header)
 - **RDF import** — `untrusted=True` applies default byte/triple caps; `max_nesting_depth` on `graph_to_instance` (default 32); documented post-parse `max_triples` limit and PyLD SSRF risk
 - **Semantic filters** — reject raw `sqlalchemy.text()` in `compile_expr`
+- **`GraphSyncFailure`** — exported from `ontosql.session` only (not root `import ontosql`)
 
 ### Changed
 
@@ -59,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`materialize_find`** now builds one `Store` via batch export (same RDF intent, different memory profile)
 - **`CascadePolicy.REPLACE`** (from 0.4.0) deletes old nested rows when associations change — do not use on shared nested entities; see [cascade-policies.md](guides/cascade-policies.md)
-- **`OntoRouter`** remains **demo-grade** — no auth, sync sessions in async routes; see [SECURITY.md](SECURITY.md)
+- **`OntoRouter`** requires auth `dependencies` and async lifespan for public exposure; see [SECURITY.md](SECURITY.md)
 - **Graph sync** is eventual-consistency after SQL commit, not two-phase commit; see [HYBRID.md](HYBRID.md)
 
 ### API stability (0.5.x)

@@ -66,6 +66,7 @@ nav:
       - Architecture: ARCHITECTURE.md
       - Ecosystem: ECOSYSTEM.md
       - Technical specification: SPECS.md
+      - Session lifecycle (internals): internals/session-lifecycle.md
       - Compatibility: COMPATIBILITY.md
       - Security: SECURITY.md
       - Dependencies: DEPS.md

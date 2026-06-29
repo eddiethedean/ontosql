@@ -111,14 +111,8 @@ def test_load_graph_max_bytes_raises() -> None:
 
 
 @pytest.fixture
-def api_client() -> TestClient:
-    with TestClient(
-        build_async_onto_test_app(
-            entities=(Person,),
-            router_kwargs={"validate_entities": True, "max_body_bytes": 256},
-        )
-    ) as client:
-        yield client
+def api_client(api_client_hardened: TestClient) -> TestClient:
+    return api_client_hardened
 
 
 def test_router_rejects_oversized_body(api_client: TestClient) -> None:

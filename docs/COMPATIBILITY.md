@@ -29,7 +29,7 @@ OntoSQL does not cap upper bounds on core dependencies in 0.5.x; verify upgrades
 | Extra | Key packages | Notes |
 |-------|----------------|-------|
 | `async` | aiosqlite `>=0.20`, greenlet `>=3.0` | `AsyncOntoSession` with SQLite |
-| `fastapi` | fastapi `>=0.100`, orjson `>=3.9` | `OntoRouter` is demo-grade |
+| `fastapi` | fastapi `>=0.100`, orjson `>=3.9` | `OntoRouter` (async; requires auth `dependencies` for public exposure) |
 | `jsonld` | PyLD `>=3.0` | Compaction and framing |
 | `sparql` | sparqlmodel `>=0.13.1` | Graph sync adapter |
 | `shacl` | pyshacl `>=0.29` | Shape generation and validation |

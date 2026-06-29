@@ -16,10 +16,7 @@ from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import build_instance_iri
 from ontosql.sync import StoreSyncTarget, push_instance
 from ontosql.sync.graph import sync_instance_to_store as sync_to_store
-from tests.conftest import build_async_onto_test_app
 from tests.models import Organization, OrganizationMap, OrgRow, Person, PersonMap, PersonRow
-
-pytest.importorskip("fastapi")
 
 
 def test_patch_cannot_retarget_id(api_client: TestClient) -> None:
@@ -189,6 +186,5 @@ def test_invalid_graph_sync_mode_raises() -> None:
 
 
 @pytest.fixture
-def api_client() -> TestClient:
-    with TestClient(build_async_onto_test_app(entities=(Person,))) as client:
-        yield client
+def api_client(api_client_person_only: TestClient) -> TestClient:
+    return api_client_person_only

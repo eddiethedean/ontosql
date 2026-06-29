@@ -13,7 +13,7 @@ from ontosql import OntoSession
 from ontosql.compile.execute import async_execute_write_plan, execute_write_plan
 from ontosql.compile.plan import TableWrite, WritePlan
 from ontosql.compile.write import WriteCompileError, compile_save_plan
-from ontosql.fastapi.deps import get_async_onto_session, onto_session_lifespan
+from ontosql.fastapi.deps import get_async_onto_session, onto_async_session_lifespan
 from ontosql.fastapi.negotiate import _parse_accept, negotiate_onto_response
 from ontosql.fastapi.responses import NTriplesResponse, RDFXMLResponse, TurtleResponse
 from ontosql.mapping.map import Map as MapCls
@@ -61,6 +61,26 @@ def test_mapper_registry_get_missing() -> None:
         reg.get(Person)
 
 
+def test_mapper_registry_rejects_identity_field_mismatch() -> None:
+    from ontosql import Map, OntoMapper
+    from tests.models import PersonRow
+
+    class BadPerson(OntoModel):
+        type_iri = "schema:Person"
+        person_id: int
+        name: str
+
+    class BadPersonMap(OntoMapper[BadPerson]):
+        entity = BadPerson
+        identity_field = "person_id"
+        person_id = Map(PersonRow.id)
+        name = Map(PersonRow.name, property="schema:name")
+
+    reg = MapperRegistry()
+    with pytest.raises(ValueError, match="identity_field"):
+        reg.register(BadPersonMap)
+
+
 def test_field_ref_comparison_operators() -> None:
     col = PersonMap.column_maps["name"].column
     resolve = lambda ref: col  # noqa: E731
@@ -100,7 +120,7 @@ def test_state_register_without_identity() -> None:
 @pytest.mark.asyncio
 async def test_async_session_deps(async_engine) -> None:
     app = FastAPI()
-    onto_session_lifespan(app, async_engine, [PersonMap])
+    onto_async_session_lifespan(app, async_engine, [PersonMap])
 
     async def _run() -> None:
         gen = get_async_onto_session(MagicMock(app=app))
@@ -211,3 +231,28 @@ def test_inserted_identity_from_values() -> None:
     plan = compile_save_plan(PersonMap, Person(id=5, name="A", employer=None), is_new=True)
     result = MagicMock(inserted_primary_key=())
     assert _inserted_identity(result, plan, {"id": 5, "name": "A"}) == 5
+
+
+def test_map_module_functions() -> None:
+    from ontosql.mapping.map import collection, column, computed, nested
+    from tests.models import Organization, OrganizationMap, OrgRow, PersonRow
+
+    col_map = column(PersonRow.name, property="schema:name")
+    assert col_map.semantic_field == "name"
+    nested_map = nested(
+        Organization,
+        join=PersonRow.org_id == OrgRow.id,
+        nested_map=OrganizationMap,
+        property="schema:worksFor",
+    )
+    assert nested_map.semantic_field == "organization"
+    comp = computed(PersonRow.name, field="display_name")
+    assert comp.semantic_field == "display_name"
+    coll = collection(
+        Organization,
+        through=PersonRow,
+        source_fk=PersonRow.org_id,
+        target_fk=OrgRow.id,
+        nested_map=OrganizationMap,
+    )
+    assert coll.semantic_field == "organizations"

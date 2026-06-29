@@ -13,6 +13,13 @@ class MapperRegistry:
 
     def register(self, mapper_cls: type[Any]) -> None:
         entity = mapper_cls.entity
+        mapper_identity = getattr(mapper_cls, "identity_field", "id")
+        entity_identity = getattr(entity, "identity_field", "id")
+        if mapper_identity != entity_identity:
+            raise ValueError(
+                f"Mapper {mapper_cls.__name__!r} identity_field={mapper_identity!r} "
+                f"does not match entity {entity.__name__!r} identity_field={entity_identity!r}"
+            )
         if entity in self._by_entity:
             existing = self._by_entity[entity]
             raise ValueError(

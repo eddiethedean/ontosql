@@ -217,7 +217,7 @@ def _compile_collections(
         plans.append(
             CollectionWritePlan(
                 field_name=field_name,
-                policy=cmap.cascade.value,
+                policy=cmap.cascade,
                 items=list(items),
                 nested_writes=nested_writes,
             )

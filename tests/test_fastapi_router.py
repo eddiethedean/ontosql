@@ -6,16 +6,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ontosql.fastapi.router import OntoRouter
-from tests.conftest import build_async_onto_test_app
 from tests.models import OrganizationMap, Person, PersonMap
 
 pytest.importorskip("fastapi")
 
 
 @pytest.fixture
-def api_client() -> TestClient:
-    with TestClient(build_async_onto_test_app()) as client:
-        yield client
+def api_client(api_client_full: TestClient) -> TestClient:
+    return api_client_full
 
 
 def _person_name_from_graph(body: dict) -> str:
@@ -62,12 +60,19 @@ def test_list_persons_json(api_client: TestClient) -> None:
     assert body[0]["name"] == "Ada Lovelace"
 
 
-def test_list_persons_jsonld_graph(api_client: TestClient) -> None:
+def test_list_persons_jsonld_document_shape(api_client: TestClient) -> None:
+    """List JSON-LD must be one document with @context + flat @graph nodes."""
     resp = api_client.get("/onto/person", headers={"Accept": "application/ld+json"})
     assert resp.status_code == 200
     body = resp.json()
+    assert "@context" in body
     assert "@graph" in body
-    assert "Ada Lovelace" in resp.text
+    assert isinstance(body["@graph"], list)
+    assert len(body["@graph"]) >= 1
+    for node in body["@graph"]:
+        assert isinstance(node, dict)
+        assert "@id" in node
+        assert "@context" not in node, "list nodes must not nest full JSON-LD documents"
 
 
 def test_create_and_delete_person(api_client: TestClient) -> None:

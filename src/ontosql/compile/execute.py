@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import delete, insert, update
@@ -15,7 +17,7 @@ from ontosql.compile._sql_runner import (
     nested_delete_identity,
     run_null_fks_for_nested_deletes,
 )
-from ontosql.compile.plan import DeletePlan, WritePlan
+from ontosql.compile.plan import CollectionWritePlan, DeletePlan, WritePlan
 from ontosql.compile.write import _column_key, count_scalar
 from ontosql.mapping.cascade import CascadePolicy
 
@@ -58,167 +60,212 @@ def _update_identity(plan: WritePlan) -> Any:
     return plan.root.where.get(str(identity_key))
 
 
-def _null_fks_for_nested_deletes(session: Any, plan: WritePlan) -> None:
-    run_null_fks_for_nested_deletes(plan, run=session.exec)
-
-
-async def _async_null_fks_for_nested_deletes(session: AsyncSession, plan: WritePlan) -> None:
-    fk_nulling = nested_delete_fk_nulling(plan)
-    if not fk_nulling or plan.root.where is None:
-        return
-    table = plan.root.table
-    stmt = update(table).values(**fk_nulling)
-    stmt = _apply_where(stmt, table, plan.root.where)
-    await session.execute(stmt)
-
-
-def _assert_replace_nested_exclusive(
-    session: Any,
+def _collection_target_ids(
     plan: WritePlan,
-    field_name: str,
-    delete_plan: DeletePlan,
-) -> None:
-    assert_replace_nested_exclusive(
-        plan,
-        field_name,
-        delete_plan,
-        run_count=lambda stmt: session.exec(stmt).one(),
-    )
+    cwp: CollectionWritePlan,
+    *,
+    execute_nested: Callable[[WritePlan], Any],
+) -> list[Any]:
+    cmap = plan.mapper_cls.collection_maps[cwp.field_name]
+    target_ids: list[Any] = []
+    if cwp.policy is CascadePolicy.LINK:
+        for item in cwp.items:
+            tid = getattr(item, cmap.nested_mapper.identity_field, None)
+            if tid is None:
+                raise ExecuteError(f"Collection {cwp.field_name!r} link requires nested identity")
+            target_ids.append(tid)
+    else:
+        for idx, nested_plan in enumerate(cwp.nested_writes):
+            tid = execute_nested(nested_plan)
+            if tid is None:
+                tid = getattr(
+                    cwp.items[idx],
+                    nested_plan.mapper_cls.identity_field,
+                    None,
+                )
+            target_ids.append(tid)
+    return target_ids
 
 
-async def _async_assert_replace_nested_exclusive(
-    session: AsyncSession,
-    plan: WritePlan,
-    field_name: str,
-    delete_plan: DeletePlan,
-) -> None:
-    from ontosql.compile._sql_runner import (
-        check_replace_nested_exclusive,
-        replace_nested_exclusive_count_stmt,
-    )
+@dataclass
+class _SyncWriteExecutor:
+    session: Any
 
-    stmt = replace_nested_exclusive_count_stmt(plan, field_name, delete_plan)
-    if stmt is None:
-        return
-    nested_id = nested_delete_identity(delete_plan)
-    result = await session.execute(stmt)
-    count = count_scalar(result.one())
-    check_replace_nested_exclusive(count, field_name, nested_id)
+    def null_fks(self, plan: WritePlan) -> None:
+        run_null_fks_for_nested_deletes(plan, run=self.session.exec)
+
+    def assert_replace(self, plan: WritePlan, field_name: str, delete_plan: DeletePlan) -> None:
+        assert_replace_nested_exclusive(
+            plan,
+            field_name,
+            delete_plan,
+            run_count=lambda stmt: self.session.exec(stmt).one(),
+        )
+
+    def run_stmt(self, stmt: Any) -> Any:
+        return self.session.exec(stmt)
+
+    def execute_write(self, plan: WritePlan) -> Any:
+        return self._run_write_plan(plan)
+
+    def execute_delete(self, plan: DeletePlan) -> None:
+        execute_delete_plan(self.session, plan)
+
+    def _run_collection_writes(self, plan: WritePlan, parent_id: Any) -> None:
+        if parent_id is None:
+            return
+        for cwp in plan.collections:
+            cmap = plan.mapper_cls.collection_maps[cwp.field_name]
+            through_table = cmap.through_table
+            source_key = _column_key(cmap.source_fk)
+            target_key = _column_key(cmap.target_fk)
+            self.run_stmt(delete(through_table).where(through_table.c[source_key] == parent_id))
+            target_ids = _collection_target_ids(plan, cwp, execute_nested=self.execute_write)
+            for tid in target_ids:
+                self.run_stmt(
+                    insert(through_table).values({source_key: parent_id, target_key: tid})
+                )
+
+    def _run_write_plan(self, plan: WritePlan) -> Any:
+        self.null_fks(plan)
+        for field_name, delete_plan in plan.nested_deletes:
+            self.assert_replace(plan, field_name, delete_plan)
+            self.execute_delete(delete_plan)
+
+        fk_updates = dict(plan.fk_updates)
+        for field_name, nested in plan.nested:
+            nested_id = self.execute_write(nested)
+            _apply_nested_fk_updates(plan, fk_updates, field_name, nested_id)
+
+        table = plan.root.table
+        values = dict(plan.root.values)
+        values.update(fk_updates)
+
+        if plan.operation == "insert":
+            result = self.run_stmt(insert(table).values(**values))
+            parent_id = _inserted_identity(result, plan, values)
+            self._run_collection_writes(plan, parent_id)
+            return parent_id
+
+        if values:
+            stmt = update(table).values(**values)
+            if plan.root.where is not None:
+                stmt = _apply_where(stmt, table, plan.root.where)
+            self.run_stmt(stmt)
+
+        parent_id = _update_identity(plan)
+        self._run_collection_writes(plan, parent_id)
+        return parent_id
 
 
-def _execute_collection_writes(
-    session: Any,
-    plan: WritePlan,
-    parent_id: Any,
-) -> None:
-    if parent_id is None:
-        return
-    for cwp in plan.collections:
-        cmap = plan.mapper_cls.collection_maps[cwp.field_name]
-        through_table = cmap.through_table
-        source_key = _column_key(cmap.source_fk)
-        target_key = _column_key(cmap.target_fk)
-        stmt = delete(through_table).where(through_table.c[source_key] == parent_id)
-        session.exec(stmt)
+@dataclass
+class _AsyncWriteExecutor:
+    session: AsyncSession
 
-        target_ids: list[Any] = []
-        policy = CascadePolicy(cwp.policy)
-        if policy is CascadePolicy.LINK:
-            for item in cwp.items:
-                tid = getattr(item, cmap.nested_mapper.identity_field, None)
-                if tid is None:
-                    raise ExecuteError(
-                        f"Collection {cwp.field_name!r} link requires nested identity"
-                    )
-                target_ids.append(tid)
-        else:
-            for idx, nested_plan in enumerate(cwp.nested_writes):
-                tid = execute_write_plan(session, nested_plan)
-                if tid is None:
-                    tid = getattr(
-                        cwp.items[idx],
-                        nested_plan.mapper_cls.identity_field,
-                        None,
-                    )
-                target_ids.append(tid)
+    async def null_fks(self, plan: WritePlan) -> None:
+        fk_nulling = nested_delete_fk_nulling(plan)
+        if not fk_nulling or plan.root.where is None:
+            return
+        table = plan.root.table
+        stmt = update(table).values(**fk_nulling)
+        stmt = _apply_where(stmt, table, plan.root.where)
+        await self.session.execute(stmt)
 
-        for tid in target_ids:
-            session.exec(insert(through_table).values({source_key: parent_id, target_key: tid}))
+    async def assert_replace(
+        self, plan: WritePlan, field_name: str, delete_plan: DeletePlan
+    ) -> None:
+        from ontosql.compile._sql_runner import (
+            check_replace_nested_exclusive,
+            replace_nested_exclusive_count_stmt,
+        )
 
+        stmt = replace_nested_exclusive_count_stmt(plan, field_name, delete_plan)
+        if stmt is None:
+            return
+        nested_id = nested_delete_identity(delete_plan)
+        result = await self.session.execute(stmt)
+        count = count_scalar(result.one())
+        check_replace_nested_exclusive(count, field_name, nested_id)
 
-async def _async_execute_collection_writes(
-    session: AsyncSession,
-    plan: WritePlan,
-    parent_id: Any,
-) -> None:
-    if parent_id is None:
-        return
-    for cwp in plan.collections:
-        cmap = plan.mapper_cls.collection_maps[cwp.field_name]
-        through_table = cmap.through_table
-        source_key = _column_key(cmap.source_fk)
-        target_key = _column_key(cmap.target_fk)
-        stmt = delete(through_table).where(through_table.c[source_key] == parent_id)
-        await session.execute(stmt)
+    async def run_stmt(self, stmt: Any) -> Any:
+        return await self.session.execute(stmt)
 
-        target_ids: list[Any] = []
-        policy = CascadePolicy(cwp.policy)
-        if policy is CascadePolicy.LINK:
-            for item in cwp.items:
-                tid = getattr(item, cmap.nested_mapper.identity_field, None)
-                if tid is None:
-                    raise ExecuteError(
-                        f"Collection {cwp.field_name!r} link requires nested identity"
-                    )
-                target_ids.append(tid)
-        else:
-            for idx, nested_plan in enumerate(cwp.nested_writes):
-                tid = await async_execute_write_plan(session, nested_plan)
-                if tid is None:
-                    tid = getattr(
-                        cwp.items[idx],
-                        nested_plan.mapper_cls.identity_field,
-                        None,
-                    )
-                target_ids.append(tid)
+    async def execute_write(self, plan: WritePlan) -> Any:
+        return await self._run_write_plan(plan)
 
-        for tid in target_ids:
-            await session.execute(
-                insert(through_table).values({source_key: parent_id, target_key: tid})
+    async def execute_delete(self, plan: DeletePlan) -> None:
+        await async_execute_delete_plan(self.session, plan)
+
+    async def _run_collection_writes(self, plan: WritePlan, parent_id: Any) -> None:
+        if parent_id is None:
+            return
+        for cwp in plan.collections:
+            cmap = plan.mapper_cls.collection_maps[cwp.field_name]
+            through_table = cmap.through_table
+            source_key = _column_key(cmap.source_fk)
+            target_key = _column_key(cmap.target_fk)
+            await self.run_stmt(
+                delete(through_table).where(through_table.c[source_key] == parent_id)
             )
+            target_ids: list[Any] = []
+            if cwp.policy is CascadePolicy.LINK:
+                for item in cwp.items:
+                    tid = getattr(item, cmap.nested_mapper.identity_field, None)
+                    if tid is None:
+                        raise ExecuteError(
+                            f"Collection {cwp.field_name!r} link requires nested identity"
+                        )
+                    target_ids.append(tid)
+            else:
+                for idx, nested_plan in enumerate(cwp.nested_writes):
+                    tid = await self.execute_write(nested_plan)
+                    if tid is None:
+                        tid = getattr(
+                            cwp.items[idx],
+                            nested_plan.mapper_cls.identity_field,
+                            None,
+                        )
+                    target_ids.append(tid)
+            for tid in target_ids:
+                await self.run_stmt(
+                    insert(through_table).values({source_key: parent_id, target_key: tid})
+                )
+
+    async def _run_write_plan(self, plan: WritePlan) -> Any:
+        await self.null_fks(plan)
+        for field_name, delete_plan in plan.nested_deletes:
+            await self.assert_replace(plan, field_name, delete_plan)
+            await self.execute_delete(delete_plan)
+
+        fk_updates = dict(plan.fk_updates)
+        for field_name, nested in plan.nested:
+            nested_id = await self.execute_write(nested)
+            _apply_nested_fk_updates(plan, fk_updates, field_name, nested_id)
+
+        table = plan.root.table
+        values = dict(plan.root.values)
+        values.update(fk_updates)
+
+        if plan.operation == "insert":
+            result = await self.run_stmt(insert(table).values(**values))
+            parent_id = _inserted_identity(result, plan, values)
+            await self._run_collection_writes(plan, parent_id)
+            return parent_id
+
+        if values:
+            stmt = update(table).values(**values)
+            if plan.root.where is not None:
+                stmt = _apply_where(stmt, table, plan.root.where)
+            await self.run_stmt(stmt)
+
+        parent_id = _update_identity(plan)
+        await self._run_collection_writes(plan, parent_id)
+        return parent_id
 
 
 def execute_write_plan(session: Any, plan: WritePlan) -> Any:
     """Execute a WritePlan synchronously; returns root identity value after insert."""
-    _null_fks_for_nested_deletes(session, plan)
-    for field_name, delete_plan in plan.nested_deletes:
-        _assert_replace_nested_exclusive(session, plan, field_name, delete_plan)
-        execute_delete_plan(session, delete_plan)
-
-    fk_updates = dict(plan.fk_updates)
-    for field_name, nested in plan.nested:
-        nested_id = execute_write_plan(session, nested)
-        _apply_nested_fk_updates(plan, fk_updates, field_name, nested_id)
-
-    table = plan.root.table
-    values = dict(plan.root.values)
-    values.update(fk_updates)
-
-    if plan.operation == "insert":
-        result = session.exec(insert(table).values(**values))
-        parent_id = _inserted_identity(result, plan, values)
-        _execute_collection_writes(session, plan, parent_id)
-        return parent_id
-
-    if values:
-        stmt = update(table).values(**values)
-        if plan.root.where is not None:
-            stmt = _apply_where(stmt, table, plan.root.where)
-        session.exec(stmt)
-
-    parent_id = _update_identity(plan)
-    _execute_collection_writes(session, plan, parent_id)
-    return parent_id
+    return _SyncWriteExecutor(session)._run_write_plan(plan)
 
 
 def execute_delete_plan(session: Any, plan: DeletePlan) -> None:
@@ -233,35 +280,7 @@ def execute_delete_plan(session: Any, plan: DeletePlan) -> None:
 
 async def async_execute_write_plan(session: AsyncSession, plan: WritePlan) -> Any:
     """Execute a WritePlan on an AsyncSession."""
-    await _async_null_fks_for_nested_deletes(session, plan)
-    for field_name, delete_plan in plan.nested_deletes:
-        await _async_assert_replace_nested_exclusive(session, plan, field_name, delete_plan)
-        await async_execute_delete_plan(session, delete_plan)
-
-    fk_updates = dict(plan.fk_updates)
-    for field_name, nested in plan.nested:
-        nested_id = await async_execute_write_plan(session, nested)
-        _apply_nested_fk_updates(plan, fk_updates, field_name, nested_id)
-
-    table = plan.root.table
-    values = dict(plan.root.values)
-    values.update(fk_updates)
-
-    if plan.operation == "insert":
-        result = await session.execute(insert(table).values(**values))
-        parent_id = _inserted_identity(result, plan, values)
-        await _async_execute_collection_writes(session, plan, parent_id)
-        return parent_id
-
-    if values:
-        stmt = update(table).values(**values)
-        if plan.root.where is not None:
-            stmt = _apply_where(stmt, table, plan.root.where)
-        await session.execute(stmt)
-
-    parent_id = _update_identity(plan)
-    await _async_execute_collection_writes(session, plan, parent_id)
-    return parent_id
+    return await _AsyncWriteExecutor(session)._run_write_plan(plan)
 
 
 async def async_execute_delete_plan(session: AsyncSession, plan: DeletePlan) -> None:
