@@ -67,7 +67,8 @@ def test_retry_graph_sync_after_partial_failure(sync_engine) -> None:
             "ontosql.sync.push_instance",
             side_effect=RuntimeError("simulated graph push failure"),
         ),
-        pytest.raises(GraphSyncError),session
+        pytest.raises(GraphSyncError),
+        session,
     ):
         session.save(Person(id=72, name="Retry Me", employer=None))
 
@@ -87,10 +88,13 @@ def test_flush_preserves_pending_on_error(sync_engine) -> None:
         session.save(Person(id=80, name="Pending A", employer=None), flush=False)
         session.save(Person(id=81, name="Pending B", employer=None), flush=False)
         assert len(session._state.pending) == 2  # noqa: SLF001
-        with patch(
-            "ontosql.session.sync.execute_write_plan",
-            side_effect=[None, RuntimeError("write failed")],
-        ), pytest.raises(RuntimeError, match="write failed"):
+        with (
+            patch(
+                "ontosql.session.sync.execute_write_plan",
+                side_effect=[None, RuntimeError("write failed")],
+            ),
+            pytest.raises(RuntimeError, match="write failed"),
+        ):
             session.flush()
         assert len(session._state.pending) == 1  # noqa: SLF001
 

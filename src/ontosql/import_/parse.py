@@ -33,9 +33,7 @@ def load_graph(
         raw = data
         text = data.decode("utf-8")
     if max_bytes is not None and len(raw) > max_bytes:
-        raise OntoImportError(
-            f"RDF payload exceeds max_bytes={max_bytes} (got {len(raw)} bytes)"
-        )
+        raise OntoImportError(f"RDF payload exceeds max_bytes={max_bytes} (got {len(raw)} bytes)")
     graph = Store()
     if registry is not None:
         bind_namespaces(graph, registry.prefixes())
