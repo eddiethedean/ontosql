@@ -6,18 +6,16 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
 
 from ontosql import OntoSession
-from ontosql.fastapi.deps import onto_session_lifespan
-from ontosql.fastapi.router import OntoRouter
 from ontosql.import_ import OntoImportError, import_from_rdf, load_graph
+from ontosql.import_.hydrate import graph_to_instance
+from ontosql.import_.parse import UNTRUSTED_DEFAULT_MAX_BYTES
 from ontosql.session.graph_sync import GraphSyncError
 from ontosql.sync import StoreSyncTarget
-from tests.models import OrganizationMap, OrgRow, Person, PersonMap, PersonRow
+from tests.conftest import build_async_onto_test_app
+from tests.models import Organization, OrganizationMap, Person, PersonMap
 
 pytest.importorskip("fastapi")
 
@@ -114,27 +112,13 @@ def test_load_graph_max_bytes_raises() -> None:
 
 @pytest.fixture
 def api_client() -> TestClient:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as raw:
-        raw.add(OrgRow(id=10, name="Analytical Engines Inc."))
-        raw.add(PersonRow(id=1, name="Ada Lovelace", org_id=10))
-        raw.commit()
-
-    app = FastAPI()
-    onto_session_lifespan(app, engine, [PersonMap, OrganizationMap])
-    router = OntoRouter(
-        maps=[PersonMap, OrganizationMap],
-        validate_entities=True,
-        max_body_bytes=256,
-    )
-    router.register(Person)
-    router.include_in(app)
-    return TestClient(app)
+    with TestClient(
+        build_async_onto_test_app(
+            entities=(Person,),
+            router_kwargs={"validate_entities": True, "max_body_bytes": 256},
+        )
+    ) as client:
+        yield client
 
 
 def test_router_rejects_oversized_body(api_client: TestClient) -> None:
@@ -146,3 +130,56 @@ def test_router_rejects_oversized_body(api_client: TestClient) -> None:
 def test_router_validate_entities_smoke(api_client: TestClient) -> None:
     resp = api_client.post("/onto/person", json={"name": "Validated", "employer": None})
     assert resp.status_code == 201
+
+
+def test_router_rejects_invalid_content_length(api_client: TestClient) -> None:
+    resp = api_client.post(
+        "/onto/person",
+        content=b'{"name": "x"}',
+        headers={
+            "Content-Type": "application/json",
+            "Content-Length": "not-a-number",
+        },
+    )
+    assert resp.status_code == 400
+
+
+def test_load_graph_untrusted_default_max_bytes() -> None:
+    data = b"x" * (UNTRUSTED_DEFAULT_MAX_BYTES + 1)
+    with pytest.raises(OntoImportError, match="max_bytes"):
+        load_graph(data, format="turtle", untrusted=True)
+
+
+def test_graph_to_instance_max_nesting_depth() -> None:
+    from ontosql.registry import PrefixRegistry
+    from ontosql.semantic.model import build_instance_iri
+
+    person = Person(
+        id=1,
+        name="Ada",
+        employer=Organization(id=10, name="Analytical Engines Inc."),
+    )
+    turtle = person.to_rdf(format="turtle")
+    parsed = load_graph(turtle, format="turtle")
+    iri = build_instance_iri(person, PrefixRegistry())
+    with pytest.raises(OntoImportError, match="max_nesting_depth"):
+        graph_to_instance(parsed, PersonMap, iri=iri, max_nesting_depth=0)
+
+
+def test_router_auth_dependency_blocks_unauthenticated() -> None:
+    from fastapi import Depends, Header, HTTPException, status
+
+    async def require_key(x_api_key: str = Header(..., alias="X-API-Key")) -> None:
+        if x_api_key != "test-secret":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+    client = TestClient(
+        build_async_onto_test_app(
+            entities=(Person,),
+            router_kwargs={"dependencies": [Depends(require_key)]},
+        )
+    )
+    with client:
+        assert client.get("/onto/person/1").status_code == 422
+        assert client.get("/onto/person/1", headers={"X-API-Key": "wrong"}).status_code == 401
+        assert client.get("/onto/person/1", headers={"X-API-Key": "test-secret"}).status_code == 200

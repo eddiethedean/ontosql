@@ -28,9 +28,9 @@ async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as sessio
 
 ## FastAPI
 
-`ontosql.fastapi` exposes `AsyncSessionDep` and `get_async_onto_session` for async route handlers. Wire `onto_session_lifespan` with an `AsyncEngine` and use `AsyncSessionDep` instead of `SessionDep`.
+`ontosql.fastapi` exposes `AsyncSessionDep` and `get_async_onto_session` for async route handlers. Wire `onto_async_session_lifespan` with an `AsyncEngine`.
 
-`OntoRouter` currently uses the **synchronous** `OntoSession` inside async handlers (blocking I/O). For production async APIs, prefer custom routes with `AsyncOntoSession`.
+`OntoRouter` uses `AsyncSessionDep` on all routes and requires `onto_async_session_lifespan` at startup. Pass `dependencies=[Depends(your_auth)]` before any internet exposure — see [production-router.md](../guides/production-router.md).
 
 ## Graph sync
 

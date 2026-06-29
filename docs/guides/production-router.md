@@ -1,55 +1,90 @@
 # Production FastAPI patterns
 
-`OntoRouter` is **demo-grade**: sync SQLAlchemy sessions inside `async def` routes, no authentication, and no request size limits by default. Use it for local prototypes only.
+`OntoRouter` is **not safe for public internet** without authentication, authorization, and rate limits. It now defaults to async sessions, semantic validation, and a 64 KiB body cap — but those defaults do **not** replace authn/authz.
 
 For production APIs, wrap OntoSQL with your own auth, rate limits, and observability. This guide shows the recommended wiring.
 
-## Async sessions (required under load)
+## Authentication (required)
 
-Use `AsyncOntoSession` with `AsyncSessionDep` so database I/O does not block the event loop:
+`OntoRouter` accepts FastAPI `dependencies` applied to every CRUD route. **Do not expose the router without them** on a reachable network:
+
+```python
+from fastapi import Depends, Header, HTTPException, status
+from ontosql.fastapi.router import OntoRouter
+
+async def require_api_key(x_api_key: str = Header(..., alias="X-API-Key")) -> None:
+    if x_api_key != settings.api_key:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+
+router = OntoRouter(
+    maps=[PersonMap, OrganizationMap],
+    dependencies=[Depends(require_api_key)],
+)
+```
+
+Add **object-level authorization** inside your dependencies or route wrappers: verify the caller may read/write `{entity_id}` and any nested associations in POST/PATCH bodies.
+
+Disable or protect `/docs` and `/openapi.json` in production.
+
+## Async sessions (required)
+
+`OntoRouter` uses `AsyncSessionDep` on all routes. Wire an async engine at startup:
 
 ```python
 from sqlalchemy.ext.asyncio import create_async_engine
-from ontosql.fastapi.deps import AsyncSessionDep, onto_async_session_lifespan
+from ontosql.fastapi.deps import onto_async_session_lifespan
 
 engine = create_async_engine("postgresql+asyncpg://...")
 onto_async_session_lifespan(app, engine, maps=[PersonMap, OrganizationMap])
-
-@app.get("/person/{person_id}")
-async def get_person(person_id: int, session: AsyncSessionDep):
-    return await session.get(Person, identity=person_id)
 ```
 
 See [examples/person_org_api_production.py](https://github.com/eddiethedean/ontosql/blob/main/examples/person_org_api_production.py) for a minimal runnable app.
 
-## OntoRouter hardening (internal / low-traffic only)
-
-If you still mount `OntoRouter`, pass production-oriented options:
+## OntoRouter options
 
 ```python
-from ontosql.fastapi.router import OntoRouter
+from ontosql.fastapi.router import DEFAULT_MAX_BODY_BYTES, OntoRouter
 
 router = OntoRouter(
     maps=[PersonMap, OrganizationMap],
-    validate_entities=True,   # Person.model_validate instead of model_construct
-    max_body_bytes=64 * 1024, # reject oversized POST/PATCH bodies (413)
+    validate_entities=True,       # default — OntoModel.model_validate on create/patch
+    max_body_bytes=DEFAULT_MAX_BODY_BYTES,  # default 64 KiB; 413 when exceeded
+    dependencies=[Depends(require_api_key)],
 )
 ```
 
 | Option | Default | Purpose |
 |--------|---------|---------|
-| `validate_entities` | `False` | Run `OntoModel.model_validate` on create/patch (semantic validators) |
-| `max_body_bytes` | `None` | Cap JSON body size on POST/PATCH |
+| `validate_entities` | `True` | Run `OntoModel.model_validate` on create/patch |
+| `max_body_bytes` | `65536` | Cap JSON body size on POST/PATCH |
+| `dependencies` | `[]` | **Required for internet** — authn/authz `Depends` |
 
-You still need **your** middleware for auth, rate limits, and structured logging.
+You still need **your** middleware for rate limits and structured logging.
+
+## RDF import on public endpoints
+
+If you expose RDF import, use guarded calls:
+
+```python
+from ontosql.import_ import import_from_rdf
+
+instance = import_from_rdf(
+    payload,
+    PersonMap,
+    format="turtle",
+    untrusted=True,  # applies UNTRUSTED_DEFAULT_MAX_BYTES / MAX_TRIPLES
+)
+```
+
+Always authenticate import routes. `max_triples` alone does not prevent parse-time expansion — see [SECURITY.md](../SECURITY.md#rdf-import-limits).
 
 ## Checklist before exposing HTTP
 
-1. **Authn / authz** on every route
+1. **Authn / authz** on every route (`dependencies=` + object-level checks)
 2. **Rate limits** per client / API key
-3. **Body size limits** (router `max_body_bytes` or reverse proxy)
-4. **`AsyncOntoSession`** per request via dependency injection
-5. **`Person.model_validate`** (or `validate_entities=True`) for business rules
+3. **Body size limits** (router default + reverse proxy)
+4. **`onto_async_session_lifespan`** with `AsyncEngine`
+5. **`validate_entities=True`** (default) for business rules
 6. **Engine pool** — `pool_size`, `pool_timeout`, `pool_pre_ping`, statement timeout
 7. **Structured logging** around session enter/exit, save, commit, graph sync
 8. **Graph sync** — treat as eventual consistency; see [HYBRID.md](../HYBRID.md#graph-sync-failures-split-brain)

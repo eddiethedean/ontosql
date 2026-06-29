@@ -12,6 +12,10 @@ from ontosql.import_.hydrate import OntoImportError
 from ontosql.registry import PrefixRegistry
 from ontosql.semantic.rdf_util import resolve_prefix_registry
 
+# Suggested caps when ``untrusted=True`` (API boundary for public import endpoints).
+UNTRUSTED_DEFAULT_MAX_BYTES = 1_048_576
+UNTRUSTED_DEFAULT_MAX_TRIPLES = 100_000
+
 
 def load_graph(
     data: str | bytes,
@@ -20,12 +24,26 @@ def load_graph(
     registry: PrefixRegistry | None = None,
     max_bytes: int | None = None,
     max_triples: int | None = None,
+    untrusted: bool = False,
 ) -> Store:
     """Parse RDF text into a Store.
 
-    Optional ``max_bytes`` and ``max_triples`` guard untrusted input (raises
+    Optional ``max_bytes`` and ``max_triples`` guard untrusted payloads (raises
     ``OntoImportError`` when exceeded).
+
+    When ``untrusted=True``, applies ``UNTRUSTED_DEFAULT_MAX_BYTES`` and
+    ``UNTRUSTED_DEFAULT_MAX_TRIPLES`` for any limit not explicitly set.
+
+    **Note:** ``max_triples`` is checked **after** ``graph.parse()`` completes.
+    A small payload can still expand during parsing (blank-node chains, JSON-LD
+    expansion). Always set ``max_bytes`` and rate-limit import endpoints; do not
+    rely on ``max_triples`` alone for DoS protection.
     """
+    if untrusted:
+        if max_bytes is None:
+            max_bytes = UNTRUSTED_DEFAULT_MAX_BYTES
+        if max_triples is None:
+            max_triples = UNTRUSTED_DEFAULT_MAX_TRIPLES
     if isinstance(data, str):
         text = data
         raw = data.encode("utf-8")
@@ -51,6 +69,7 @@ def load_graph_from_jsonld(
     registry: PrefixRegistry | None = None,
     max_bytes: int | None = None,
     max_triples: int | None = None,
+    untrusted: bool = False,
 ) -> Store:
     """Parse a JSON-LD document dict into a Store."""
     payload = json.dumps(doc)
@@ -60,6 +79,7 @@ def load_graph_from_jsonld(
         registry=registry,
         max_bytes=max_bytes,
         max_triples=max_triples,
+        untrusted=untrusted,
     )
 
 

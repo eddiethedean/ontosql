@@ -4,27 +4,43 @@
 
 OntoSQL compiles semantic queries to SQLAlchemy statements with **bound parameters** for values in `where`, `save`, and `delete` plans. User-supplied filter values are passed as parameters, not interpolated into SQL strings.
 
+Raw `sqlalchemy.text()` fragments are **rejected** in semantic `where` expressions (`CompileError`). Mapper-defined `ComputedMap.expression` and `NestedMap.join` remain trusted code — review mappers like schema migrations.
+
 For ad hoc SQL, use the underlying SQLAlchemy session from your application layer with bound parameters — OntoSQL does not expose a raw SQL escape hatch on `OntoSession`.
 
 ## OntoRouter (FastAPI)
 
-`OntoRouter` is **demo-grade**:
+`OntoRouter` uses **async** `AsyncOntoSession` (`onto_async_session_lifespan` required). It is **not safe for public internet** without host-app controls:
 
 | Control | Status |
 |---------|--------|
-| Authentication | Not provided |
-| Authorization | Not provided |
+| Authentication | **Not provided** — pass `dependencies=[Depends(your_auth)]` |
+| Authorization | **Not provided** — object-level checks in your dependencies |
 | Rate limiting | Not provided |
 | Request body validation | Generated Pydantic models validate POST/PATCH bodies |
-| Semantic validation | Optional `validate_entities=True` runs `OntoModel.model_validate` |
-| Body size cap | Optional `max_body_bytes` on POST/PATCH (413 when exceeded) |
-| Sync session in async routes | Blocking I/O (default) |
+| Semantic validation | **Default `validate_entities=True`** runs `OntoModel.model_validate` |
+| Body size cap | **Default `max_body_bytes=65536`** on POST/PATCH (413 when exceeded) |
+| Async session | **Required** — `AsyncSessionDep` on all routes |
 
-Do not expose `OntoRouter` on public networks without auth middleware, rate limits, and async session wiring for production load. See [guides/production-router.md](guides/production-router.md).
+### Internet exposure requirements
+
+Before mounting `OntoRouter` on a reachable host:
+
+1. **Authentication** — add FastAPI `dependencies` on the router (see [production-router.md](guides/production-router.md#authentication-required)).
+2. **Authorization** — verify the caller may access each `{entity_id}` and nested associations.
+3. **Rate limits** — per client/API key at middleware or reverse proxy.
+4. **Disable public `/docs`** in production or protect with auth.
+5. **Reverse-proxy body limits** — complement router `max_body_bytes` with nginx/Envoy caps.
 
 ## RDF import limits
 
-`import_from_rdf` and `load_graph` accept optional `max_bytes` and `max_triples` to bound untrusted payloads (raises `OntoImportError`). Cap sizes at your API boundary for public endpoints.
+`import_from_rdf`, `load_graph`, and related helpers accept optional `max_bytes` and `max_triples` (raises `OntoImportError` when exceeded).
+
+- Set **`untrusted=True`** on import paths that accept public payloads to apply `UNTRUSTED_DEFAULT_MAX_BYTES` (1 MiB) and `UNTRUSTED_DEFAULT_MAX_TRIPLES` (100k) when limits are omitted.
+- **`max_triples` is checked after `graph.parse()`** — a small payload can still expand during parsing. Always set `max_bytes`, rate-limit import endpoints, and never expose import without authentication.
+- **`max_nesting_depth`** (default 32) on `graph_to_instance` limits deep nested RDF chains during hydration.
+
+Never run **PyLD** `compact_jsonld` / `frame_jsonld` on untrusted documents without a restricted document loader — PyLD may fetch remote `@context` URLs (SSRF risk). RDF import via pyoxigraph does not use PyLD.
 
 ## Graph sync consistency
 

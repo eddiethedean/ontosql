@@ -12,6 +12,8 @@ from ontosql.registry import PrefixRegistry
 from ontosql.semantic.model import OntoModel, parse_iri_id
 from ontosql.semantic.rdf_util import predicate_iri, resolve_prefix_registry
 
+DEFAULT_MAX_NESTING_DEPTH = 32
+
 
 class OntoImportError(Exception):
     """Raised when RDF cannot be mapped to a semantic instance."""
@@ -130,6 +132,8 @@ def graph_to_instance(
     *,
     iri: str | None = None,
     registry: PrefixRegistry | None = None,
+    max_nesting_depth: int = DEFAULT_MAX_NESTING_DEPTH,
+    _depth: int = 0,
     _visited: set[str] | None = None,
 ) -> OntoModel:
     """Hydrate a semantic instance from triples using mapper metadata."""
@@ -138,6 +142,9 @@ def graph_to_instance(
 
     if iri is None:
         raise OntoImportError("graph_to_instance requires iri=")
+
+    if _depth > max_nesting_depth:
+        raise OntoImportError(f"Nested RDF depth exceeds max_nesting_depth={max_nesting_depth}")
 
     visited = _visited if _visited is not None else set()
     if iri in visited:
@@ -190,6 +197,8 @@ def graph_to_instance(
                 nmap.nested_mapper,
                 iri=nested_iri,
                 registry=reg,
+                max_nesting_depth=max_nesting_depth,
+                _depth=_depth + 1,
                 _visited=visited,
             )
         else:
@@ -215,6 +224,8 @@ def graph_to_instance(
                         cmap.nested_mapper,
                         iri=nested_iri,
                         registry=reg,
+                        max_nesting_depth=max_nesting_depth,
+                        _depth=_depth + 1,
                         _visited=visited,
                     )
                 )

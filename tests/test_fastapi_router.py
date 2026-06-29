@@ -3,39 +3,19 @@
 from __future__ import annotations
 
 import pytest
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy.pool import StaticPool
-from sqlmodel import Session, SQLModel, create_engine
 
-from ontosql.fastapi.deps import onto_session_lifespan
 from ontosql.fastapi.router import OntoRouter
-from tests.models import Organization, OrganizationMap, OrgRow, Person, PersonMap, PersonRow
+from tests.conftest import build_async_onto_test_app
+from tests.models import OrganizationMap, Person, PersonMap
 
 pytest.importorskip("fastapi")
 
 
 @pytest.fixture
 def api_client() -> TestClient:
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as raw:
-        raw.add(OrgRow(id=10, name="Analytical Engines Inc."))
-        raw.add(PersonRow(id=1, name="Ada Lovelace", org_id=10))
-        raw.commit()
-
-    app = FastAPI()
-    onto_session_lifespan(app, engine, [PersonMap, OrganizationMap])
-    router = OntoRouter(maps=[PersonMap, OrganizationMap])
-    router.register(Person)
-    router.register(Organization)
-    router.include_in(app)
-
-    return TestClient(app)
+    with TestClient(build_async_onto_test_app()) as client:
+        yield client
 
 
 def _person_name_from_graph(body: dict) -> str:

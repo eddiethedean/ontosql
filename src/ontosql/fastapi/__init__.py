@@ -20,7 +20,7 @@ try:
         RDFXMLResponse,
         TurtleResponse,
     )
-    from ontosql.fastapi.router import OntoRouter
+    from ontosql.fastapi.router import DEFAULT_MAX_BODY_BYTES, OntoRouter
 except ImportError as exc:
     if "fastapi" in str(exc).lower() or "starlette" in str(exc).lower():
         raise ImportError(
@@ -30,6 +30,7 @@ except ImportError as exc:
 
 __all__ = [
     "AsyncSessionDep",
+    "DEFAULT_MAX_BODY_BYTES",
     "JSONLDResponse",
     "NTriplesResponse",
     "OntoRouter",

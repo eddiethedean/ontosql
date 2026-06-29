@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from pyoxigraph import NamedNode
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -93,3 +95,48 @@ def person() -> Person:
 @pytest.fixture
 def organization() -> Organization:
     return Organization(id=10, name="Analytical Engines Inc.")
+
+
+def build_async_onto_test_app(
+    *,
+    maps: list | None = None,
+    entities: tuple | None = None,
+    router_kwargs: dict | None = None,
+) -> Any:
+    """Build a FastAPI app with async OntoRouter for integration tests."""
+    pytest.importorskip("fastapi")
+    from contextlib import asynccontextmanager
+
+    from fastapi import FastAPI
+
+    from ontosql.fastapi.deps import onto_async_session_lifespan
+    from ontosql.fastapi.router import OntoRouter
+
+    resolved_maps = maps if maps is not None else [PersonMap, OrganizationMap]
+    resolved_entities = entities if entities is not None else (Person, Organization)
+    resolved_router_kwargs = router_kwargs if router_kwargs is not None else {}
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+
+    def _seed(connection: Any) -> None:
+        with Session(bind=connection) as raw:
+            raw.add(OrgRow(id=10, name="Analytical Engines Inc."))
+            raw.add(PersonRow(id=1, name="Ada Lovelace", org_id=10))
+            raw.commit()
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+            await conn.run_sync(_seed)
+        onto_async_session_lifespan(app, engine, resolved_maps)
+        yield
+        await engine.dispose()
+
+    app = FastAPI(lifespan=lifespan)
+
+    router = OntoRouter(maps=resolved_maps, **resolved_router_kwargs)
+    for entity in resolved_entities:
+        router.register(entity)
+    router.include_in(app)
+    return app

@@ -4,8 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from ontosql.import_.hydrate import OntoImportError, graph_to_instance, subject_iri_from_jsonld
+from ontosql.import_.hydrate import (
+    DEFAULT_MAX_NESTING_DEPTH,
+    OntoImportError,
+    graph_to_instance,
+    subject_iri_from_jsonld,
+)
 from ontosql.import_.parse import (
+    UNTRUSTED_DEFAULT_MAX_BYTES,
+    UNTRUSTED_DEFAULT_MAX_TRIPLES,
     find_subjects_by_type,
     load_graph,
     load_graph_from_jsonld,
@@ -24,6 +31,8 @@ def import_from_rdf(
     registry: PrefixRegistry | None = None,
     max_bytes: int | None = None,
     max_triples: int | None = None,
+    untrusted: bool = False,
+    max_nesting_depth: int | None = None,
 ) -> OntoModel:
     """Hydrate a semantic instance from an RDF serialization."""
     reg = resolve_mapper_registry(mapper, registry)
@@ -33,6 +42,7 @@ def import_from_rdf(
         registry=reg,
         max_bytes=max_bytes,
         max_triples=max_triples,
+        untrusted=untrusted,
     )
     if iri is None:
         entity_type: type[OntoModel] = mapper.entity
@@ -45,7 +55,10 @@ def import_from_rdf(
                 f"Expected exactly one subject for {type_iri!r}, found {len(subjects)}"
             )
         iri = subjects[0]
-    return graph_to_instance(graph, mapper, iri=iri, registry=reg)
+    hydrate_kwargs: dict[str, Any] = {}
+    if max_nesting_depth is not None:
+        hydrate_kwargs["max_nesting_depth"] = max_nesting_depth
+    return graph_to_instance(graph, mapper, iri=iri, registry=reg, **hydrate_kwargs)
 
 
 def import_from_jsonld(
@@ -55,6 +68,8 @@ def import_from_jsonld(
     registry: PrefixRegistry | None = None,
     max_bytes: int | None = None,
     max_triples: int | None = None,
+    untrusted: bool = False,
+    max_nesting_depth: int | None = None,
 ) -> OntoModel:
     """Hydrate a semantic instance from a JSON-LD document dict."""
     reg = resolve_mapper_registry(mapper, registry)
@@ -63,6 +78,7 @@ def import_from_jsonld(
         registry=reg,
         max_bytes=max_bytes,
         max_triples=max_triples,
+        untrusted=untrusted,
     )
     iri = doc.get("@id")
     if not isinstance(iri, str):
@@ -76,11 +92,17 @@ def import_from_jsonld(
                 f"Expected exactly one subject for {type_iri!r}, found {len(subjects)}"
             )
         iri = subjects[0]
-    return graph_to_instance(graph, mapper, iri=iri, registry=reg)
+    hydrate_kwargs: dict[str, Any] = {}
+    if max_nesting_depth is not None:
+        hydrate_kwargs["max_nesting_depth"] = max_nesting_depth
+    return graph_to_instance(graph, mapper, iri=iri, registry=reg, **hydrate_kwargs)
 
 
 __all__ = [
+    "DEFAULT_MAX_NESTING_DEPTH",
     "OntoImportError",
+    "UNTRUSTED_DEFAULT_MAX_BYTES",
+    "UNTRUSTED_DEFAULT_MAX_TRIPLES",
     "find_subjects_by_type",
     "graph_to_instance",
     "import_from_jsonld",

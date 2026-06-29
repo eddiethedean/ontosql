@@ -14,7 +14,7 @@ Real databases are not one table per ontology class. OntoSQL separates **physica
 
 **Requirements:** Python 3.10+. See [Compatibility](docs/COMPATIBILITY.md).
 
-> **Production note:** `OntoRouter` (`ontosql[fastapi]`) is **demo-grade** — no authentication, authorization, or rate limiting. Graph sync is **eventually consistent** after SQL commit. See [Security](docs/SECURITY.md) and [Hybrid deployments](docs/HYBRID.md).
+> **Production note:** `OntoRouter` requires **`dependencies=[Depends(your_auth)]`** before internet exposure. Defaults: async sessions, semantic validation, 64 KiB body cap. Graph sync is **eventually consistent** after SQL commit. See [Security](docs/SECURITY.md).
 
 ## Install
 
@@ -197,10 +197,18 @@ Export walks `OntoModel` + `onto_property` metadata and serializes via **TripleM
 
 ```python
 from fastapi import FastAPI
-from ontosql.fastapi import OntoRouter, onto_session_lifespan
+from sqlalchemy.ext.asyncio import create_async_engine
+from ontosql.fastapi import OntoRouter, onto_async_session_lifespan
 
 app = FastAPI()
-onto_session_lifespan(app, engine, [PersonMap, OrganizationMap])
+engine = create_async_engine("sqlite+aiosqlite://")
+
+@app.on_event("startup")
+async def startup():
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+    onto_async_session_lifespan(app, engine, [PersonMap, OrganizationMap])
+
 router = OntoRouter(maps=[PersonMap, OrganizationMap])
 router.register(Person)
 router.include_in(app)
@@ -208,7 +216,7 @@ router.include_in(app)
 
 See [examples/person_org_api_production.py](examples/person_org_api_production.py) for a production-oriented API pattern.
 
-> **Production warning:** `OntoRouter` is for **development and demos only**. POST/PATCH bodies are validated with generated Pydantic models, but there is **no authentication, authorization, or rate limiting**. Use `AsyncOntoSession` for async apps. See [Security](docs/SECURITY.md) and [SPECS.md](docs/SPECS.md#fastapi-ontosqlfastapi).
+> **Production warning:** Pass `dependencies=[Depends(your_auth)]` on `OntoRouter` before any public network exposure. See [production-router.md](docs/guides/production-router.md) and [Security](docs/SECURITY.md).
 
 ## Documentation
 

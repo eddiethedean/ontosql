@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **`OntoRouter`** — async `AsyncSessionDep` on all routes; default `validate_entities=True` and `max_body_bytes=65536`; `dependencies=` for authn/authz; safer `Content-Length` handling (400 on invalid header)
+- **RDF import** — `untrusted=True` applies default byte/triple caps; `max_nesting_depth` on `graph_to_instance` (default 32); documented post-parse `max_triples` limit and PyLD SSRF risk
+- **Semantic filters** — reject raw `sqlalchemy.text()` in `compile_expr`
+
 ### Changed
 
 - **Simplicity audit** — removed `materialize_entity`, `patch_subject`, `replace_subject`, `execute_sql`, `OntoModel.registry`, `onto_property(graph=)`, session `registry=` kwarg; `push_instance`/`sync_instance_to_store` require explicit `mapper`; `GraphSyncFailure` demoted from root; shared RDF helpers in `semantic/rdf_util.py`; consolidated FastAPI list RDF negotiation

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import ColumnElement, and_, or_
-from sqlalchemy.sql.elements import BinaryExpression
+from sqlalchemy.sql.elements import BinaryExpression, TextClause
 from sqlalchemy.sql.elements import ColumnElement as SAColumnElement
 
 from ontosql.semantic.model import OntoModel
@@ -218,6 +218,9 @@ def compile_expr(expr: Any, column_for_field: Any) -> ColumnElement[bool]:
         if not expr.parts:
             raise CompileError("Empty OR expression")
         return or_(*[compile_expr(p, column_for_field) for p in expr.parts])
+
+    if isinstance(expr, TextClause):
+        raise CompileError("Raw SQL text() expressions are not allowed in semantic filters")
 
     if isinstance(expr, (BinaryExpression, SAColumnElement)):
         return expr  # type: ignore[return-value]
