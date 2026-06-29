@@ -32,8 +32,7 @@ def test_shapes_required_scalar_min_count_regression() -> None:
     reg = PrefixRegistry()
     prop = NamedNode(f"{reg.expand('schema:Person')}Shape/name")
     mins = [
-        str(getattr(lit, "value", lit))
-        for lit in shapes.objects(prop, NamedNode(f"{SH}minCount"))
+        str(getattr(lit, "value", lit)) for lit in shapes.objects(prop, NamedNode(f"{SH}minCount"))
     ]
     assert mins == ["1"]
 
