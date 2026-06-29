@@ -64,12 +64,12 @@ def test_replace_cascade_integration(sync_engine) -> None:
         )
 
     with OntoSession(sync_engine, maps=[ReplacePersonMap, OrganizationMap]) as session:
-        person = session.get(Person, id=3)
+        person = session.get(Person, identity=3)
         assert person is not None
         assert person.employer is None
         person.employer = Organization.model_construct(id=None, name="Solo Replace Org")
         session.save(person)
-        reloaded = session.get(Person, id=3)
+        reloaded = session.get(Person, identity=3)
         assert reloaded is not None
         assert reloaded.employer is not None
         assert reloaded.employer.name == "Solo Replace Org"

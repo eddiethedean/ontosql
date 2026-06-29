@@ -36,13 +36,13 @@ def test_push_instance_patch_preserves_foreign_triples() -> None:
     """StoreSyncTarget patch must not wipe non-owned triples (Bug 2)."""
     person = Person(id=1, name="Ada", employer=None)
     target = StoreSyncTarget()
-    push_instance(person, target, mode="replace", mapper_cls=PersonMap)
+    push_instance(person, target, mode="replace", mapper=PersonMap)
     reg = PrefixRegistry()
     subject = NamedNode("https://data.example.org/person/1")
     comment = NamedNode("http://www.w3.org/2000/01/rdf-schema#comment")
     target.graph.add((subject, comment, Literal("external annotation")))
     person2 = Person(id=1, name="Updated", employer=None)
-    push_instance(person2, target, mode="patch", mapper_cls=PersonMap)
+    push_instance(person2, target, mode="patch", mapper=PersonMap)
     comments = list(target.graph.objects(subject, comment))
     assert len(comments) == 1
     names = [
@@ -90,7 +90,7 @@ def test_graph_sync_on_delete(sync_engine) -> None:
         graph_sync=target,
         graph_sync_mode="replace",
     ) as session:
-        person = session.get(Person, id=1)
+        person = session.get(Person, identity=1)
         assert person is not None
         session.delete(person)
     assert not any(str(t[0]).endswith("/person/1") for t in target.graph)
@@ -101,7 +101,7 @@ def test_replace_shared_nested_raises(sync_engine) -> None:
     mapper = _replace_person_map()
     with OntoSession(sync_engine, maps=[mapper, OrganizationMap]) as session:
         session.save(Organization(id=20, name="Other Org"))
-        person = session.get(Person, id=1)
+        person = session.get(Person, identity=1)
         assert person is not None
         person.employer = Organization(id=20, name="Other Org")
         with pytest.raises(ExecuteError, match="still referenced"):
@@ -111,12 +111,12 @@ def test_replace_shared_nested_raises(sync_engine) -> None:
 def test_replace_inserts_new_nested_for_solo_person(sync_engine) -> None:
     mapper = _replace_person_map()
     with OntoSession(sync_engine, maps=[mapper, OrganizationMap]) as session:
-        person = session.get(Person, id=3)
+        person = session.get(Person, identity=3)
         assert person is not None
         assert person.employer is None
         person.employer = Organization.model_construct(id=None, name="Solo Org")
         session.save(person)
-        reloaded = session.get(Person, id=3)
+        reloaded = session.get(Person, identity=3)
         assert reloaded is not None
         assert reloaded.employer is not None
         assert reloaded.employer.name == "Solo Org"
@@ -127,11 +127,11 @@ def test_snapshot_survives_model_copy_on_save(sync_engine) -> None:
     mapper = _replace_person_map()
     with OntoSession(sync_engine, maps=[mapper, OrganizationMap]) as session:
         session.save(Organization(id=30, name="Target Org"))
-        original = session.get(Person, id=3)
+        original = session.get(Person, identity=3)
         assert original is not None
         updated = original.model_copy(update={"employer": Organization(id=30, name="Target Org")})
         session.save(updated)
-        reloaded = session.get(Person, id=3)
+        reloaded = session.get(Person, identity=3)
         assert reloaded is not None
         assert reloaded.employer is not None
         assert reloaded.employer.id == 30
@@ -179,7 +179,7 @@ def test_flush_queues_graph_sync(sync_engine) -> None:
         graph_sync=target,
         graph_sync_mode="replace",
     ) as session:
-        session.save(Person(id=92, name="Flush Sync", employer=None), flush=False)
+        session.save(Person(id=92, name="Flush Sync", employer=None), flush_now=False)
         assert len(target.graph) == 0
         session.flush()
         assert len(target.graph) == 0

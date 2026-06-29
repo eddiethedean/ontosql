@@ -1,6 +1,3 @@
-"""SQL compilation for semantic queries."""
+"""SQL compilation for semantic queries (internal — not part of the public API contract)."""
 
-from ontosql.compile.plan import SelectPlan
-from ontosql.compile.select import compile_select_plan
-
-__all__ = ["SelectPlan", "compile_select_plan"]
+__all__: list[str] = []

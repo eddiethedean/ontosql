@@ -121,7 +121,7 @@ class OntoRouter:
 
         @self.router.get(f"/{name}/{{entity_id}}")
         def get_one(entity_id: int, request: Request, session: SessionDep) -> Any:
-            instance = session.get(entity_type, id=entity_id)
+            instance = session.get(entity_type, identity=entity_id)
             if instance is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
             return negotiate_onto_response(request, instance)
@@ -184,7 +184,7 @@ class OntoRouter:
 
         @self.router.patch(f"/{name}/{{entity_id}}")
         async def patch_entity(entity_id: int, request: Request, session: SessionDep) -> Any:
-            instance = session.get(entity_type, id=entity_id)
+            instance = session.get(entity_type, identity=entity_id)
             if instance is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
             data = await _read_json_body(request, max_body_bytes)
@@ -205,7 +205,7 @@ class OntoRouter:
 
         @self.router.delete(f"/{name}/{{entity_id}}", status_code=status.HTTP_204_NO_CONTENT)
         def delete_entity(entity_id: int, session: SessionDep) -> None:
-            instance = session.get(entity_type, id=entity_id)
+            instance = session.get(entity_type, identity=entity_id)
             if instance is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
             session.delete(instance)

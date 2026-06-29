@@ -48,11 +48,11 @@ Graph sync runs at **commit**, not immediately on `save()`. Check inside the ses
 
 If graph sync fails after SQL commit, you have a **split-brain** risk: SQL is durable, graph may be partial. Check `session.graph_sync_pending` and `session.graph_sync_failures`, then call `session.retry_graph_sync()` after fixing the graph target. See [HYBRID.md](HYBRID.md#graph-sync-failures-split-brain).
 
-## `rollback_pending()` vs SQL rollback
+## `clear_pending()` vs SQL rollback
 
 | Method | Effect |
 |--------|--------|
-| `rollback_pending()` | Clears queued save/delete plans and graph sync queues only — **does not** undo flushed SQL |
+| `clear_pending()` | Clears queued save/delete plans and graph sync queues only — **does not** undo flushed SQL |
 | `session.rollback()` (sync) | Rolls back the open SQLAlchemy transaction |
 | Exit `with` on exception | SQL rollback; graph queue discarded |
 

@@ -30,8 +30,29 @@ def materialize_find(
     offset: int | None = None,
     registry: PrefixRegistry | None = None,
 ) -> Store:
-    """Materialize find() results as a merged RDF graph."""
+    """Materialize find() results as a merged RDF graph (sync session)."""
     instances = session.find(
+        entity_type,
+        where=where,
+        order_by=order_by,
+        limit=limit,
+        offset=offset,
+    )
+    return instances_to_graph(instances, registry=registry)
+
+
+async def materialize_find_async(
+    session: Any,
+    entity_type: type[OntoModel],
+    *,
+    where: Any | None = None,
+    order_by: Any | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+    registry: PrefixRegistry | None = None,
+) -> Store:
+    """Materialize await find() results as a merged RDF graph (async session)."""
+    instances = await session.find(
         entity_type,
         where=where,
         order_by=order_by,

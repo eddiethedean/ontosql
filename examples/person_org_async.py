@@ -8,7 +8,7 @@ import _bootstrap  # noqa: F401
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import Session, SQLModel
 
-from models import OrgRow, OrganizationMap, Person, PersonMap, PersonRow
+from models import OrganizationMap, OrgRow, Person, PersonMap, PersonRow
 from ontosql import AsyncOntoSession
 
 
@@ -26,7 +26,7 @@ async def main() -> None:
         await conn.run_sync(_seed_sync)
 
     async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
-        ada = await session.get(Person, id=1)
+        ada = await session.get(Person, identity=1)
         assert ada is not None
         print(f"Async read: {ada.name}")
 

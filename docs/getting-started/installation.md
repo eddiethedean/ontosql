@@ -76,7 +76,7 @@ with Session(engine) as s:
     s.add(Row(id=1, name='ok'))
     s.commit()
 with OntoSession(engine, maps=[RowMap]) as session:
-    assert session.get(M, id=1).name == 'ok'
+    assert session.get(M, identity=1).name == 'ok'
 print('ok')
 "
 ```

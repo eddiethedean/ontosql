@@ -9,7 +9,7 @@ from tests.models import Person
 
 
 def test_get_by_id(onto_session) -> None:
-    person = onto_session.get(Person, id=1)
+    person = onto_session.get(Person, identity=1)
     assert person is not None
     assert person.name == "Ada Lovelace"
     assert person.employer is not None
@@ -23,11 +23,11 @@ def test_get_by_iri(onto_session) -> None:
 
 
 def test_get_missing(onto_session) -> None:
-    assert onto_session.get(Person, id=999) is None
+    assert onto_session.get(Person, identity=999) is None
 
 
 def test_get_requires_id_or_iri(onto_session) -> None:
-    with pytest.raises(ValueError, match="requires id="):
+    with pytest.raises(ValueError, match="requires identity="):
         onto_session.get(Person)
 
 
@@ -53,4 +53,4 @@ def test_unregistered_entity(sync_engine) -> None:
         OntoSession(sync_engine, maps=[]) as session,
         pytest.raises(KeyError, match="No mapper registered"),
     ):
-        session.get(Person, id=1)
+        session.get(Person, identity=1)

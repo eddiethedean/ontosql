@@ -9,7 +9,11 @@ def test_root_package_exports() -> None:
     expected = {
         "AsyncOntoSession",
         "CascadePolicy",
+        "GraphSyncError",
+        "GraphSyncFailure",
+        "GraphSyncMode",
         "Map",
+        "OntoImportError",
         "OntoMapper",
         "OntoModel",
         "OntoSession",
@@ -18,6 +22,7 @@ def test_root_package_exports() -> None:
         "__version__",
         "onto_property",
         "paginate",
+        "paginate_async",
     }
     assert expected <= set(ontosql.__all__)
 
@@ -30,6 +35,7 @@ def test_export_subpackage() -> None:
         instances_to_graph,
         instances_to_jsonld,
         instances_to_rdf,
+        write_instance_to_graph,
     )
 
     assert all(
@@ -41,21 +47,34 @@ def test_export_subpackage() -> None:
             instances_to_graph,
             instances_to_jsonld,
             instances_to_rdf,
+            write_instance_to_graph,
         )
     )
 
 
 def test_import_subpackage() -> None:
-    from ontosql.import_ import graph_to_instance, import_from_jsonld, import_from_rdf
+    from ontosql.import_ import (
+        OntoImportError,
+        graph_to_instance,
+        import_from_jsonld,
+        import_from_rdf,
+        load_graph,
+    )
 
-    assert all(callable(fn) for fn in (import_from_jsonld, import_from_rdf, graph_to_instance))
+    assert all(
+        callable(fn) for fn in (import_from_jsonld, import_from_rdf, graph_to_instance, load_graph)
+    )
+    assert issubclass(OntoImportError, Exception)
 
 
 def test_sync_subpackage() -> None:
     from ontosql.sync import (
+        GraphSyncMode,
+        GraphSyncTarget,
         StoreSyncTarget,
         materialize_entity,
         materialize_find,
+        materialize_find_async,
         push_instance,
         remove_instance,
     )
@@ -66,10 +85,13 @@ def test_sync_subpackage() -> None:
             push_instance,
             remove_instance,
             materialize_find,
+            materialize_find_async,
             materialize_entity,
         )
     )
     assert StoreSyncTarget is not None
+    assert GraphSyncTarget is not None
+    assert GraphSyncMode is not None
 
 
 def test_query_subpackage() -> None:
@@ -77,6 +99,12 @@ def test_query_subpackage() -> None:
 
     assert FieldRef is not None
     assert FieldPath is not None
+
+
+def test_compile_package_not_reexported() -> None:
+    import ontosql.compile
+
+    assert ontosql.compile.__all__ == []
 
 
 def test_shacl_extra() -> None:
@@ -96,9 +124,12 @@ def test_fastapi_extra() -> None:
     assert fastapi is not None
 
     from ontosql.fastapi import (
+        AsyncSessionDep,
         OntoRouter,
+        SessionDep,
         get_async_onto_session,
         get_onto_session,
+        onto_async_session_lifespan,
         onto_session_lifespan,
     )
 
@@ -106,3 +137,6 @@ def test_fastapi_extra() -> None:
     assert callable(get_onto_session)
     assert callable(get_async_onto_session)
     assert callable(onto_session_lifespan)
+    assert callable(onto_async_session_lifespan)
+    assert SessionDep is not None
+    assert AsyncSessionDep is not None

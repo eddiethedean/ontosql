@@ -35,8 +35,8 @@ def multi_session(multi_engine):
 
 
 def test_same_row_two_semantic_views(multi_session) -> None:
-    schema = multi_session.get(SchemaPerson, id=1)
-    foaf = multi_session.get(FoafPerson, id=1)
+    schema = multi_session.get(SchemaPerson, identity=1)
+    foaf = multi_session.get(FoafPerson, identity=1)
     assert schema is not None and foaf is not None
     assert schema.name == "Ada Lovelace"
     assert foaf.label == "Ada Lovelace"
@@ -44,18 +44,18 @@ def test_same_row_two_semantic_views(multi_session) -> None:
 
 
 def test_write_via_one_map_visible_in_other(multi_session) -> None:
-    schema = multi_session.get(SchemaPerson, id=1)
+    schema = multi_session.get(SchemaPerson, identity=1)
     assert schema is not None
     schema.name = "Ada M. Lovelace"
     multi_session.save(schema)
-    foaf = multi_session.get(FoafPerson, id=1)
+    foaf = multi_session.get(FoafPerson, identity=1)
     assert foaf is not None
     assert foaf.label == "Ada M. Lovelace"
 
 
 def test_export_different_type_iri(multi_session) -> None:
-    schema = multi_session.get(SchemaPerson, id=1)
-    foaf = multi_session.get(FoafPerson, id=1)
+    schema = multi_session.get(SchemaPerson, identity=1)
+    foaf = multi_session.get(FoafPerson, identity=1)
     assert schema is not None and foaf is not None
     schema_ttl = schema.to_rdf(format="turtle")
     foaf_ttl = foaf.to_rdf(format="turtle")

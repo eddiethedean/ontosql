@@ -38,7 +38,7 @@ def postgres_engine():
 
 def test_postgres_session_get_and_find(postgres_engine) -> None:
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
-        person = session.get(Person, id=1)
+        person = session.get(Person, identity=1)
         assert person is not None
         assert person.name == "Postgres Ada"
         assert person.employer is not None
@@ -52,19 +52,19 @@ def test_postgres_session_save_round_trip(postgres_engine) -> None:
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
         session.save(Person(id=4, name="New Person", employer=None))
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
-        loaded = session.get(Person, id=4)
+        loaded = session.get(Person, identity=4)
         assert loaded is not None
         assert loaded.name == "New Person"
 
 
 def test_postgres_session_partial_update(postgres_engine) -> None:
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
-        person = session.get(Person, id=1)
+        person = session.get(Person, identity=1)
         assert person is not None
         person.name = "Ada P."
         session.save(person)
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
-        reloaded = session.get(Person, id=1)
+        reloaded = session.get(Person, identity=1)
         assert reloaded is not None
         assert reloaded.name == "Ada P."
         assert reloaded.employer is not None
@@ -72,13 +72,13 @@ def test_postgres_session_partial_update(postgres_engine) -> None:
 
 def test_postgres_session_link_nested_employer(postgres_engine) -> None:
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
-        person = session.get(Person, id=3)
+        person = session.get(Person, identity=3)
         assert person is not None
         assert person.employer is None
         person.employer = Organization(id=10, name="Postgres Org")
         session.save(person)
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
-        reloaded = session.get(Person, id=3)
+        reloaded = session.get(Person, identity=3)
         assert reloaded is not None
         assert reloaded.employer is not None
         assert reloaded.employer.id == 10
@@ -86,11 +86,11 @@ def test_postgres_session_link_nested_employer(postgres_engine) -> None:
 
 def test_postgres_session_delete(postgres_engine) -> None:
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
-        person = session.get(Person, id=2)
+        person = session.get(Person, identity=2)
         assert person is not None
         session.delete(person)
     with OntoSession(postgres_engine, maps=[PersonMap, OrganizationMap]) as session:
-        assert session.get(Person, id=2) is None
+        assert session.get(Person, identity=2) is None
 
 
 def test_postgres_session_count(postgres_engine) -> None:

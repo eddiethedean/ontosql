@@ -43,11 +43,11 @@ def test_delete_flush_false_commits_on_exit(sync_engine) -> None:
     """Pending delete must flush on session exit."""
     target = StoreSyncTarget()
     with OntoSession(sync_engine, maps=[PersonMap], graph_sync=target) as session:
-        person = session.get(Person, id=1)
+        person = session.get(Person, identity=1)
         assert person is not None
-        session.delete(person, flush=False)
+        session.delete(person, flush_now=False)
     with OntoSession(sync_engine, maps=[PersonMap]) as session:
-        assert session.get(Person, id=1) is None
+        assert session.get(Person, identity=1) is None
 
 
 def test_delete_flush_false_graph_sync_on_exit(sync_engine) -> None:
@@ -59,13 +59,13 @@ def test_delete_flush_false_graph_sync_on_exit(sync_engine) -> None:
         graph_sync=target,
         graph_sync_mode="replace",
     ) as session:
-        person = session.get(Person, id=1)
+        person = session.get(Person, identity=1)
         assert person is not None
-        push_instance(person, target, mode="replace", mapper_cls=PersonMap)
+        push_instance(person, target, mode="replace", mapper=PersonMap)
         assert len(target.graph) > 0
-        session.delete(person, flush=False)
+        session.delete(person, flush_now=False)
     with OntoSession(sync_engine, maps=[PersonMap]) as session:
-        assert session.get(Person, id=1) is None
+        assert session.get(Person, identity=1) is None
     reg = PrefixRegistry()
     person_iri = build_instance_iri(Person(id=1, name="x", employer=None), reg)
     assert not any(term_str(t[0]) == person_iri for t in target.graph)
@@ -74,21 +74,21 @@ def test_delete_flush_false_graph_sync_on_exit(sync_engine) -> None:
 def test_save_flush_false_commits_on_exit(sync_engine) -> None:
     """Pending save must flush on session exit."""
     with OntoSession(sync_engine, maps=[PersonMap]) as session:
-        session.save(Person(id=200, name="Pending Save", employer=None), flush=False)
+        session.save(Person(id=200, name="Pending Save", employer=None), flush_now=False)
     with OntoSession(sync_engine, maps=[PersonMap]) as session:
-        loaded = session.get(Person, id=200)
+        loaded = session.get(Person, identity=200)
         assert loaded is not None
         assert loaded.name == "Pending Save"
 
 
-def test_rollback_pending_clears_graph_sync(sync_engine) -> None:
+def test_clear_pending_clears_graph_sync(sync_engine) -> None:
     target = StoreSyncTarget()
     with OntoSession(sync_engine, maps=[PersonMap], graph_sync=target) as session:
-        person = session.get(Person, id=1)
+        person = session.get(Person, identity=1)
         assert person is not None
-        push_instance(person, target, mode="replace", mapper_cls=PersonMap)
-        session.delete(person, flush=False)
-        session.rollback_pending()
+        push_instance(person, target, mode="replace", mapper=PersonMap)
+        session.delete(person, flush_now=False)
+        session.clear_pending()
     assert len(target.graph) > 0
 
 
@@ -118,14 +118,14 @@ def test_graph_sync_preserves_shared_nested_org() -> None:
     person_a = Person(id=1, name="Ada", employer=org)
     person_b = Person(id=2, name="Bob", employer=org)
     target = Store()
-    push_instance(person_a, target, mode="replace", mapper_cls=PersonMap)
-    push_instance(person_b, target, mode="replace", mapper_cls=PersonMap)
+    push_instance(person_a, target, mode="replace", mapper=PersonMap)
+    push_instance(person_b, target, mode="replace", mapper=PersonMap)
     org_iri = build_instance_iri(org, reg)
     ext_pred = NamedNode("http://example.org/external")
     target.add((NamedNode(org_iri), ext_pred, Literal("third-party fact")))
 
     person_a_updated = Person(id=1, name="Ada L.", employer=org)
-    push_instance(person_a_updated, target, mode="patch", mapper_cls=PersonMap)
+    push_instance(person_a_updated, target, mode="patch", mapper=PersonMap)
     ext_values = list(target.objects(NamedNode(org_iri), ext_pred))
     assert len(ext_values) == 1
 
@@ -160,7 +160,7 @@ def test_replace_loads_snapshot_from_db() -> None:
         )
         session.save(updated)
     with OntoSession(engine, maps=[ReplacePersonMap, OrganizationMap]) as session:
-        person = session.get(Person, id=1)
+        person = session.get(Person, identity=1)
         assert person is not None
         assert person.employer is not None
         with Session(engine) as raw:

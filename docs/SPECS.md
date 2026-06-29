@@ -19,12 +19,12 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 
 | Tier | Import paths | Policy until 1.0 |
 |------|----------------|------------------|
-| **Beta-stable** | `import ontosql` (root exports), `ontosql.semantic`, `ontosql.mapping`, `ontosql.session`, `ontosql.registry` | Additive changes only in minor releases; deprecations with warnings before removal |
+| **Beta-stable** | `import ontosql` (root exports), `ontosql.semantic`, `ontosql.mapping`, `ontosql.session`, `ontosql.registry` | Additive changes only in minor releases until 1.0 |
 | **Beta-supported** | `ontosql.export`, `ontosql.import_`, `ontosql.sync`, `ontosql.query` | May evolve; documented in [SPECS.md](SPECS.md) |
 | **Beta-experimental** | `ontosql.fastapi`, `ontosql.shacl`, `ontosql.export.jsonld` | Extra-gated; may change without deprecation |
 | **Internal** | `ontosql.compile`, `ontosql.session._ops`, `_*` helpers | Not part of the public contract — do not import in application code |
 
-**Semver commitment** begins at **1.0** ([ROADMAP.md](ROADMAP.md)). Until then, patch releases fix bugs; minor releases add features. Breaking changes are reserved for **2.0+**.
+**Semver commitment** begins at **1.0** ([ROADMAP.md](ROADMAP.md)). Pre-1.0 releases may rename parameters without a deprecation cycle.
 
 `OntoRouter` is a **demo** convenience layer — not production-ready without auth, rate limits, and async session wiring ([SECURITY.md](SECURITY.md)).
 
@@ -36,18 +36,22 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 |--------|--------|
 | `OntoModel`, `onto_property` | `ontosql.semantic` |
 | `Map`, `OntoMapper`, `CascadePolicy` | `ontosql.mapping` |
-| `OntoSession`, `AsyncOntoSession`, `Page`, `paginate` | `ontosql.session` |
+| `OntoSession`, `AsyncOntoSession`, `Page`, `paginate`, `paginate_async` | `ontosql.session` |
+| `GraphSyncError`, `GraphSyncFailure`, `GraphSyncMode` | `ontosql.session` / `ontosql.sync` |
+| `OntoImportError` | `ontosql.import_` |
 | `PrefixRegistry` | `ontosql.registry` |
+
+`MapperRegistry` is exported from `ontosql.mapping` for multi-map registration; prefer `OntoSession(maps=[...])` for application wiring.
 
 ### Supported subpackages
 
 | Package | Key entry points |
 |---------|------------------|
 | `ontosql.export` | `instance_to_graph`, `instance_to_jsonld`, `instance_to_rdf`, `instances_to_graph`, `instances_to_jsonld`, `instances_to_rdf` |
-| `ontosql.import_` | `import_from_jsonld`, `import_from_rdf`, `graph_to_instance` |
-| `ontosql.sync` | `push_instance`, `remove_instance`, `StoreSyncTarget`, `materialize_find`, `materialize_entity` |
+| `ontosql.import_` | `import_from_jsonld`, `import_from_rdf`, `graph_to_instance`, `OntoImportError` |
+| `ontosql.sync` | `push_instance`, `remove_instance`, `StoreSyncTarget`, `GraphSyncTarget`, `GraphSyncMode`, `materialize_find`, `materialize_find_async`, `materialize_entity` |
 | `ontosql.query` | `FieldRef`, `FieldPath`, expression operators on semantic fields |
-| `ontosql.fastapi` | `OntoRouter`, `onto_session_lifespan`, `get_onto_session`, `get_async_onto_session` (requires `ontosql[fastapi]`) |
+| `ontosql.fastapi` | `OntoRouter`, `onto_session_lifespan`, `onto_async_session_lifespan`, `SessionDep`, `AsyncSessionDep`, `get_onto_session`, `get_async_onto_session` (requires `ontosql[fastapi]`) |
 | `ontosql.shacl` | `shapes_from_mapper`, `validate_instance` (requires `ontosql[shacl]`) |
 
 ### Instance methods on `OntoModel`
@@ -57,10 +61,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for layers, glossary, and design rational
 
 ### Internal (unsupported)
 
-- `ontosql.compile.*` — SQL plan types and executors; may change without notice
+- `ontosql.compile.*` — SQL plan types and executors; the `ontosql.compile` package has an empty `__all__` and is not re-exported
 - `ontosql.session._ops` — shared session helpers
-- `ontosql.mapping.registry.MapperRegistry` — use session `maps=[...]` instead of global registry
-- `get_global_registry()` — prefer per-session registration
 
 ## Implementation phases
 
@@ -203,31 +205,36 @@ Unit of work bound to a SQLAlchemy/SQLModel engine.
 
 ```python
 with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
-    person = session.get(Person, id=1)
+    person = session.get(Person, identity=1)
 ```
+
+Sync `OntoSession` **must** be used as a context manager (SQLAlchemy session opens in `__enter__`).
 
 ```python
 async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
-    person = await session.get(Person, id=1)
+    person = await session.get(Person, identity=1)
 ```
 
 | Method | Status | Description |
 |--------|--------|-------------|
-| `get(entity, *, id=..., iri=...)` | 0.2.0 | Load one instance by primary key or IRI |
+| `get(entity, *, identity=..., iri=...)` | 0.2.0 | Load one instance by primary key or IRI |
 | `find(entity, *, where=..., order_by=..., limit=..., offset=...)` | 0.2.0 | Query with semantic field expressions |
-| `save(instance)` | 0.3.0 | Insert or update; returns hydrated instance |
-| `delete(instance)` | 0.3.0 | Delete root row by identity |
-| `flush()` / `rollback_pending()` | 0.3.0 | Pending write queue |
+| `save(instance, *, flush_now=True)` | 0.3.0 | Insert or update; returns hydrated instance |
+| `delete(instance, *, flush_now=True)` | 0.3.0 | Delete root row by identity |
+| `flush()` / `clear_pending()` | 0.3.0 | Apply or discard pending write queue |
+| `rollback()` (sync) | 0.5.x | Roll back open SQLAlchemy transaction |
 | `count(entity, *, where=...)` | 0.3.0 | Count rows matching a filter |
-| `paginate(...)` | 0.3.0 | `Page` with optional total count |
+| `paginate(...)` / `paginate_async(...)` | 0.3.0 | `Page` with optional total count |
 | `execute_sql(...)` | 0.2.0 | Escape hatch for raw SQL |
+| `retry_graph_sync()` | 0.5.x | Retry queued graph ops after partial post-commit failure |
+| `graph_sync_pending` / `graph_sync_failures` | 0.5.x | Graph split-brain diagnostics |
 
 Optional constructor arguments (0.4.0):
 
-- `graph_sync` — target with `graph` and `update_graph(add=, remove=)`; queues graph push/remove on `save()` / `delete()`
-- `graph_sync_mode` — `"patch"` (default), `"replace"`, or `"add"`
+- `graph_sync` — `GraphSyncTarget` or `Store` with `graph` and `update_graph(add=, remove=)`
+- `graph_sync_mode` — `GraphSyncMode`: `"patch"` (default), `"replace"`, or `"add"`
 
-Graph sync is applied **after SQL commit** on session exit. Rolled-back sessions discard queued graph updates. `flush()` queues graph sync for flushed writes; commit still required before the graph updates.
+Graph sync is applied **after SQL commit** on session exit. Rolled-back sessions discard queued graph updates. Partial graph failures raise `GraphSyncError` with remaining queue preserved for `retry_graph_sync()`. `flush()` queues graph sync for flushed writes; commit still required before the graph updates.
 
 - Transactions: one transaction per context manager; rollback on exception.
 - Identity map for repeated `get` in one session (0.3.0).
@@ -289,14 +296,14 @@ Module: `ontosql.import_` (note trailing underscore — `import` is a Python key
 from ontosql.import_ import import_from_jsonld, import_from_rdf, graph_to_instance
 
 restored = import_from_jsonld(doc, PersonMap)
-restored = import_from_rdf(turtle_bytes, PersonMap, format="turtle")
+restored = import_from_rdf(turtle_bytes, PersonMap, format="turtle", max_bytes=1_000_000, max_triples=10_000)
 ```
 
 ```python
 person = Person.from_jsonld(doc, mapper=PersonMap)
 ```
 
-Hydration uses **mapper metadata** (`Map.property`, `Map.nested`, `type_iri`, `iri_template`). Raises `OntoImportError` on type mismatch or ambiguous subjects.
+Hydration uses **mapper metadata** (`Map.property`, `Map.nested`, `type_iri`, `iri_template`). Raises `OntoImportError` on type mismatch or ambiguous subjects. Optional `max_bytes` / `max_triples` guard untrusted RDF payloads.
 
 ---
 
@@ -316,7 +323,8 @@ from ontosql.sync.materialize import materialize_find, materialize_entity
 | `remove_instance(instance, target)` | Remove instance subgraph from a graph target |
 | `sync_instance_to_store(instance, store, *, mode, mapper_cls)` | Lower-level; mutates a `Store` in place |
 | `StoreSyncTarget` | In-memory target wrapping a `Store` |
-| `materialize_find(session, entity_type, ...)` | Merge `find()` results into one `Store` |
+| `materialize_find(session, entity_type, ...)` | Merge sync `find()` results into one `Store` |
+| `materialize_find_async(session, entity_type, ...)` | Merge async `find()` results into one `Store` |
 | `materialize_entity(instance)` | Single-instance graph |
 
 Modes: `add` (append), `replace` (remove subject triples then add), `patch` (owned-predicate diff).
@@ -377,8 +385,9 @@ return negotiate_onto_response(request, semantic_instance)
 | Gap | Detail |
 |-----|--------|
 | No auth | All CRUD routes are unauthenticated unless the host app adds middleware or dependencies |
-| Body validation | POST/PATCH validate with generated Pydantic body models before `model_construct` / `model_copy` |
-| Sync session in async handlers | Blocking I/O under load; use `AsyncOntoSession` with app-level wiring |
+| Body validation | POST/PATCH validate with generated Pydantic models; optional `validate_entities=True` runs `OntoModel.model_validate` |
+| Body size | Optional `max_body_bytes` on POST/PATCH (413 when exceeded) |
+| Sync session in async handlers | Blocking I/O under load; use `onto_async_session_lifespan` + `AsyncSessionDep` |
 | List `limit` | Capped at 100 (0.3.1+); still runs find + count per list request |
 
 Before production: wire auth dependencies, use async sessions where appropriate, and restrict mount paths. See [SECURITY.md](SECURITY.md).

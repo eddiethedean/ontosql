@@ -8,7 +8,7 @@ from triplemodel import Store
 
 from ontosql.semantic.model import OntoModel
 from ontosql.sync.graph import GraphSyncMode, sync_instance_to_store
-from ontosql.sync.materialize import materialize_entity, materialize_find
+from ontosql.sync.materialize import materialize_entity, materialize_find, materialize_find_async
 from ontosql.sync.target import GraphSyncTarget
 
 
@@ -47,7 +47,7 @@ def push_instance(
     target: GraphSyncTarget | Store,
     *,
     mode: GraphSyncMode = "patch",
-    mapper_cls: type[Any] | None = None,
+    mapper: type[Any] | None = None,
     registry: Any | None = None,
 ) -> None:
     """Push a semantic instance into a graph sync target."""
@@ -57,7 +57,7 @@ def push_instance(
         instance,
         _target_store(target),
         mode=mode,
-        mapper_cls=mapper_cls,
+        mapper_cls=mapper,
         registry=registry,
     )
 
@@ -66,7 +66,7 @@ def remove_instance(
     instance: OntoModel,
     target: GraphSyncTarget | Store,
     *,
-    mapper_cls: type[Any] | None = None,
+    mapper: type[Any] | None = None,
     registry: Any | None = None,
 ) -> None:
     """Remove an instance subgraph from a graph sync target."""
@@ -75,7 +75,7 @@ def remove_instance(
     remove_instance_from_store(
         instance,
         _target_store(target),
-        mapper_cls=mapper_cls,
+        mapper_cls=mapper,
         registry=registry,
     )
 
@@ -100,9 +100,11 @@ def patch_subject(
 
 __all__ = [
     "GraphSyncMode",
+    "GraphSyncTarget",
     "StoreSyncTarget",
     "materialize_entity",
     "materialize_find",
+    "materialize_find_async",
     "patch_subject",
     "push_instance",
     "remove_instance",

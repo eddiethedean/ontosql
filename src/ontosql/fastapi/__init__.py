@@ -8,6 +8,7 @@ try:
         SessionDep,
         get_async_onto_session,
         get_onto_session,
+        onto_async_session_lifespan,
         onto_session_lifespan,
     )
     from ontosql.fastapi.negotiate import negotiate_onto_response

@@ -10,7 +10,7 @@ from fastapi import FastAPI, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import Session, SQLModel
 
-from models import Organization, OrganizationMap, OrgRow, Person, PersonMap, PersonRow
+from models import OrganizationMap, OrgRow, Person, PersonMap, PersonRow
 from ontosql.fastapi.deps import AsyncSessionDep, onto_async_session_lifespan
 from ontosql.fastapi.negotiate import negotiate_onto_response
 
@@ -42,7 +42,7 @@ def create_app() -> FastAPI:
 
     @app.get("/person/{person_id}")
     async def get_person(person_id: int, request: Request, session: AsyncSessionDep) -> object:
-        person = await session.get(Person, id=person_id)
+        person = await session.get(Person, identity=person_id)
         if person is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         return negotiate_onto_response(request, person)

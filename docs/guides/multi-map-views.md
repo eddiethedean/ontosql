@@ -58,8 +58,8 @@ class FoafPersonMap(OntoMapper[FoafPerson]):
 
 ```python
 with OntoSession(engine, maps=[SchemaPersonMap, FoafPersonMap]) as session:
-    schema_view = session.get(SchemaPerson, id=1)
-    foaf_view = session.get(FoafPerson, id=1)
+    schema_view = session.get(SchemaPerson, identity=1)
+    foaf_view = session.get(FoafPerson, identity=1)
 ```
 
 Both return the same underlying row with different semantic shapes and RDF export metadata.

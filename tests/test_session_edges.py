@@ -12,9 +12,9 @@ from tests.models import Person, PersonMap
 @pytest.mark.asyncio
 async def test_async_save_pending_queue(async_onto_session) -> None:
     person = Person(id=201, name="Queued", employer=None)
-    await async_onto_session.save(person, flush=False)
+    await async_onto_session.save(person, flush_now=False)
     assert async_onto_session._state.pending
-    async_onto_session.rollback_pending()
+    async_onto_session.clear_pending()
 
 
 def test_field_path_private_attr_raises() -> None:
@@ -29,35 +29,35 @@ def test_field_path_private_attr_raises() -> None:
 
 def test_delete_and_flush_pending(sync_engine) -> None:
     with OntoSession(sync_engine, maps=[PersonMap]) as session:
-        person = session.get(Person, id=1)
+        person = session.get(Person, identity=1)
         assert person is not None
-        session.delete(person, flush=False)
+        session.delete(person, flush_now=False)
         session.flush()
-        assert session.get(Person, id=1) is None
+        assert session.get(Person, identity=1) is None
 
 
 @pytest.mark.asyncio
 async def test_async_delete_and_flush_pending(async_onto_session) -> None:
-    person = await async_onto_session.get(Person, id=2)
+    person = await async_onto_session.get(Person, identity=2)
     assert person is not None
-    await async_onto_session.delete(person, flush=False)
+    await async_onto_session.delete(person, flush_now=False)
     await async_onto_session.flush()
-    assert await async_onto_session.get(Person, id=2) is None
+    assert await async_onto_session.get(Person, identity=2) is None
 
 
 def test_sync_delete_immediate(sync_engine) -> None:
     with OntoSession(sync_engine, maps=[PersonMap]) as session:
-        person = session.get(Person, id=3)
+        person = session.get(Person, identity=3)
         assert person is not None
         session.delete(person)
-        assert session.get(Person, id=3) is None
+        assert session.get(Person, identity=3) is None
 
 
 def test_sync_flush_write_only(sync_engine) -> None:
     with OntoSession(sync_engine, maps=[PersonMap]) as session:
-        session.save(Person(id=98, name="FlushWrite", employer=None), flush=False)
+        session.save(Person(id=98, name="FlushWrite", employer=None), flush_now=False)
         session.flush()
-        assert session.get(Person, id=98) is not None
+        assert session.get(Person, identity=98) is not None
 
 
 @pytest.mark.asyncio

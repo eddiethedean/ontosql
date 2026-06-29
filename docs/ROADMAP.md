@@ -41,7 +41,7 @@ OntoSQL shares RDF infrastructure with [TripleModel](https://github.com/eddiethe
 | `OntoModel`, `onto_property` | Shipped |
 | `OntoMapper`, `Map`, `Map.nested`, `CascadePolicy`, `fk_column` | Shipped |
 | `OntoSession` / `AsyncOntoSession` `get` / `find` / `save` / `delete` | Shipped |
-| Identity map, `flush`, `rollback_pending`, partial updates | Shipped |
+| Identity map, `flush`, `clear_pending`, partial updates | Shipped |
 | Semantic query expressions, nested `FieldPath`, `paginate` | Shipped |
 | `PrefixRegistry` | Shipped (CURIE expand via TripleModel) |
 | Export (`to_jsonld`, `to_rdf`) | Shipped (TripleModel serializers) |

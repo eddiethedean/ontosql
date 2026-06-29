@@ -139,15 +139,15 @@ def _validate_type(
 
 def graph_to_instance(
     graph: Store,
-    mapper_cls: type[Any],
+    mapper: type[Any],
     *,
     iri: str | None = None,
     registry: PrefixRegistry | None = None,
     _visited: set[str] | None = None,
 ) -> OntoModel:
     """Hydrate a semantic instance from triples using mapper metadata."""
-    reg = _resolve_registry(mapper_cls, registry)
-    entity_type: type[OntoModel] = mapper_cls.entity
+    reg = _resolve_registry(mapper, registry)
+    entity_type: type[OntoModel] = mapper.entity
 
     if iri is None:
         raise OntoImportError("graph_to_instance requires iri=")
@@ -162,13 +162,13 @@ def graph_to_instance(
 
     fields: dict[str, Any] = {}
 
-    for field_name, _cmap in mapper_cls.column_maps.items():
-        if field_name in mapper_cls.nested_maps:
+    for field_name, _cmap in mapper.column_maps.items():
+        if field_name in mapper.nested_maps:
             continue
         predicate = _predicate_iri(entity_type, field_name, reg)
-        if predicate is None and field_name != mapper_cls.identity_field:
+        if predicate is None and field_name != mapper.identity_field:
             continue
-        if field_name == mapper_cls.identity_field:
+        if field_name == mapper.identity_field:
             parsed = parse_iri_id(iri, entity_type)
             if parsed is not None:
                 fields[field_name] = parsed
@@ -185,7 +185,7 @@ def graph_to_instance(
         meta = get_onto_property_meta(entity_type, field_name)
         fields[field_name] = _coerce_literal(objects[0], py_type=py_type, registry=reg, meta=meta)
 
-    for field_name, nmap in mapper_cls.nested_maps.items():
+    for field_name, nmap in mapper.nested_maps.items():
         predicate = _predicate_iri(entity_type, field_name, reg)
         if predicate is None:
             continue
@@ -208,7 +208,7 @@ def graph_to_instance(
         else:
             fields[field_name] = None
 
-    for field_name, cmap in mapper_cls.collection_maps.items():
+    for field_name, cmap in mapper.collection_maps.items():
         predicate = _predicate_iri(entity_type, field_name, reg)
         if predicate is None:
             continue

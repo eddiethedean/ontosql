@@ -85,9 +85,9 @@ def test_session_base_expire_and_is_new() -> None:
     assert base._is_new_instance(PersonMap, person) is True
     base._state.register(person)
     assert base._is_new_instance(PersonMap, person) is False
-    base.expire(Person, id=1)
+    base.expire(Person, identity=1)
     with pytest.raises(TypeError):
-        base.expire(dict, id=1)  # type: ignore[arg-type]
+        base.expire(dict, identity=1)  # type: ignore[arg-type]
 
 
 def test_state_register_without_identity() -> None:

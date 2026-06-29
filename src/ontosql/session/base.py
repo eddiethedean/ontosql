@@ -4,10 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from triplemodel import Store
+
 from ontosql.mapping.registry import MapperRegistry
 from ontosql.semantic.model import OntoModel
 from ontosql.session.graph_sync import flush_graph_sync
 from ontosql.session.state import SessionState
+from ontosql.sync.graph import GraphSyncMode
+from ontosql.sync.target import GraphSyncTarget
+
+GraphSyncTargetLike = GraphSyncTarget | Store
 
 
 class SessionBase:
@@ -23,8 +29,8 @@ class SessionBase:
         if maps:
             self._registry.register_many(maps)
         self._state = SessionState()
-        self._graph_sync: Any | None = None
-        self._graph_sync_mode: Any = "patch"
+        self._graph_sync: GraphSyncTargetLike | None = None
+        self._graph_sync_mode: GraphSyncMode = "patch"
 
     def _mapper_for(self, entity_type: type[Any]) -> type[Any]:
         return self._registry.get(entity_type)
@@ -40,13 +46,13 @@ class SessionBase:
             or self._state.get_cached(entity_type, identity) is not None
         )
 
-    def expire(self, entity_type: type[Any], *, id: Any) -> None:
+    def expire(self, entity_type: type[Any], *, identity: Any) -> None:
         """Evict an instance from the identity map."""
         if not issubclass(entity_type, OntoModel):
             raise TypeError(f"entity_type must be an OntoModel subclass, got {entity_type!r}")
-        self._state.expire(entity_type, id)
+        self._state.expire(entity_type, identity)
 
-    def rollback_pending(self) -> None:
+    def clear_pending(self) -> None:
         """Discard queued save/delete plans and graph sync queues without touching SQL.
 
         Does **not** roll back flushed writes or an open database transaction. Use

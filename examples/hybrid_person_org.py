@@ -24,7 +24,7 @@ def main() -> None:
         graph_sync=graph_target,
         graph_sync_mode="replace",
     ) as session:
-        ada = session.get(Person, id=1)
+        ada = session.get(Person, identity=1)
         assert ada is not None
         print(f"SQL read: {ada.name}")
 
@@ -35,7 +35,7 @@ def main() -> None:
     print(f"Graph triples after commit: {len(graph_target.graph)}")
 
     with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
-        ada = session.get(Person, id=1)
+        ada = session.get(Person, identity=1)
         assert ada is not None
         materialized = materialize_find(session, Person)
         print(f"Materialized graph: {len(materialized)} triples")

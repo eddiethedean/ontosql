@@ -19,9 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **RDF import guards** — `max_bytes` and `max_triples` on `load_graph` / `import_from_rdf`
 - **OntoRouter** — `validate_entities` and `max_body_bytes` options; `onto_async_session_lifespan` for `AsyncSessionDep`
 - **Docs** — [production-router.md](guides/production-router.md), graph split-brain reconciliation in [HYBRID.md](HYBRID.md)
-- **Exports** — `GraphSyncError`, `GraphSyncFailure` from `ontosql.session`
+- **Exports** — `GraphSyncError`, `GraphSyncFailure`, `GraphSyncMode`, `OntoImportError`, `paginate_async` from root; `materialize_find_async`, `GraphSyncTarget` from `ontosql.sync`
+- **Session API** — `get(identity=)`, `save(flush_now=)`, `clear_pending()`; import helpers take `mapper` positionally; `get_global_registry()` removed
 
-### Fixed (prior unreleased)
+### Changed
 
 - **SHACL** — `shapes_from_mapper` now sets `sh:minCount` to `1` for required scalar properties (was incorrectly `0` for all non-identity fields)
 - **Async session** — `save()` snapshot resolution aligned with sync session via shared `session/_ops.py`
@@ -106,7 +107,7 @@ Until **1.0**, minor releases may add APIs and fix bugs. Breaking changes are re
 - **REPLACE cascade** — nulls parent FK before deleting old nested row; raises `ExecuteError` when a shared nested row is still referenced
 - **Session snapshots** — keyed by `(entity_type, identity)` instead of `id(instance)` for stable REPLACE behavior
 - **Detached updates** — load DB snapshot when session snapshot missing so REPLACE and updates work without prior `get()`
-- **Pending writes** — `save(flush=False)` / `delete(flush=False)` auto-flush on session exit; `rollback_pending()` clears graph sync queues
+- **Pending writes** — `save(flush_now=False)` / `delete(flush_now=False)` auto-flush on session exit; `clear_pending()` clears graph sync queues
 - **Import** — `model_validate` after hydrate; `Optional[T]` / `int | None` coercion
 - **FastAPI `OntoRouter`** — POST/PATCH validate bodies with generated Pydantic models; PATCH cannot retarget row via body `id`; list supports RDF `Accept` headers; `offset` validated `ge=0`
 - Invalid `graph_sync_mode` raises `ValueError` instead of silent no-op
@@ -133,7 +134,7 @@ Until **1.0**, minor releases may add APIs and fix bugs. Breaking changes are re
 
 ### Added
 
-- **Write path** — `OntoSession.save()` / `delete()`, `flush()`, `rollback_pending()`, identity map, partial updates
+- **Write path** — `OntoSession.save()` / `delete()`, `flush()`, `clear_pending()`, identity map, partial updates
 - **`CascadePolicy`** — `link`, `upsert`, `replace`, `ignore` on `Map.nested(..., cascade=, fk_column=)`
 - **Query** — nested `FieldPath` (`Person.employer.name`), `contains` / `endswith`, `OrderBy(desc=)`, `paginate()` / `Page`
 - **`OntoRouter`** — FastAPI CRUD routes with content negotiation; `onto_session_lifespan`, OpenAPI enrichment

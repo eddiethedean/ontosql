@@ -72,7 +72,7 @@ with Session(engine) as raw:
     raw.commit()
 
 with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
-    ada = session.get(Person, id=1)
+    ada = session.get(Person, identity=1)
     print(ada.name, ada.employer.name if ada.employer else "")
 ```
 

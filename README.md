@@ -52,6 +52,7 @@ cd ontosql && pip install -e ".[dev]"
 | [hybrid_person_org.py](examples/hybrid_person_org.py) | core (`shacl` optional) | Graph sync, import, SHACL |
 | [multi_map_person.py](examples/multi_map_person.py) | core | One table, multiple semantic views |
 | [person_org_api.py](examples/person_org_api.py) | `ontosql[fastapi]` + `uvicorn` | FastAPI OntoRouter demo |
+| [person_org_api_production.py](examples/person_org_api_production.py) | `ontosql[fastapi,async]` + `uvicorn` | Production async session pattern |
 
 ```bash
 python examples/person_org_demo.py
@@ -152,7 +153,7 @@ with Session(engine) as raw:
     raw.commit()
 
 with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
-    ada = session.get(Person, id=1)
+    ada = session.get(Person, identity=1)
     team = session.find(Person, where=Person.employer.name.startswith("Analytical"))
     page = paginate(session, Person, limit=20, offset=0)
 

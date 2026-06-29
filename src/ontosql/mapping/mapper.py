@@ -118,7 +118,3 @@ class OntoMapper(Generic[E]):
                 f"Mapper {cls.__name__} has no column map for identity field {identity!r}"
             )
         return cls.column_maps[identity].column
-
-
-def get_global_registry() -> MapperRegistry:
-    return _global_registry

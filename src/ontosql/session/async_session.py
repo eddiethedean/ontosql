@@ -21,7 +21,7 @@ from ontosql.session._ops import (
     resolve_save_is_new_and_snapshot,
     validate_get_identity,
 )
-from ontosql.session.base import SessionBase
+from ontosql.session.base import GraphSyncTargetLike, SessionBase
 from ontosql.session.collections import attach_collections_async
 from ontosql.session.graph_sync import flush_graph_sync, queue_graph_push, queue_graph_remove
 from ontosql.session.hydrate import hydrate_first, hydrate_row
@@ -38,7 +38,7 @@ class AsyncOntoSession(SessionBase):
         maps: list[type[Any]] | None = None,
         *,
         registry: MapperRegistry | None = None,
-        graph_sync: Any | None = None,
+        graph_sync: GraphSyncTargetLike | None = None,
         graph_sync_mode: GraphSyncMode = "patch",
     ) -> None:
         super().__init__(maps, registry=registry)
@@ -94,18 +94,18 @@ class AsyncOntoSession(SessionBase):
         self,
         entity_type: type[OntoModel],
         *,
-        id: Any | None = None,
+        identity: Any | None = None,
         iri: str | None = None,
     ) -> OntoModel | None:
-        validate_get_identity(id=id, iri=iri)
-        if id is not None:
-            cached = self._state.get_cached(entity_type, id)
+        resolved_id = validate_get_identity(identity=identity, iri=iri)
+        if resolved_id is not None:
+            cached = self._state.get_cached(entity_type, resolved_id)
             if cached is not None:
                 return cached
         mapper_cls = self._mapper_for(entity_type)
         plan = compile_select_plan(
             mapper_cls,
-            id_value=id,
+            id_value=resolved_id,
             iri=iri,
             limit=1,
         )
@@ -159,7 +159,7 @@ class AsyncOntoSession(SessionBase):
     ) -> OntoModel:
         identity = reload_identity(instance, mapper_cls, plan, inserted_id)
         if identity is not None:
-            reloaded = await self.get(type(instance), id=identity)
+            reloaded = await self.get(type(instance), identity=identity)
             if reloaded is not None:
                 return reloaded
         return instance
@@ -189,7 +189,7 @@ class AsyncOntoSession(SessionBase):
             return None
         return row_instance.model_dump()
 
-    async def save(self, instance: OntoModel, *, flush: bool = True) -> OntoModel:
+    async def save(self, instance: OntoModel, *, flush_now: bool = True) -> OntoModel:
         mapper_cls = self._mapper_for(type(instance))
         is_new = self._is_new_instance(mapper_cls, instance)
         db_snapshot = await self._load_snapshot_from_db(instance, mapper_cls)
@@ -202,16 +202,16 @@ class AsyncOntoSession(SessionBase):
         plan = compile_save_plan_for_instance(
             mapper_cls, instance, is_new=is_new, snapshot=snapshot
         )
-        if flush:
+        if flush_now:
             inserted_id = await self._execute_write(plan)
             return await self._queue_graph_sync_after_save(instance, mapper_cls, plan, inserted_id)
         self._state.pending.append(plan)
         return instance
 
-    async def delete(self, instance: OntoModel, *, flush: bool = True) -> None:
+    async def delete(self, instance: OntoModel, *, flush_now: bool = True) -> None:
         mapper_cls = self._mapper_for(type(instance))
         plan = compile_delete_plan(mapper_cls, instance)
-        if flush:
+        if flush_now:
             await self._execute_delete(plan)
             if self._graph_sync is not None:
                 queue_graph_remove(self._state, instance)
@@ -237,7 +237,7 @@ class AsyncOntoSession(SessionBase):
                 entity_type = plan.mapper_cls.entity
                 identity = identity_from_write_plan(plan, inserted_id)
                 if identity is not None and self._graph_sync is not None:
-                    reloaded = await self.get(entity_type, id=identity)
+                    reloaded = await self.get(entity_type, identity=identity)
                     if reloaded is not None:
                         queue_graph_push(self._state, reloaded)
             elif isinstance(item, PendingDelete):

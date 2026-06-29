@@ -30,7 +30,7 @@ def computed_session(computed_engine):
 
 
 def test_computed_field_hydrated_on_get(computed_session) -> None:
-    person = computed_session.get(NamedPerson, id=1)
+    person = computed_session.get(NamedPerson, identity=1)
     assert person is not None
     assert person.display_name == "Ada Lovelace"
 
@@ -53,13 +53,13 @@ def test_save_ignores_computed_on_insert(computed_session) -> None:
     created = computed_session.save(
         NamedPerson.model_construct(first_name="Alan", last_name="Turing", id=None)
     )
-    reloaded = computed_session.get(NamedPerson, id=created.id)
+    reloaded = computed_session.get(NamedPerson, identity=created.id)
     assert reloaded is not None
     assert reloaded.display_name == "Alan Turing"
 
 
 def test_save_raises_when_computed_in_partial_update(computed_session) -> None:
-    person = computed_session.get(NamedPerson, id=1)
+    person = computed_session.get(NamedPerson, identity=1)
     assert person is not None
     person.display_name = "Changed"
     with pytest.raises(WriteCompileError, match="computed fields"):

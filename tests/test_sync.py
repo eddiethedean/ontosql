@@ -20,7 +20,7 @@ def test_push_instance_replace_mode() -> None:
         employer=Organization(id=10, name="Analytical Engines Inc."),
     )
     target = Store()
-    push_instance(person, target, mode="replace", mapper_cls=PersonMap)
+    push_instance(person, target, mode="replace", mapper=PersonMap)
     reg = PrefixRegistry()
     iri = build_instance_iri(person, reg)
     assert any(term_str(t[0]) == iri for t in target)
@@ -29,7 +29,7 @@ def test_push_instance_replace_mode() -> None:
 def test_store_sync_target() -> None:
     person = Person(id=2, name="Grace", employer=None)
     sync_target = StoreSyncTarget()
-    push_instance(person, sync_target, mode="replace", mapper_cls=PersonMap)
+    push_instance(person, sync_target, mode="replace", mapper=PersonMap)
     assert len(sync_target.graph) > 0
 
 

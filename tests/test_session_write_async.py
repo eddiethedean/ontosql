@@ -16,7 +16,7 @@ async def test_async_save_insert(async_engine) -> None:
         person = Person(id=50, name="Async Person", employer=None)
         saved = await session.save(person)
         assert saved.id == 50
-        loaded = await session.get(Person, id=50)
+        loaded = await session.get(Person, identity=50)
         assert loaded is not None
         assert loaded.name == "Async Person"
 
@@ -47,10 +47,10 @@ async def test_async_delete_person(async_engine) -> None:
     from tests.models import OrganizationMap, PersonMap
 
     async with AsyncOntoSession(async_engine, maps=[PersonMap, OrganizationMap]) as session:
-        person = await session.get(Person, id=2)
+        person = await session.get(Person, identity=2)
         assert person is not None
         await session.delete(person)
-        assert await session.get(Person, id=2) is None
+        assert await session.get(Person, identity=2) is None
 
 
 @pytest.mark.asyncio
@@ -63,4 +63,4 @@ async def test_async_rollback_discards_uncommitted_write(async_engine) -> None:
             await session.save(Person(id=501, name="Should Not Persist", employer=None))
             raise RuntimeError("abort")
     async with AsyncOntoSession(async_engine, maps=[PersonMap, OrganizationMap]) as session:
-        assert await session.get(Person, id=501) is None
+        assert await session.get(Person, identity=501) is None

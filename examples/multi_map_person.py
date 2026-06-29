@@ -55,8 +55,8 @@ def main() -> None:
         raw.commit()
 
     with OntoSession(engine, maps=[SchemaPersonMap, FoafPersonMap]) as session:
-        schema = session.get(SchemaPerson, id=1)
-        foaf = session.get(FoafPerson, id=1)
+        schema = session.get(SchemaPerson, identity=1)
+        foaf = session.get(FoafPerson, identity=1)
         assert schema is not None and foaf is not None
         print(f"schema: {schema.name} ({schema.email})")
         print(f"foaf: {foaf.label}")

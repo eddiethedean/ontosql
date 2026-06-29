@@ -73,7 +73,7 @@ def flush_graph_sync(
             remove_instance(
                 instance,
                 graph_sync,
-                mapper_cls=mapper_for(type(instance)),
+                mapper=mapper_for(type(instance)),
             )
         except Exception as exc:
             failure = GraphSyncFailure(instance=instance, operation="remove", error=exc)
@@ -102,7 +102,7 @@ def flush_graph_sync(
                 instance,
                 graph_sync,
                 mode=mode,
-                mapper_cls=mapper_for(type(instance)),
+                mapper=mapper_for(type(instance)),
             )
         except Exception as exc:
             failure = GraphSyncFailure(instance=instance, operation="push", error=exc)

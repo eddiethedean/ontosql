@@ -42,7 +42,7 @@ def m2m_session(m2m_engine):
 
 
 def test_collection_find_loads_skills(m2m_session) -> None:
-    person = m2m_session.get(SkilledPerson, id=1)
+    person = m2m_session.get(SkilledPerson, identity=1)
     assert person is not None
     assert len(person.skills) == 2
     names = {s.name for s in person.skills}
@@ -50,7 +50,7 @@ def test_collection_find_loads_skills(m2m_session) -> None:
 
 
 def test_collection_find_empty(m2m_session) -> None:
-    person = m2m_session.get(SkilledPerson, id=2)
+    person = m2m_session.get(SkilledPerson, identity=2)
     assert person is not None
     assert person.skills == []
 
@@ -72,11 +72,11 @@ def test_collection_batched_queries(m2m_engine) -> None:
 
 
 def test_collection_save_link(m2m_session) -> None:
-    person = m2m_session.get(SkilledPerson, id=2)
+    person = m2m_session.get(SkilledPerson, identity=2)
     assert person is not None
     person.skills = [Skill(id=10, name="SQL")]
     m2m_session.save(person)
-    reloaded = m2m_session.get(SkilledPerson, id=2)
+    reloaded = m2m_session.get(SkilledPerson, identity=2)
     assert reloaded is not None
     assert len(reloaded.skills) == 1
     assert reloaded.skills[0].name == "SQL"
@@ -103,11 +103,11 @@ def test_collection_save_upsert(m2m_engine) -> None:
     from ontosql import OntoSession
 
     with OntoSession(m2m_engine, maps=[UpsertSkilledPersonMap, SkillMap]) as session:
-        person = session.get(SkilledPerson, id=2)
+        person = session.get(SkilledPerson, identity=2)
         assert person is not None
         person.skills = [Skill.model_construct(name="Python", id=None)]
         session.save(person)
-        reloaded = session.get(SkilledPerson, id=2)
+        reloaded = session.get(SkilledPerson, identity=2)
         assert reloaded is not None
         assert len(reloaded.skills) == 1
         assert reloaded.skills[0].name == "Python"
@@ -129,7 +129,7 @@ async def test_collection_async_find(m2m_engine) -> None:
         await raw.commit()
 
     async with AsyncOntoSession(async_engine, maps=[SkilledPersonMap, SkillMap]) as session:
-        person = await session.get(SkilledPerson, id=1)
+        person = await session.get(SkilledPerson, identity=1)
         assert person is not None
         assert len(person.skills) == 1
     await async_engine.dispose()

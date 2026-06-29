@@ -14,7 +14,7 @@ def main() -> None:
     seed_demo_data(engine)
 
     with OntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
-        ada = session.get(Person, id=1)
+        ada = session.get(Person, identity=1)
         assert ada is not None
         print(f"Read: {ada.name} works for {ada.employer.name if ada.employer else 'nobody'}")
 
@@ -26,18 +26,18 @@ def main() -> None:
 
         solo.name = "Grace M. Hopper"
         session.save(solo)
-        solo = session.get(Person, id=solo.id)
+        solo = session.get(Person, identity=solo.id)
         assert solo is not None
         print(f"Updated: {solo.name}")
 
         solo.employer = new_org
         session.save(solo)
-        reloaded = session.get(Person, id=solo.id)
+        reloaded = session.get(Person, identity=solo.id)
         assert reloaded is not None and reloaded.employer is not None
         print(f"Linked employer: {reloaded.employer.name}")
 
         session.delete(reloaded)
-        assert session.get(Person, id=solo.id) is None
+        assert session.get(Person, identity=solo.id) is None
         print("Deleted person")
 
 

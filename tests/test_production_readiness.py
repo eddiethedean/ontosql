@@ -80,13 +80,13 @@ def test_retry_graph_sync_after_partial_failure(sync_engine) -> None:
 def test_sync_session_requires_context_manager(sync_engine) -> None:
     session = OntoSession(sync_engine, maps=[PersonMap])
     with pytest.raises(RuntimeError, match="not active"):
-        session.get(Person, id=1)
+        session.get(Person, identity=1)
 
 
 def test_flush_preserves_pending_on_error(sync_engine) -> None:
     with OntoSession(sync_engine, maps=[PersonMap, OrganizationMap]) as session:
-        session.save(Person(id=80, name="Pending A", employer=None), flush=False)
-        session.save(Person(id=81, name="Pending B", employer=None), flush=False)
+        session.save(Person(id=80, name="Pending A", employer=None), flush_now=False)
+        session.save(Person(id=81, name="Pending B", employer=None), flush_now=False)
         assert len(session._state.pending) == 2  # noqa: SLF001
         with (
             patch(

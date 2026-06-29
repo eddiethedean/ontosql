@@ -9,7 +9,7 @@ from tests.models import Person
 
 @pytest.mark.asyncio
 async def test_async_get(async_onto_session) -> None:
-    person = await async_onto_session.get(Person, id=1)
+    person = await async_onto_session.get(Person, identity=1)
     assert person is not None
     assert person.name == "Ada Lovelace"
     assert person.employer is not None
@@ -18,7 +18,7 @@ async def test_async_get(async_onto_session) -> None:
 
 @pytest.mark.asyncio
 async def test_async_get_missing(async_onto_session) -> None:
-    assert await async_onto_session.get(Person, id=999) is None
+    assert await async_onto_session.get(Person, identity=999) is None
 
 
 @pytest.mark.asyncio
@@ -34,11 +34,11 @@ async def test_async_save_partial_update(async_engine) -> None:
     from tests.models import OrganizationMap, PersonMap
 
     async with AsyncOntoSession(async_engine, maps=[PersonMap, OrganizationMap]) as session:
-        person = await session.get(Person, id=1)
+        person = await session.get(Person, identity=1)
         assert person is not None
         person.name = "Ada Updated"
         await session.save(person)
-        reloaded = await session.get(Person, id=1)
+        reloaded = await session.get(Person, identity=1)
         assert reloaded is not None
         assert reloaded.name == "Ada Updated"
         assert reloaded.employer is not None
@@ -47,6 +47,6 @@ async def test_async_save_partial_update(async_engine) -> None:
 
 @pytest.mark.asyncio
 async def test_async_identity_map(async_onto_session) -> None:
-    first = await async_onto_session.get(Person, id=1)
-    second = await async_onto_session.get(Person, id=1)
+    first = await async_onto_session.get(Person, identity=1)
+    second = await async_onto_session.get(Person, identity=1)
     assert first is second

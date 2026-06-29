@@ -21,7 +21,7 @@ from ontosql import AsyncOntoSession
 engine = create_async_engine("sqlite+aiosqlite://")
 
 async with AsyncOntoSession(engine, maps=[PersonMap, OrganizationMap]) as session:
-    person = await session.get(Person, id=1)
+    person = await session.get(Person, identity=1)
     person.name = "Updated"
     await session.save(person)
 ```

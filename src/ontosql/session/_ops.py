@@ -18,11 +18,17 @@ def count_scalar(row: Any) -> int:
     return int(row)
 
 
-def validate_get_identity(*, id: Any | None, iri: str | None) -> None:
-    if id is None and iri is None:
-        raise ValueError("get() requires id= or iri=")
-    if id is not None and iri is not None:
-        raise ValueError("get() accepts only one of id= or iri=")
+def validate_get_identity(
+    *,
+    identity: Any | None = None,
+    iri: str | None = None,
+) -> Any | None:
+    """Validate get() arguments; returns identity or None when loading by iri=."""
+    if identity is None and iri is None:
+        raise ValueError("get() requires identity= or iri=")
+    if identity is not None and iri is not None:
+        raise ValueError("get() accepts only one of identity= or iri=")
+    return identity
 
 
 def resolve_save_is_new_and_snapshot(
