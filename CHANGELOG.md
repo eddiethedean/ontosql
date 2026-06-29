@@ -5,29 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.0] - 2026-06-29
-
-### Added
-
-- **`ontosql.io`** — `to_jsonld`, `to_rdf`, `from_jsonld` module-level I/O API (preferred over instance methods)
-- **`ontosql.ports`** — `SessionBackend`, `PlanExecutor`, `MapperLookup`, `MapperMetadata`, `GraphSyncPort` protocols
-- **`ontosql.rdf`** — shared RDF kernel (`literals`, `formats`, `predicates`)
-- **`OntoMapper.metadata()`** — neutral field metadata view for RDF/import/sync layers
-- **`OntoSession` / `AsyncOntoSession`** — optional `mapper_registry=` for shared `MapperLookup` injection
-- **`OntoRouter`** — optional `mapper_registry=` for shared mapper lookup
-- **Compile layer split** — `columns`, `nested_write`, `collection_write`, `save_plan`, `execute_runner`
-- **Session internals split** — `IdentityMap`, `PendingWorkQueue`, `GraphSyncQueue`, `FlushCoordinator`
-
-### Changed
-
-- **SOLID refactor** — protocol-driven boundaries; unified sync/async flush coordinator and execute runner
-- **`OntoModel.to_jsonld` / `to_rdf` / `from_jsonld`** — delegate to `ontosql.io` (instance methods retained as thin wrappers)
-- **RDF format helpers** — moved from `ontosql.export._formats` to `ontosql.rdf.formats` (shim retained)
-
-### Migration
-
-See [guides/upgrading.md](guides/upgrading.md#05x-06x).
-
 ## [0.5.0] - 2026-06-29
 
 ### Added
@@ -39,8 +16,17 @@ See [guides/upgrading.md](guides/upgrading.md#05x-06x).
 - **Batched collection hydration** — one query per collection field after `find` / `get`
 - **`AsyncOntoSession.create_tables()`** and **`session.expire_all()`**
 - **Session `registry=`** — optional `PrefixRegistry` on `OntoSession` / `AsyncOntoSession` for post-commit graph sync
+- **`strict_graph_sync=`** on `OntoSession` / `AsyncOntoSession` (default `True`) — raises `GraphSyncError` on session exit when graph sync fails after SQL commit
 - **`AsyncOntoSession.__del__`** — `ResourceWarning` when session opened but not closed (parity with sync)
 - **PyLD safety** — `safe_document_loader` blocks remote `@context` fetches by default; `allow_remote_contexts` opt-in
+- **`ontosql.io`** — `to_jsonld`, `to_rdf`, `from_jsonld` module-level I/O API (preferred over instance methods)
+- **`ontosql.ports`** — `SessionBackend`, `PlanExecutor`, `MapperLookup`, `MapperMetadata`, `GraphSyncPort` protocols
+- **`ontosql.rdf`** — shared RDF kernel (`literals`, `formats`, `predicates`)
+- **`OntoMapper.metadata()`** — neutral field metadata view for RDF/import/sync layers
+- **`OntoSession` / `AsyncOntoSession`** — optional `mapper_registry=` for shared `MapperLookup` injection
+- **`OntoRouter`** — optional `mapper_registry=` for shared mapper lookup
+- **Compile layer split** — `columns`, `nested_write`, `collection_write`, `save_plan`, `execute_runner`
+- **Session internals split** — `IdentityMap`, `PendingWorkQueue`, `GraphSyncQueue`, shared flush coordinator
 - Documentation audit: slim README, beta banners, [when-to-use](getting-started/when-to-use.md), [semantic queries](guides/semantic-queries.md), [FastAPI quick start](guides/fastapi-quickstart.md), mkdocstrings [API reference](reference/session.md), expanded FAQ/troubleshooting, SPECS drift fixes
 - **Enterprise adoption** — [enterprise-adoption.md](enterprise-adoption.md) evaluation + checklist, [SUPPORT.md](SUPPORT.md), [compliance guide](guides/compliance.md)
 - **Operations guides** — [Alembic](guides/alembic.md), [testing](guides/testing.md), [upgrading](guides/upgrading.md), [graph sync runbook](guides/graph-sync-operations.md)
@@ -48,7 +34,14 @@ See [guides/upgrading.md](guides/upgrading.md#05x-06x).
 
 ### Fixed
 
-- **UPSERT cascade** — clearing a nested association (`employer=None`) now nulls the FK on update
+- **Partial flush** — SQL checkpoint prevents double-apply on retry; per-iteration graph queue restore preserves pushes for completed items
+- **`count(where=...)`** — subtracts only pending-delete tombstones that match the filter
+- **`find(limit=...)`** — over-fetches past tombstones so pages return up to `limit` rows
+- **`rollback()`** — always clears delete tombstones (even when `clear_uow=False`)
+- **Collection `REPLACE`** — DB snapshot loads M2M members without prior `get()`; orphan member rows removed when membership shrinks
+- **`OntoGraphSync.push()`** — accepts `prior_nested_iris=` for stale nested retraction on direct adapter use
+- **`OntoRouter` create body** — required fields enforced in generated schema; missing fields return 422; non-object JSON body returns 400
+- **`load_graph`** — invalid UTF-8 raises `OntoImportError`; `max_triples` enforced incrementally during parse
 - **REPLACE exclusivity** — inbound FK checks span all registered mappers (cross-table references block delete)
 - **Session snapshots** — DB nested FK values merged into session snapshot for REPLACE compile
 - **Graph sync** — stale nested RDF subjects retracted on patch/replace; exclusive nested removed on root delete
@@ -56,38 +49,40 @@ See [guides/upgrading.md](guides/upgrading.md#05x-06x).
 - **Identity map** — pending deletes hidden from `get()`; `get(iri=)` respects cached instance; duplicate deferred saves deduplicated
 - **`execute_write_plan`** — raises on zero-row UPDATE; raises when collection writes lack parent identity
 - **`OntoRouter`** — `limit` ge=1; unified Accept negotiation for list JSON-LD; malformed/deep JSON → 400; `application/json` plain JSON
-- **`load_graph`** — invalid UTF-8 raises `OntoImportError`
+- **UPSERT cascade** — clearing a nested association (`employer=None`) now nulls the FK on update
 - **Session graph sync** — pre-save nested IRIs captured at queue time (stale nested retraction works via session path)
 - **Graph sync collections** — `Map.collection` predicates owned in patch mode; collection member IRIs tracked for stale removal
 - **`find()`** — excludes pending-delete tombstones (consistent with `get()`)
 - **Session lifecycle** — exception exit clears pending queue; flush failure preserves deferred-insert identity mapping
-- **Snapshot merge** — DB-null nested FK overrides stale session nested dict
-- **Accept negotiation** — `application/json` participates in q-value sorting with RDF types
-- **Import** — non-URI collection members raise `OntoImportError`; duplicate collection IRIs deduplicated
+- **Snapshot merge** — DB-null nested FK overrides stale session nested dict; empty DB collection lists no longer overwrite session collection snapshots
+- **Accept negotiation** — `application/json` participates in q-value sorting with RDF types; invalid `q` values rejected; `application/*` maps to `application/ld+json`
+- **Import** — non-URI collection members raise `OntoImportError`; duplicate collection IRIs deduplicated; multi-valued scalar literals; nested literal objects raise `OntoImportError`
 - **Write execute** — collection bridge sync runs before REPLACE nested deletes on update
 - **Deferred graph sync** — `prior_nested_iris` captured at deferred `save()` queue time
-- **Partial flush** — graph sync queue restored on flush failure; `rollback()` always clears graph sync queue
 - **`count()`** — subtracts pending-delete tombstones (consistent with `get()` / `find()`)
 - **Delete graph sync** — nested IRIs from pre-delete DB/session snapshot when fields unset
 - **Delete SQL cascade** — `REPLACE` nested rows deleted on root `delete()` when exclusively owned
-- **Collection `REPLACE`** — orphan member rows removed when collection membership shrinks
-- **Snapshot merge** — empty DB collection lists no longer overwrite session collection snapshots
-- **Import** — multi-valued scalar literals; nested literal objects raise `OntoImportError`
 - **Export** — batch export deduplicates by logical IRI
 - **`OntoRouter`** — list `GET` defaults to JSON-LD without `Accept`; RDF negotiation returns 406 on unsupported payloads
-- **Accept negotiation** — invalid `q` values rejected; `application/*` maps to `application/ld+json`
 
 ### Changed
 
+- **SOLID refactor** — protocol-driven boundaries; unified sync/async flush coordinator and execute runner
+- **`OntoModel.to_jsonld` / `to_rdf` / `from_jsonld`** — delegate to `ontosql.io` (instance methods retained as thin wrappers)
+- **RDF format helpers** — moved from `ontosql.export._formats` to `ontosql.rdf.formats` (shim retained)
 - **`rollback()`** — default `clear_uow=True` (was `False`); warns when `clear_uow=False` leaves pending work
 - **`execute_write_plan` / `async_execute_write_plan`** — accept optional `mapper_registry=` and `strict_updates=` (default strict)
 - **`execute_write_plan`** — REPLACE nested deletes require `mapper_registry=` (cross-table FK safety)
 - **`compile_save_plan`** — REPLACE cascade on update requires `snapshot=`
 - **`compact_jsonld` / `frame_jsonld`** — `allow_remote_contexts=True` requires explicit `document_loader=`
 
+### Migration
+
+See [guides/upgrading.md](guides/upgrading.md#05x-06x) for `ontosql.io`, `ontosql.ports`, and `mapper_registry=` moves. See [Migrating from 0.4.x to 0.5.x](#migrating-from-04x-to-05x) below for earlier upgrades.
+
 ## Migrating from 0.4.x to 0.5.x
 
-0.5.0 is **additive** for most applications. No changes are required unless you adopt new features.
+0.5.0 bundles the 0.4.x feature set, SOLID internal refactor (`ontosql.io`, `ontosql.ports`, `ontosql.rdf`), and audit-driven session/graph/API fixes. Most applications need no code changes unless you adopt new features or hit the migration table in [upgrading.md](guides/upgrading.md#05x-06x).
 
 ### New capabilities (optional)
 
